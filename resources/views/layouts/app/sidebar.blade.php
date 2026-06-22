@@ -22,14 +22,14 @@
     } elseif ($user?->hasRole('peternak')) {
         $menuItems = [
             ['route' => 'peternak.dashboard', 'label' => 'Dashboard', 'icon' => 'circle-gauge', 'submenu' => null],
-            ['route' => 'peternak.livestock', 'label' => 'Ternak', 'icon' => 'cow', 'submenu' => null],
+            ['route' => 'peternak.livestock', 'label' => 'Ternak', 'icon' => 'farmer.sidebar.ternak', 'submenu' => null],
             ['route' => 'peternak.orders', 'label' => 'Pesanan', 'icon' => 'shoping-bag', 'submenu' => null],
-            ['route' => 'peternak.shipments', 'label' => 'Pengiriman', 'icon' => 'truck', 'submenu' => null],
-            ['route' => 'peternak.sales', 'label' => 'Penjualan', 'icon' => 'chart-line-up', 'submenu' => null],
-            ['route' => 'peternak.wallet', 'label' => 'Dompet', 'icon' => 'wallet', 'submenu' => null],
-            ['route' => 'peternak.profile', 'label' => 'Profil', 'icon' => 'farm', 'submenu' => null],
+            ['route' => 'peternak.shipments', 'label' => 'Pengiriman', 'icon' => 'farmer.sidebar.pengiriman', 'submenu' => null],
+            ['route' => 'peternak.sales', 'label' => 'Penjualan', 'icon' => 'farmer.sidebar.penjualan', 'submenu' => null],
+            ['route' => 'peternak.wallet', 'label' => 'Dompet', 'icon' => 'farmer.sidebar.dompet', 'submenu' => null],
+            ['route' => 'peternak.profile', 'label' => 'Profil', 'icon' => 'farmer.sidebar.profil', 'submenu' => null],
             ['route' => 'peternak.notifications', 'label' => 'Notifikasi', 'icon' => 'bell', 'submenu' => null],
-            ['route' => 'peternak.settings', 'label' => 'Pengaturan', 'icon' => 'settings', 'submenu' => null],
+            ['route' => 'peternak.settings', 'label' => 'Pengaturan', 'icon' => 'farmer.sidebar.pengaturan', 'submenu' => null],
         ];
     } elseif ($user?->hasRole('pelanggan')) {
         $menuItems = [
@@ -127,7 +127,7 @@
                             <span class="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50"></span>
                             @endif
                             <span class="grid size-5 shrink-0 place-content-center text-white/70 transition-transform duration-300" :class="open ? 'text-emerald-300' : 'group-hover:scale-110'">
-                                @include('livewire.icons.' . $item['icon'])
+                                @include('livewire.icons.' . str_replace('.', '/', $item['icon']))
                             </span>
                             <span class="flex-1 text-left">{{ $item['label'] }}</span>
                             <svg class="size-4 text-white/50 transition-transform duration-300" :class="open ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -147,7 +147,7 @@
                                     ])
                                 >
                                     <span class="grid size-4 shrink-0 place-content-center text-white/60 transition-transform duration-300 group-hover:scale-110 group-hover:text-white">
-                                        @include('livewire.icons.' . $subItem['icon'])
+                                        @include('livewire.icons.' . str_replace('.', '/', $subItem['icon']))
                                     </span>
                                     <span>{{ $subItem['label'] }}</span>
                                 </a>
@@ -191,7 +191,7 @@
                             @click="open = !open"
                         >
                             <span class="grid size-5 place-content-center text-white/70 transition-transform duration-300 group-hover:scale-110 group-hover:text-white">
-                                @include('livewire.icons.' . $item['icon'])
+                                @include('livewire.icons.' . str_replace('.', '/', $item['icon']))
                             </span>
 
                             {{-- Tooltip --}}
@@ -221,7 +221,7 @@
                                     class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors @if($subActive) bg-emerald-500/30 text-emerald-300 @else text-white/70 hover:bg-white/10 hover:text-white @endif"
                                 >
                                     <span class="grid size-4 place-content-center">
-                                        @include('livewire.icons.' . $subItem['icon'])
+                                        @include('livewire.icons.' . str_replace('.', '/', $subItem['icon']))
                                     </span>
                                     {{ $subItem['label'] }}
                                 </a>
