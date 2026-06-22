@@ -15,10 +15,10 @@ new #[Title('Appearance settings')] class extends Component {
     <x-pages::settings.layout :heading="__('Appearance')" :subheading="__('Update the appearance settings for your account')">
         <div
             x-data="{
-                theme: localStorage.getItem('freshgo-theme') || 'system',
+                theme: localStorage.getItem('abodafarm-theme') || 'system',
                 setTheme(value) {
                     this.theme = value;
-                    localStorage.setItem('freshgo-theme', value);
+                    localStorage.setItem('abodafarm-theme', value);
                     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                     document.documentElement.classList.toggle('dark', value === 'dark' || (value === 'system' && prefersDark));
                 },

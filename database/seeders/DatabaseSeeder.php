@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -15,22 +14,35 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RoleSeeder::class,
+            CategorySeeder::class,
+            ProductSeeder::class,
+            TestimonialSeeder::class,
+            FaqSeeder::class,
+            HeroSlideSeeder::class,
+            FarmStatisticSeeder::class,
+            DeliveryAreaSeeder::class,
         ]);
 
+        // Create default users
         $users = [
             [
                 'name' => 'Royland',
-                'email' => 'royland@freshgo.test',
+                'email' => 'royland@abodafarm.test',
                 'role' => 'admin',
             ],
             [
                 'name' => 'Michele',
-                'email' => 'michele@freshgo.test',
+                'email' => 'michele@abodafarm.test',
                 'role' => 'staf',
             ],
             [
-                'name' => 'Esau',
-                'email' => 'esau@freshgo.test',
+                'name' => 'Johan Pakpahan',
+                'email' => 'johan@abodafarm.test',
+                'role' => 'peternak',
+            ],
+            [
+                'name' => 'Siti Aminah',
+                'email' => 'siti@abodafarm.test',
                 'role' => 'pelanggan',
             ],
         ];

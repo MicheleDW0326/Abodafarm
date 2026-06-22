@@ -17,4 +17,9 @@ class Faq extends Component
     {
         return view('livewire.home.faq');
     }
+
+    public function placeholder(): \Illuminate\View\View
+    {
+        return view('livewire.home.faq-skeleton');
+    }
 }

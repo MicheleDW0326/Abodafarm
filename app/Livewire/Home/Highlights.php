@@ -17,4 +17,9 @@ class Highlights extends Component
     {
         return view('livewire.home.highlights');
     }
+
+    public function placeholder(): \Illuminate\View\View
+    {
+        return view('livewire.home.highlights-skeleton');
+    }
 }

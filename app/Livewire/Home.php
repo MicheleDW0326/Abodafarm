@@ -2,21 +2,28 @@
 
 namespace App\Livewire;
 
+use App\Models\{Category, Faq, FarmStatistic, HeroSlide, Product, Testimonial};
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.guest-home')]
-#[Title('FreshGo')]
+#[Title('AbodaFarm')]
 class Home extends Component
 {
-    private const CART_SESSION_KEY = 'freshgo.cart';
+    public string $search = '';
 
     public array $heroSlides = [];
 
+    public array $farmStats = [];
+
     public array $categories = [];
+
+    public array $liveLivestockProducts = [];
+
+    public array $freshMeatProducts = [];
 
     public array $products = [];
 
@@ -24,176 +31,203 @@ class Home extends Component
 
     public array $deliverySteps = [];
 
+    public array $careStages = [];
+
     public array $testimonials = [];
 
     public array $faqs = [];
 
-    public array $cart = [];
-
     public function mount(): void
     {
-        $this->cart = session(self::CART_SESSION_KEY, []);
+        $this->heroSlides = HeroSlide::active()
+            ->ordered()
+            ->get()
+            ->map(fn($slide) => [
+                'title' => $slide->title,
+                'description' => $slide->subtitle ?? '',
+                'image' => $slide->image_url,
+                'button_text' => $slide->button_text,
+                'button_url' => $slide->button_url,
+            ])->toArray();
 
-        $this->heroSlides = [
-            [
-                'title' => 'FreshGo: Unggas dan Seafood Premium',
-                'description' => 'Pilihan ayam segar dan seafood tangkapan harian. Higienis, cepat, dan siap dikirim ke rumahmu.',
-                'image' => 'https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=1600&q=80',
-            ],
-            [
-                'title' => 'Seafood Segar Tangkapan Harian',
-                'description' => 'Ikan laut berkualitas yang diproses bersih dan dikirim dengan rantai dingin.',
-                'image' => 'https://images.unsplash.com/photo-1611171711917-4d7f71eb6cf7?auto=format&fit=crop&w=1600&q=80',
-            ],
-            [
-                'title' => 'Unggas Segar Langsung dari Mitra Peternak',
-                'description' => 'Daging ayam berkualitas untuk kebutuhan rumah tangga hingga bisnis kuliner.',
-                'image' => 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=1600&q=80',
-            ],
-        ];
+        if (empty($this->heroSlides)) {
+            $this->heroSlides = [
+                [
+                    'title' => 'Ternak Organik Berkualitas Langsung dari Peternakan',
+                    'description' => 'Dapatkan sapi, kambing, dan ayam organik dengan jaminan kesehatan, bobot jelas, dan kualitas terbaik.',
+                    'image' => 'https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=1600&q=80',
+                    'button_text' => null,
+                    'button_url' => null,
+                ],
+                [
+                    'title' => 'Transparan, Aman, dan Siap Dibooking',
+                    'description' => 'Riwayat perawatan, sertifikat kesehatan, dan update kondisi ternak membantu pembeli mengambil keputusan yang lebih yakin.',
+                    'image' => 'https://images.unsplash.com/photo-1511538897584-1ad2a1d7d3d4?auto=format&fit=crop&w=1600&q=80',
+                    'button_text' => null,
+                    'button_url' => null,
+                ],
+                [
+                    'title' => 'Siap Kirim untuk Rumah, Resto, dan Mitra Usaha',
+                    'description' => 'Booking jadi lebih mudah dengan alur yang jelas dari pemilihan ternak hingga pengiriman atau pengambilan.',
+                    'image' => 'https://images.unsplash.com/photo-1547487704-5f9f3fcb6b0d?auto=format&fit=crop&w=1600&q=80',
+                    'button_text' => null,
+                    'button_url' => null,
+                ],
+            ];
+        }
 
-        $this->categories = [
-            [
-                'name' => 'Unggas Segar',
-                'description' => 'Ayam utuh, fillet, paha, sayap, dan olahan pilihan.',
-                'image' => 'https://images.unsplash.com/photo-1587593810167-a84920ea0781?auto=format&fit=crop&w=800&q=80',
-            ],
-            [
-                'name' => 'Seafood Harian',
-                'description' => 'Ikan, udang, cumi, dan seafood segar harian.',
-                'image' => 'https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?auto=format&fit=crop&w=800&q=80',
-            ],
-        ];
+        $this->farmStats = FarmStatistic::ordered()
+            ->get()
+            ->map(fn($stat) => [
+                'value' => $stat->value,
+                'label' => $stat->label,
+                'icon' => $stat->icon,
+            ])->toArray();
 
-        $this->products = [
-            ['name' => 'Ayam Fillet Premium', 'price' => 48000, 'category' => 'poultry', 'image' => 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=600&q=80'],
-            ['name' => 'Paha Ayam Fresh', 'price' => 39000, 'category' => 'poultry', 'image' => 'https://images.unsplash.com/photo-1608039755401-742074f0548d?auto=format&fit=crop&w=600&q=80'],
-            ['name' => 'Sayap Ayam', 'price' => 35000, 'category' => 'poultry', 'image' => 'https://images.unsplash.com/photo-1562967914-01efa7b011a3?auto=format&fit=crop&w=600&q=80'],
-            ['name' => 'Ayam Utuh 1kg', 'price' => 52000, 'category' => 'poultry', 'image' => 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&w=600&q=80'],
-            ['name' => 'Salmon Fillet', 'price' => 118000, 'category' => 'seafood', 'image' => 'https://images.unsplash.com/photo-1599084993091-1cb5c0721cc6?auto=format&fit=crop&w=600&q=80'],
-            ['name' => 'Udang Vaname', 'price' => 86000, 'category' => 'seafood', 'image' => 'https://images.unsplash.com/photo-1625943553852-781c6dd46faa?auto=format&fit=crop&w=600&q=80'],
-            ['name' => 'Cumi Bersih', 'price' => 73000, 'category' => 'seafood', 'image' => 'https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?auto=format&fit=crop&w=600&q=80'],
-            ['name' => 'Ikan Kakap Merah', 'price' => 79000, 'category' => 'seafood', 'image' => 'https://images.unsplash.com/photo-1574781330855-d0db8cc6a79c?auto=format&fit=crop&w=600&q=80'],
-        ];
+        if (empty($this->farmStats)) {
+            $this->farmStats = [
+                ['value' => '500+', 'label' => 'Ternak Terjual', 'icon' => '🦄'],
+                ['value' => '100+', 'label' => 'Pelanggan', 'icon' => '👥'],
+                ['value' => '50+', 'label' => 'Peternak Mitra', 'icon' => '🐄'],
+                ['value' => '98%', 'label' => 'Kepuasan Pelanggan', 'icon' => '⭐'],
+            ];
+        }
+
+        $this->categories = Category::active()
+            ->ordered()
+            ->get()
+            ->map(fn($cat) => [
+                'id' => $cat->id,
+                'name' => $cat->name,
+                'description' => $cat->description ?? '',
+                'image' => $cat->image_url,
+                'icon' => $cat->icon ?? '',
+                'search' => Str::slug($cat->name),
+            ])->toArray();
+
+        if (empty($this->categories)) {
+            $this->categories = [
+                ['id' => 1, 'name' => 'Sapi', 'description' => 'Sapi organik siap jual dengan informasi bobot dan kondisi yang jelas.', 'image' => 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80', 'icon' => '🐄', 'search' => 'sapi'],
+                ['id' => 2, 'name' => 'Kambing', 'description' => 'Kambing sehat untuk aqiqah, kurban, atau kebutuhan usaha.', 'image' => 'https://images.unsplash.com/photo-1516291076093-5a6c5f5f4a1a?auto=format&fit=crop&w=800&q=80', 'icon' => '🐐', 'search' => 'kambing'],
+                ['id' => 3, 'name' => 'Ayam', 'description' => 'Ayam organik dengan perawatan berkala dan pakan terkontrol.', 'image' => 'https://images.unsplash.com/photo-1511823794984-b87716139b88?auto=format&fit=crop&w=800&q=80', 'icon' => '🐔', 'search' => 'ayam'],
+                ['id' => 4, 'name' => 'Bebek', 'description' => 'Bebek sehat untuk kebutuhan rumah tangga dan kuliner.', 'image' => 'https://images.unsplash.com/photo-1507358522600-9f71e620c44e?auto=format&fit=crop&w=800&q=80', 'icon' => '🦆', 'search' => 'bebek'],
+            ];
+        }
+
+        $liveProducts = Product::live()
+            ->availableWithStatus()
+            ->with('category')
+            ->get();
+
+        $this->liveLivestockProducts = $liveProducts->map(fn($p) => [
+            'id' => $p->id,
+            'name' => $p->name,
+            'price' => (int) $p->price,
+            'category' => $p->category?->slug ?? '',
+            'image' => $p->image_url,
+            'weight' => $p->weight ? $p->weight . ' Kg' : '',
+            'age' => $p->age ?? '',
+            'sex' => $p->sex_label,
+            'location' => $p->origin ?? '',
+            'status' => $p->status_label,
+        ])->toArray();
+
+        $freshProducts = Product::freshType()
+            ->available()
+            ->inStock()
+            ->with('category')
+            ->get();
+
+        $this->freshMeatProducts = $freshProducts->map(fn($p) => [
+            'id' => $p->id,
+            'name' => $p->name,
+            'price' => (int) $p->price,
+            'category' => $p->category?->slug ?? '',
+            'image' => $p->image_url,
+        ])->toArray();
 
         $this->highlights = [
-            ['title' => '100% Halal', 'description' => 'Proses pemotongan dan penanganan sesuai standar halal.'],
-            ['title' => 'Daily Delivery', 'description' => 'Pengiriman harian cepat dengan armada berpendingin.'],
-            ['title' => 'Dari Sumber ke Meja Makan', 'description' => 'Rantai pasok pendek untuk menjaga kesegaran maksimal.'],
-            ['title' => 'Lolos Quality Check', 'description' => 'Setiap batch diperiksa sebelum siap kirim.'],
+            ['title' => 'Organik', 'description' => 'Ternak dipelihara secara alami dan sehat dengan pakan yang terkontrol.'],
+            ['title' => 'Pemeriksaan Kesehatan', 'description' => 'Seluruh ternak diperiksa secara berkala oleh tenaga berpengalaman.'],
+            ['title' => 'Pengiriman Aman', 'description' => 'Pengiriman ternak dilakukan sesuai standar untuk menjaga kondisi hewan.'],
+            ['title' => 'Transparansi', 'description' => 'Data bobot, umur, dan kondisi ternak tersedia sebelum booking.'],
         ];
 
         $this->deliverySteps = [
-            ['title' => 'Pilih Produk', 'description' => 'Pilih ayam dan seafood favoritmu dari katalog FreshGo.'],
-            ['title' => 'Kami Siapkan', 'description' => 'Produk dipacking higienis sesuai standar food-grade.'],
-            ['title' => 'Kirim Dingin', 'description' => 'Pesanan dikirim dengan cold-chain untuk menjaga kualitas.'],
-            ['title' => 'Masak & Nikmati', 'description' => 'Terima produk segar, siap olah untuk keluarga.'],
+            ['title' => 'Pilih Ternak', 'description' => 'Gunakan katalog dan filter untuk menemukan ternak yang paling sesuai.'],
+            ['title' => 'Lakukan Booking', 'description' => 'Ajukan booking atau pre-order sesuai status ternak yang dipilih.'],
+            ['title' => 'Konfirmasi Pembayaran', 'description' => 'Tim kami akan memvalidasi pembayaran dan menyiapkan ternak.'],
+            ['title' => 'Pengiriman / Pengambilan', 'description' => 'Ternak dikirim atau diambil sesuai area layanan dan jadwal yang disepakati.'],
         ];
 
-        $this->testimonials = [
-            ['name' => 'Nadia', 'role' => 'Ibu Rumah Tangga', 'quote' => 'Ayamnya bersih, tidak amis, dan selalu fresh.'],
-            ['name' => 'Rian', 'role' => 'Owner Resto', 'quote' => 'Kualitas seafood konsisten, cocok untuk bisnis kuliner.'],
-            ['name' => 'Salsa', 'role' => 'Pecinta Masak', 'quote' => 'Belanja cepat, kirim rapi, harga juga masuk akal.'],
+        $this->testimonials = Testimonial::active()
+            ->ordered()
+            ->limit(6)
+            ->get()
+            ->map(fn($t) => [
+                'name' => $t->name,
+                'role' => $t->role,
+                'quote' => $t->content,
+                'avatar' => $t->avatar,
+                'rating' => $t->rating,
+            ])->toArray();
+
+        if (empty($this->testimonials)) {
+            $this->testimonials = [
+                ['name' => 'Nadia', 'role' => 'Ibu Rumah Tangga', 'quote' => 'Ternaknya rapi dan daging segarnya terasa berkualitas. Traceability bikin percaya.', 'avatar' => null, 'rating' => 5],
+                ['name' => 'Rian', 'role' => 'Owner Resto', 'quote' => 'Konsisten untuk kebutuhan dapur restoran—fresh, rapi, dan pengiriman tetap terjaga.', 'avatar' => null, 'rating' => 5],
+                ['name' => 'Salsa', 'role' => 'Pecinta Masak', 'quote' => 'Kualitas premium dan tampilannya clean. Proses inquiry ternak hidup juga mudah.', 'avatar' => null, 'rating' => 5],
+            ];
+        }
+
+        $this->faqs = Faq::active()
+            ->ordered()
+            ->limit(8)
+            ->get()
+            ->map(fn($f) => [
+                'question' => $f->question,
+                'answer' => $f->answer,
+            ])->toArray();
+
+        if (empty($this->faqs)) {
+            $this->faqs = [
+                ['question' => 'Apakah ternak sudah vaksin?', 'answer' => 'Ya, seluruh ternak menjalani pemeriksaan kesehatan berkala dan vaksinasi sesuai jadwal.'],
+                ['question' => 'Apakah bisa dikirim keluar daerah?', 'answer' => 'Bisa, selama area tujuan masih berada dalam jangkauan layanan pengiriman kami.'],
+                ['question' => 'Bagaimana jika stok habis?', 'answer' => 'Anda bisa melakukan pre-order dan kami akan menghubungi saat ternak siap tersedia.'],
+                ['question' => 'Apakah ada sertifikat kesehatan?', 'answer' => 'Untuk ternak tertentu, sertifikat kesehatan dan hasil pemeriksaan dapat diminta saat booking.'],
+            ];
+        }
+
+        $this->careStages = [
+            ['title' => 'Pakan Organik', 'description' => 'Pakan alami dipantau agar pertumbuhan ternak tetap sehat dan stabil.'],
+            ['title' => 'Pemeriksaan Rutin', 'description' => 'Pengecekan kondisi fisik dan bobot dilakukan secara berkala.'],
+            ['title' => 'Vaksinasi', 'description' => 'Program kesehatan mengikuti jadwal vaksin dan rekomendasi dokter hewan.'],
+            ['title' => 'Siap Jual', 'description' => 'Ternak yang lolos standar kesehatan ditandai siap untuk booking.'],
         ];
-
-        $this->faqs = [
-            ['question' => 'Apakah FreshGo melayani pengiriman di hari yang sama?', 'answer' => 'Ya. Untuk area tertentu, pesanan sebelum pukul 14:00 bisa dikirim di hari yang sama.'],
-            ['question' => 'Bagaimana menjaga produk tetap segar saat pengiriman?', 'answer' => 'Kami menggunakan kemasan food-grade dan cold-chain delivery.'],
-            ['question' => 'Apakah bisa request potongan khusus?', 'answer' => 'Bisa. Tinggal tulis catatan saat checkout untuk request potongan.'],
-            ['question' => 'Metode pembayaran apa saja yang tersedia?', 'answer' => 'Transfer bank, e-wallet, dan pembayaran melalui gateway online.'],
-        ];
-    }
-
-    #[On('add-to-cart')]
-    public function addToCart(array $product): void
-    {
-        $key = md5($product['name']);
-
-        if (isset($this->cart[$key])) {
-            $this->cart[$key]['qty']++;
-
-            $this->persistCart();
-            $this->dispatch('cart-item-added', name: $product['name']);
-
-            return;
-        }
-
-        $this->cart[$key] = [
-            'key' => $key,
-            'name' => $product['name'],
-            'price' => (int) $product['price'],
-            'image' => $product['image'],
-            'qty' => 1,
-        ];
-
-        $this->persistCart();
-        $this->dispatch('cart-item-added', name: $product['name']);
-    }
-
-    public function increaseQty(string $key): void
-    {
-        if (! isset($this->cart[$key])) {
-            return;
-        }
-
-        $this->cart[$key]['qty']++;
-        $this->persistCart();
-    }
-
-    public function decreaseQty(string $key): void
-    {
-        if (! isset($this->cart[$key])) {
-            return;
-        }
-
-        if ($this->cart[$key]['qty'] <= 1) {
-            unset($this->cart[$key]);
-
-            $this->persistCart();
-
-            return;
-        }
-
-        $this->cart[$key]['qty']--;
-        $this->persistCart();
-    }
-
-    public function removeItem(string $key): void
-    {
-        unset($this->cart[$key]);
-        $this->persistCart();
-    }
-
-    public function clearCart(): void
-    {
-        $this->cart = [];
-        $this->persistCart();
-    }
-
-    private function persistCart(): void
-    {
-        session([self::CART_SESSION_KEY => $this->cart]);
     }
 
     #[Computed]
-    public function cartItems(): array
+    public function filteredLiveLivestockProducts(): array
     {
-        return array_values($this->cart);
-    }
+        $term = trim(mb_strtolower($this->search));
 
-    #[Computed]
-    public function cartCount(): int
-    {
-        return array_sum(array_column($this->cart, 'qty'));
-    }
+        if ($term === '') {
+            return $this->liveLivestockProducts;
+        }
 
-    #[Computed]
-    public function cartTotal(): int
-    {
-        return array_sum(array_map(
-            fn (array $item): int => $item['price'] * $item['qty'],
-            $this->cart
-        ));
+        return array_values(array_filter($this->liveLivestockProducts, function (array $product) use ($term): bool {
+            $haystack = mb_strtolower(implode(' ', [
+                $product['name'] ?? '',
+                $product['category'] ?? '',
+                $product['location'] ?? '',
+                $product['status'] ?? '',
+                $product['weight'] ?? '',
+                $product['age'] ?? '',
+                $product['sex'] ?? '',
+            ]));
+
+            return str_contains($haystack, $term);
+        }));
     }
 
     public function render()

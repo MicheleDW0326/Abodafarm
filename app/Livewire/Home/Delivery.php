@@ -17,4 +17,9 @@ class Delivery extends Component
     {
         return view('livewire.home.delivery');
     }
+
+    public function placeholder(): \Illuminate\View\View
+    {
+        return view('livewire.home.delivery-skeleton');
+    }
 }

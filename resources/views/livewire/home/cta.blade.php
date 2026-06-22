@@ -3,7 +3,7 @@
         <div class="grid gap-6 lg:grid-cols-2 lg:items-center">
             <div>
                 <h2 class="text-3xl font-semibold">Siap Belanja Segar Hari Ini?</h2>
-                <p class="mt-2 text-sm text-sky-100">Dapatkan promo pesanan pertama dan info promo mingguan FreshGo.</p>
+                <p class="mt-2 text-sm text-sky-100">Dapatkan promo pesanan pertama dan info promo mingguan AbodaFarm.</p>
             </div>
             <form class="flex flex-col gap-3 sm:flex-row">
                 <input type="email" placeholder="Masukkan email kamu" class="h-11 flex-1 rounded-xl border-0 px-4 text-slate-900 focus:ring-2 focus:ring-white">

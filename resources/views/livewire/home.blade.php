@@ -1,134 +1,149 @@
-<div
-    x-data="{
-        mobileOpen: false,
-        cartOpen: false,
-        showToast: false,
-        toastText: '',
-        toastTimer: null,
-        showAddToast(name) {
-            this.toastText = `${name} ditambahkan ke keranjang`
-            this.showToast = true
-            clearTimeout(this.toastTimer)
-            this.toastTimer = setTimeout(() => {
-                this.showToast = false
-            }, 2200)
+<div x-data="{
+    mobileOpen: false,
+    cartOpen: false,
+    showToast: false,
+    toastText: '',
+    toastTimer: null,
+    cartItems: JSON.parse(localStorage.getItem('abodafarm_cart') || '[]'),
+
+    showAddToast(name) {
+        this.toastText = `${name} ditambahkan ke keranjang`
+        this.showToast = true
+        clearTimeout(this.toastTimer)
+        this.toastTimer = setTimeout(() => {
+            this.showToast = false
+        }, 2200)
+    },
+
+    addToCart(product) {
+        const key = 'product_' + product.id;
+        const existing = this.cartItems.find(item => item.key === key);
+
+        if (existing) {
+            existing.qty++;
+        } else {
+            this.cartItems.push({
+                key: key,
+                product_id: product.id,
+                name: product.name,
+                price: parseInt(product.price),
+                image: product.image,
+                qty: 1
+            });
         }
-    }"
-    x-on:cart-item-added.window="showAddToast($event.detail.name)"
-    class="bg-sky-50 text-slate-900"
->
-    <header class="sticky top-0 z-40 border-b border-sky-100/80 bg-white/85 backdrop-blur">
-        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-            <a href="#" class="flex items-center gap-3">
-                <span class="grid size-10 place-content-center rounded-xl bg-linear-to-br from-teal-500 to-sky-500 text-lg font-bold text-white">FG</span>
-                <span class="text-xl font-semibold tracking-tight">FreshGo</span>
-            </a>
 
-            <nav class="hidden items-center gap-8 text-sm font-medium md:flex">
-                <a href="#kategori" class="transition hover:text-sky-600">Kategori</a>
-                <a href="#produk" class="transition hover:text-sky-600">Produk</a>
-                <a href="#keunggulan" class="transition hover:text-sky-600">Keunggulan</a>
-                <a href="#faq" class="transition hover:text-sky-600">FAQ</a>
-            </nav>
+        this.persistCart();
+        this.showAddToast(product.name);
 
-            <div class="hidden items-center gap-3 md:flex">
-                @guest
-                    <a href="{{ route('login') }}" class="rounded-xl border border-sky-200 px-4 py-2 text-sm font-medium text-sky-700 transition hover:bg-sky-50">Masuk</a>
-                @endguest
-                <button @click="cartOpen = true" class="relative rounded-xl border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-50">
-                    Keranjang
-                    @if ($this->cartCount > 0)
-                        <span class="absolute -right-2 -top-2 grid size-5 place-content-center rounded-full bg-emerald-500 text-[11px] font-bold text-white">
-                            {{ $this->cartCount }}
-                        </span>
-                    @endif
-                </button>
-                <a href="#produk" class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-300/60 transition hover:bg-sky-700">Belanja</a>
-            </div>
+        // Dispatch event for cart drawer to update
+        this.$dispatch('cart-updated');
+    },
 
-            <button @click="mobileOpen = !mobileOpen" class="rounded-lg border border-sky-200 p-2 md:hidden" aria-label="Toggle menu">
-                <svg xmlns="http://www.w3.org/2000/svg" class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-            </button>
+    persistCart() {
+        localStorage.setItem('abodafarm_cart', JSON.stringify(this.cartItems));
+    },
+
+    clearCart() {
+        this.cartItems = [];
+        localStorage.setItem('abodafarm_cart', '[]');
+        this.$dispatch('cart-updated');
+    },
+
+    get cartCount() {
+        return this.cartItems.reduce((sum, item) => sum + item.qty, 0);
+    },
+
+    get cartTotal() {
+        return this.cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    },
+
+    init() {
+        // Sync with localStorage on page load
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'abodafarm_cart') {
+                this.cartItems = JSON.parse(e.newValue || '[]');
+            }
+        });
+    }
+}" x-on:cart-item-added.window="showAddToast($event.detail.name)"
+      x-on:add-to-cart.window="addToCart($event.detail)"
+      x-on:clear-cart.window="clearCart()"
+    class="bg-[#f5faf6] text-slate-900">
+
+    @include('components.topbar')
+
+    @include('components.cart-drawer')
+
+    @include('components.toast')
+
+    <livewire:home.hero :hero-slides="$heroSlides" />
+
+    <!-- Statistik singkat -->
+    <section class="mx-auto -mt-10 max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div
+            class="grid gap-4 rounded-4xl border border-emerald-100 bg-white p-5 shadow-[0_20px_60px_rgba(16,185,129,0.08)] sm:grid-cols-2 xl:grid-cols-4">
+            @foreach ($farmStats as $stat)
+                <article class="rounded-2xl bg-linear-to-br from-emerald-50 to-white p-4">
+                    <p class="text-3xl font-black tracking-tight text-emerald-700">{{ $stat['value'] }}</p>
+                    <p class="mt-1 text-sm font-medium text-slate-600">{{ $stat['label'] }}</p>
+                </article>
+            @endforeach
         </div>
+    </section>
 
-        <div x-show="mobileOpen" x-transition class="border-t border-sky-100 bg-white px-4 py-4 md:hidden">
-            <div class="flex flex-col gap-3 text-sm font-medium">
-                <a href="#kategori" @click="mobileOpen = false">Kategori</a>
-                <a href="#produk" @click="mobileOpen = false">Produk</a>
-                <a href="#keunggulan" @click="mobileOpen = false">Keunggulan</a>
-                <a href="#faq" @click="mobileOpen = false">FAQ</a>
-                <button @click="mobileOpen = false; cartOpen = true" class="mt-2 rounded-lg border border-sky-200 px-3 py-2 text-left">Keranjang ({{ $this->cartCount }})</button>
-            </div>
-        </div>
-    </header>
+    <livewire:home.highlights :highlights="$highlights" lazy-on-visible />
+    <livewire:home.categories :categories="$categories" lazy-on-visible />
 
-    <div x-show="cartOpen" x-transition.opacity class="fixed inset-0 z-50 bg-slate-900/50" @click.self="cartOpen = false">
-        <aside class="ml-auto h-full w-full max-w-md overflow-y-auto bg-white p-5 shadow-2xl">
-            <div class="mb-4 flex items-center justify-between">
-                <h2 class="text-xl font-semibold">Keranjang Belanja</h2>
-                <button @click="cartOpen = false" class="rounded-lg border border-slate-200 px-2 py-1 text-sm">Tutup</button>
-            </div>
+    <!-- Produk dengan filter yang terhubung ke Home::filteredLiveLivestockProducts -->
+    <livewire:home.products :products-live="$this->filteredLiveLivestockProducts" :products-fresh="$freshMeatProducts" lazy-on-visible />
 
-            @if ($this->cartCount === 0)
-                <p class="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Keranjang kamu masih kosong. Tambahkan produk dari section Produk Terlaris.</p>
-            @else
-                <div class="space-y-3">
-                    @foreach ($this->cartItems as $item)
-                        <article class="rounded-xl border border-slate-200 p-3">
-                            <div class="flex gap-3">
-                                <img src="{{ $item['image'] }}" alt="{{ $item['name'] }}" class="size-16 rounded-lg object-cover">
-                                <div class="flex-1">
-                                    <h3 class="text-sm font-semibold">{{ $item['name'] }}</h3>
-                                    <p class="mt-0.5 text-xs text-slate-500">Rp {{ number_format($item['price']) }} / item</p>
-                                    <div class="mt-2 flex items-center justify-between">
-                                        <div class="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1">
-                                            <button wire:click="decreaseQty('{{ $item['key'] }}')" class="text-sm font-bold text-slate-600">-</button>
-                                            <span class="min-w-4 text-center text-sm font-semibold">{{ $item['qty'] }}</span>
-                                            <button wire:click="increaseQty('{{ $item['key'] }}')" class="text-sm font-bold text-slate-600">+</button>
-                                        </div>
-                                        <button wire:click="removeItem('{{ $item['key'] }}')" class="text-xs font-semibold text-rose-600">Hapus</button>
-                                    </div>
-                                </div>
-                            </div>
+    <!-- Proses perawatan dan trust section -->
+    <section id="perawatan" class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <div class="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div>
+                <p class="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-700">Proses Perawatan</p>
+                <h2 class="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">Ternak dirawat sebelum masuk katalog.
+                </h2>
+                <p class="mt-3 max-w-2xl text-slate-600">Konten ini membantu pembeli memahami standar kualitas AbodaFarm
+                    sebelum booking dilakukan.</p>
+
+                <div class="mt-8 space-y-4">
+                    @foreach ($careStages as $stage)
+                        <article class="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+                            <h3 class="text-lg font-semibold text-slate-900">{{ $stage['title'] }}</h3>
+                            <p class="mt-1 text-sm text-slate-600">{{ $stage['description'] }}</p>
                         </article>
                     @endforeach
                 </div>
+            </div>
 
-                <div class="mt-5 rounded-xl bg-sky-50 p-4">
-                    <div class="flex items-center justify-between text-sm">
-                        <span class="text-slate-600">Jumlah Item</span>
-                        <span class="font-semibold">{{ $this->cartCount }}</span>
-                    </div>
-                    <div class="mt-2 flex items-center justify-between">
-                        <span class="text-slate-700">Total</span>
-                        <span class="text-xl font-bold text-sky-700">Rp {{ number_format($this->cartTotal) }}</span>
-                    </div>
-                    <div class="mt-4 grid grid-cols-2 gap-2">
-                        <button wire:click="clearCart" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Kosongkan</button>
-                        <a href="{{ route('checkout') }}" class="rounded-lg bg-emerald-500 px-3 py-2 text-center text-sm font-semibold text-white">Checkout</a>
-                    </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div
+                    class="rounded-4xl bg-linear-to-br from-emerald-500 to-lime-500 p-6 text-white shadow-xl shadow-emerald-200">
+                    <p class="text-sm font-semibold uppercase tracking-[0.25em] text-white/75">Gallery</p>
+                    <h3 class="mt-2 text-2xl font-semibold">Foto kandang, perawatan, dan dokter hewan.</h3>
                 </div>
-            @endif
-        </aside>
-    </div>
+                <div class="rounded-4xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <p class="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Trust</p>
+                    <h3 class="mt-2 text-2xl font-semibold text-slate-900">Riwayat perawatan tersedia saat diperlukan.
+                    </h3>
+                    <p class="mt-3 text-sm text-slate-600">Cocok untuk transaksi bernilai tinggi yang perlu bukti
+                        kondisi ternak.</p>
+                </div>
+                <div class="rounded-4xl border border-slate-200 bg-white p-6 shadow-sm sm:col-span-2">
+                    <p class="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">Sertifikat</p>
+                    <h3 class="mt-2 text-2xl font-semibold text-slate-900">Sertifikat kesehatan dan hasil pemeriksaan
+                        bisa diminta saat booking.</h3>
+                </div>
+            </div>
+        </div>
+    </section>
 
-    <div
-        x-show="showToast"
-        x-transition
-        class="fixed bottom-5 right-5 z-60 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-xl"
-    >
-        <span x-text="toastText"></span>
-    </div>
+    <livewire:home.delivery :delivery-steps="$deliverySteps" lazy-on-visible />
+    <livewire:home.testimonials :testimonials="$testimonials" lazy-on-visible />
+    <livewire:home.faq :faqs="$faqs" lazy-on-visible />
+    <livewire:home.cta lazy-on-visible />
+    <livewire:home.footer lazy-on-visible />
 
-    <livewire:home.hero :hero-slides="$heroSlides" />
-    <livewire:home.categories :categories="$categories" />
-    <livewire:home.products :products="$products" />
-    <livewire:home.highlights :highlights="$highlights" />
-    <livewire:home.delivery :delivery-steps="$deliverySteps" />
-    <livewire:home.testimonials :testimonials="$testimonials" />
-    <livewire:home.faq :faqs="$faqs" />
-    <livewire:home.cta />
-    <livewire:home.footer />
+    <livewire:side-panel />
 </div>

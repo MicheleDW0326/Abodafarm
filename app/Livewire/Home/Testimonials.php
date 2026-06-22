@@ -17,4 +17,9 @@ class Testimonials extends Component
     {
         return view('livewire.home.testimonials');
     }
+
+    public function placeholder(): \Illuminate\View\View
+    {
+        return view('livewire.home.testimonials-skeleton');
+    }
 }

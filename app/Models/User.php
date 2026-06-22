@@ -6,6 +6,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -42,5 +44,31 @@ class User extends Authenticatable
             ->take(2)
             ->map(fn ($word) => Str::substr($word, 0, 1))
             ->implode('');
+    }
+
+    // Relations for Peternak
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class, 'owner_id');
+    }
+
+    public function farmProfile(): BelongsTo
+    {
+        return $this->belongsTo(FarmProfile::class);
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(PeternakNotification::class);
+    }
+
+    public function unreadNotifications(): HasMany
+    {
+        return $this->notifications()->where('is_read', false);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
     }
 }

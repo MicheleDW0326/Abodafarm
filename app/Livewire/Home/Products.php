@@ -6,24 +6,41 @@ use Livewire\Component;
 
 class Products extends Component
 {
-    public array $products = [];
+    /** @var array<int, array<string,mixed>> */
+    public array $productsLive = [];
 
-    public function mount(array $products): void
+    /** @var array<int, array<string,mixed>> */
+    public array $productsFresh = [];
+
+    public function mount(array $productsLive = [], array $productsFresh = []): void
     {
-        $this->products = $products;
+
+        $this->productsLive = $productsLive;
+        $this->productsFresh = $productsFresh;
     }
 
     public function addToCart(int $index): void
     {
-        if (! isset($this->products[$index])) {
+        if (! isset($this->productsFresh[$index])) {
             return;
         }
 
-        $this->dispatch('add-to-cart', product: $this->products[$index]);
+        // Dispatch ke komponen parent (Home) agar cart tetap jalan seperti sebelumnya
+        $this->dispatch('add-to-cart', product: $this->productsFresh[$index]);
+    }
+
+    public function showProductDetail(int $productId): void
+    {
+        $this->dispatch('show-product-detail', productId: $productId);
     }
 
     public function render()
     {
         return view('livewire.home.products');
+    }
+
+    public function placeholder(): \Illuminate\View\View
+    {
+        return view('livewire.home.products-skeleton');
     }
 }
