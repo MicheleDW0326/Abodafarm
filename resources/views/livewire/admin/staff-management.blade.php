@@ -1,4 +1,4 @@
-<div wire:ignore class="space-y-6" x-data="{ show: @entangle('showUserModal') }">
+<div class="space-y-6">
     {{-- Header --}}
     <div class="flex items-center justify-between">
         <div>
@@ -112,47 +112,50 @@
     </div>
 
     {{-- User Modal --}}
-    <template x-teleport="body">
-    <div x-show="$wire.showUserModal" x-transition.opacity class="fixed inset-0 z-[99999]">
-        <div class="absolute inset-0 bg-black/50" @click="$wire.closeUserModal()"></div>
-        <div class="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white shadow-xl overflow-hidden" @click.stop>
-        <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-            <h3 class="text-lg font-semibold">{{ $editingUserId ? 'Edit' : 'Tambah' }} User</h3>
-            <button @click="$wire.closeUserModal()" class="text-slate-400 hover:text-slate-600">
-                <i class="fa-solid fa-times"></i>
-            </button>
-        </div>
-        <form wire:submit.prevent="saveUser" class="space-y-4 px-6 py-4">
-            <div>
-                <label class="block text-sm font-medium text-slate-900 mb-1">Nama *</label>
-                <input type="text" wire:model.live="userName" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+    @if($showUserModal)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+        <div class="w-full max-w-md rounded-xl bg-white shadow-xl overflow-hidden" wire:click.stop>
+            <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                <h3 class="text-lg font-semibold">{{ $editingUserId ? 'Edit' : 'Tambah' }} User</h3>
+                <button type="button" wire:click="closeUserModal" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-times"></i>
+                </button>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-900 mb-1">Email *</label>
-                <input type="email" wire:model.live="userEmail" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-900 mb-1">Password {{ $editingUserId ? '' : '*' }}</label>
-                <input type="password" wire:model.live="userPassword" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
-                @if($editingUserId)
-                    <p class="mt-1 text-xs text-slate-400">Kosongkan jika tidak ingin mengubah password</p>
-                @endif
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-900 mb-1">Role *</label>
-                <select wire:model.live="userRole" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                    <option value="admin">Admin</option>
-                    <option value="staf">Staf</option>
-                    <option value="peternak">Peternak</option>
-                    <option value="pelanggan">Pelanggan</option>
-                </select>
-            </div>
-            <div class="flex gap-3 pt-4 border-t">
-                <button type="button" @click="$wire.closeUserModal()" class="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold">Batal</button>
-                <button type="submit" class="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Simpan</button>
-            </div>
-        </form>
+            <form wire:submit.prevent="saveUser" class="space-y-4 px-6 py-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-900 mb-1">Nama *</label>
+                    <input type="text" wire:model="userName" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                    @error('userName') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-900 mb-1">Email *</label>
+                    <input type="email" wire:model="userEmail" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                    @error('userEmail') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-900 mb-1">Password {{ $editingUserId ? '' : '*' }}</label>
+                    <input type="password" wire:model="userPassword" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                    @error('userPassword') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                    @if($editingUserId)
+                        <p class="mt-1 text-xs text-slate-400">Kosongkan jika tidak ingin mengubah password</p>
+                    @endif
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-900 mb-1">Role *</label>
+                    <select wire:model="userRole" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                        <option value="admin">Admin</option>
+                        <option value="staf">Staf</option>
+                        <option value="peternak">Peternak</option>
+                        <option value="pelanggan">Pelanggan</option>
+                    </select>
+                    @error('userRole') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                </div>
+                <div class="flex gap-3 pt-4 border-t">
+                    <button type="button" wire:click="closeUserModal" class="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold hover:bg-slate-50">Batal</button>
+                    <button type="submit" class="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Simpan</button>
+                </div>
+            </form>
         </div>
     </div>
-    </template>
+    @endif
 </div>

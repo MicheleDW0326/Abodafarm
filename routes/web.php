@@ -20,6 +20,8 @@ use App\Livewire\Peternak\Wallet;
 use App\Livewire\Peternak\FarmProfileSettings;
 use App\Livewire\Peternak\Notifications;
 use App\Livewire\Peternak\AccountSettings;
+use App\Livewire\Peternak\IncomingBookings;
+use App\Livewire\Pelanggan\MyBookings;
 use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -88,6 +90,7 @@ Route::middleware(['auth', 'verified', 'check.peternak'])
         Route::get('/pengiriman/riwayat', Shipments::class)->name('shipments.history');
 
         // Lainnya
+        Route::get('/booking', IncomingBookings::class)->name('bookings');
         Route::get('/penjualan', SalesHistory::class)->name('sales');
         Route::get('/dompet', Wallet::class)->name('wallet');
         Route::get('/profil', FarmProfileSettings::class)->name('profile');
@@ -101,6 +104,7 @@ Route::middleware(['auth', 'verified', 'check.pelanggan'])
     ->name('pelanggan.')
     ->group(function (): void {
         Route::view('/', 'dashboard')->name('dashboard');
+        Route::get('/booking', MyBookings::class)->name('bookings');
     });
 
 Route::get('/midtrans-test', function () {

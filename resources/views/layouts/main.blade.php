@@ -7,10 +7,8 @@
 
         <title>{{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}</title>
 
-        <link rel="icon" href="/icons/favicon.ico" sizes="any">
-        <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
-        <link rel="icon" href="/icons/favicon.png" type="image/png">
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+        <link rel="icon" href="/icons/IconTitle.png" type="image/png">
+        <link rel="apple-touch-icon" href="/icons/IconTitle.png">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=outfit:400,500,600,700" rel="stylesheet" />
@@ -45,6 +43,9 @@
         <!-- Loading Overlay -->
         <x-loading-overlay />
 
+        <!-- Splash Screen -->
+        @livewire('splash-screen')
+
         <div class="min-h-screen">
             @include('layouts.app.sidebar')
 
@@ -62,7 +63,7 @@
                         </button>
 
                         <div>
-                            <h1 class="text-lg font-bold text-slate-900">{{ $title ?? 'Admin' }}</h1>
+                            <h1 class="text-lg font-bold text-slate-900">{{ $title ?? (auth()->user()?->hasRole('peternak') ? 'Peternak' : (auth()->user()?->hasRole('admin') ? 'Admin' : 'Dashboard')) }}</h1>
                             <p class="text-xs text-slate-400">Selamat datang kembali, {{ auth()->user()?->name }}!</p>
                         </div>
                     </div>
@@ -76,13 +77,7 @@
                             </svg>
                         </div>
 
-                        <button type="button" class="relative grid size-9 place-content-center rounded-lg text-slate-600 transition hover:bg-slate-100">
-                            <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" stroke-linecap="round" stroke-linejoin="round" />
-                                <path d="M9.5 19a2.5 2.5 0 0 0 5 0" stroke-linecap="round" />
-                            </svg>
-                            <span class="absolute right-2 top-2 size-2 rounded-full bg-red-500"></span>
-                        </button>
+                        @livewire('notification-dropdown')
 
                         <div class="hidden items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 lg:flex">
                             <svg class="size-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">

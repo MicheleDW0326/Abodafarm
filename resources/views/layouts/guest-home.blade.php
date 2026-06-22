@@ -8,10 +8,8 @@
     <title>{{ filled($title ?? null) ? $title . ' - ' . config('app.name', 'Laravel') : config('app.name', 'Laravel') }}
     </title>
 
-    <link rel="icon" href="/icons/favicon.ico" sizes="any">
-    <link rel="icon" href="/icons/favicon.svg" type="image/svg+xml">
-    <link rel="icon" href="/icons/icon.png" type="image/png">
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="icon" href="/icons/IconTitle.png" type="image/png">
+    <link rel="apple-touch-icon" href="/icons/IconTitle.png">
 
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=outfit:400,500,600,700" rel="stylesheet" />
@@ -23,6 +21,9 @@
 <body class="font-['Outfit'] antialiased">
     <!-- Loading Overlay -->
     <x-loading-overlay />
+
+    <!-- Splash Screen -->
+    @livewire('splash-screen')
 
     {{ $slot }}
 

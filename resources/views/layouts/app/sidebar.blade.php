@@ -23,17 +23,18 @@
         $menuItems = [
             ['route' => 'peternak.dashboard', 'label' => 'Dashboard', 'icon' => 'circle-gauge', 'submenu' => null],
             ['route' => 'peternak.livestock', 'label' => 'Ternak', 'icon' => 'farmer.sidebar.ternak', 'submenu' => null],
+            ['route' => 'peternak.bookings', 'label' => 'Booking Masuk', 'icon' => 'farmer.sidebar.booking', 'submenu' => null],
             ['route' => 'peternak.orders', 'label' => 'Pesanan', 'icon' => 'shoping-bag', 'submenu' => null],
             ['route' => 'peternak.shipments', 'label' => 'Pengiriman', 'icon' => 'farmer.sidebar.pengiriman', 'submenu' => null],
             ['route' => 'peternak.sales', 'label' => 'Penjualan', 'icon' => 'farmer.sidebar.penjualan', 'submenu' => null],
             ['route' => 'peternak.wallet', 'label' => 'Dompet', 'icon' => 'farmer.sidebar.dompet', 'submenu' => null],
             ['route' => 'peternak.profile', 'label' => 'Profil', 'icon' => 'farmer.sidebar.profil', 'submenu' => null],
-            ['route' => 'peternak.notifications', 'label' => 'Notifikasi', 'icon' => 'bell', 'submenu' => null],
             ['route' => 'peternak.settings', 'label' => 'Pengaturan', 'icon' => 'farmer.sidebar.pengaturan', 'submenu' => null],
         ];
     } elseif ($user?->hasRole('pelanggan')) {
         $menuItems = [
             ['route' => 'pelanggan.dashboard', 'label' => 'Dashboard', 'icon' => 'circle-gauge', 'submenu' => null],
+            ['route' => 'pelanggan.bookings', 'label' => 'Booking Saya', 'icon' => 'farmer.sidebar.booking', 'submenu' => null],
         ];
     }
 
@@ -84,7 +85,7 @@
 >
     <div class="flex h-16 items-center border-b border-white/10 px-4" :class="sidebarCollapsed ? 'justify-center' : 'justify-start'">
         <a href="{{ $homeRoute }}" class="flex w-full items-center" :class="sidebarCollapsed ? 'w-8 justify-center gap-0' : 'justify-start gap-2'">
-            <span class="grid size-8 shrink-0 place-content-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-sm font-black text-white shadow-lg shadow-emerald-500/30">AF</span>
+            <img src="/icons/IconTitle.png" alt="AbodaFarm" class="size-8 shrink-0 rounded-lg object-contain shadow-lg shadow-emerald-500/30">
             <span class="inline-flex text-lg font-black tracking-tight text-white whitespace-nowrap" x-show="!sidebarCollapsed">
                 Aboda<span class="text-emerald-400">Farm</span>
             </span>

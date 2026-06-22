@@ -51,9 +51,8 @@
 
     openBooking() {
         if (this.product) {
-            this.inquiryName = this.product.name;
-            window.dispatchEvent(new CustomEvent('inquiry-ternak-hidup', {
-                detail: { name: this.product.name }
+            window.dispatchEvent(new CustomEvent('open-booking-modal', {
+                detail: { product: this.product }
             }));
         }
         this.closeModal();
@@ -145,8 +144,18 @@
                                             })"
                                             class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Detail</button>
                                         <button type="button"
-                                            class="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600"
-                                            @click="inquiryName = '{{ addslashes($product['name']) }}'; window.dispatchEvent(new CustomEvent('inquiry-ternak-hidup', { detail: { name: '{{ addslashes($product['name']) }}' } }));">Booking</button>
+                                            wire:click="openBookingModal({{ Js::encode([
+                                                'id' => $product['id'],
+                                                'name' => $product['name'],
+                                                'price' => $product['price'],
+                                                'image' => $product['image'],
+                                                'category' => $product['category'],
+                                                'weight' => $product['weight'] ?? '',
+                                                'age' => $product['age'] ?? '',
+                                                'sex' => $product['sex'] ?? '',
+                                                'location' => $product['location'] ?? '',
+                                            ]) }})"
+                                            class="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600">Booking</button>
                                     </div>
                                 </div>
                             </div>
@@ -193,43 +202,127 @@
             </template>
         </div>
 
-        {{-- Inquiry Modal (frontend only) --}}
-        <div x-show="inquiryName" x-transition
-            class="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/50 p-4"
-            @click.self="inquiryName = null">
-            <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <h3 class="text-xl font-semibold text-slate-900">Inquiry Ternak Hidup</h3>
-                        <p class="mt-1 text-sm text-slate-600">Kamu sedang mengajukan: <span
-                                class="font-semibold">"<span x-text="inquiryName"></span>"</span></p>
+        {{-- Booking Modal (Livewire) --}}
+        @if($showBookingModal && $bookingProduct)
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+                 x-data="{ show: true }"
+                 x-show="show"
+                 x-on:keydown.escape.window="$wire.closeBookingModal()">
+                <div class="w-full max-w-lg rounded-2xl bg-white shadow-2xl"
+                     x-transition:enter="transition ease-out duration-300"
+                     x-transition:enter-start="opacity-0 scale-95"
+                     x-transition:enter-end="opacity-100 scale-100"
+                     x-transition:leave="transition ease-in duration-200"
+                     x-transition:leave-start="opacity-100 scale-100"
+                     x-transition:leave-end="opacity-0 scale-95"
+                     @click.stop>
+                    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                        <div>
+                            <h3 class="text-xl font-semibold text-emerald-800">Booking Ternak</h3>
+                            <p class="mt-0.5 text-sm text-slate-500">Ajukan booking untuk ternak pilihan Anda</p>
+                        </div>
+                        <button type="button" wire:click="closeBookingModal"
+                                class="rounded-full p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-600">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
                     </div>
-                    <button type="button"
-                        class="rounded-lg border border-slate-200 px-3 py-1 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                        @click="inquiryName = null">Tutup</button>
+
+                    <form wire:submit.prevent="submitBooking" class="p-6">
+                        {{-- Livestock Info (Read-only) --}}
+                        <div class="mb-6 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                            <div class="flex items-start gap-4">
+                                @if($bookingProduct['image'])
+                                    <img src="{{ $bookingProduct['image'] }}" alt=""
+                                         class="size-16 rounded-lg object-cover">
+                                @else
+                                    <div class="flex size-16 items-center justify-center rounded-lg bg-emerald-100">
+                                        <i class="fa-solid fa-cow text-2xl text-emerald-400"></i>
+                                    </div>
+                                @endif
+                                <div class="flex-1">
+                                    <p class="font-semibold text-slate-900">{{ $bookingProduct['name'] }}</p>
+                                    <p class="text-lg font-bold text-emerald-600">
+                                        Rp {{ number_format($bookingProduct['price']) }}
+                                    </p>
+                                    <div class="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
+                                        @if($bookingProduct['weight'])
+                                            <span class="rounded-full bg-white px-2 py-0.5">
+                                                <i class="fa-solid fa-weight-scale mr-1"></i>{{ $bookingProduct['weight'] }}
+                                            </span>
+                                        @endif
+                                        @if($bookingProduct['age'])
+                                            <span class="rounded-full bg-white px-2 py-0.5">
+                                                <i class="fa-solid fa-calendar mr-1"></i>{{ $bookingProduct['age'] }}
+                                            </span>
+                                        @endif
+                                        @if($bookingProduct['location'])
+                                            <span class="rounded-full bg-white px-2 py-0.5">
+                                                <i class="fa-solid fa-location-dot mr-1"></i>{{ $bookingProduct['location'] }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Customer Form --}}
+                        <div class="space-y-4">
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-slate-700">Nama Lengkap *</label>
+                                <input type="text" wire:model="bookingName" required
+                                       placeholder="Masukkan nama lengkap Anda"
+                                       class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+                                @error('bookingName') <span class="mt-1 text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-slate-700">Nomor WhatsApp *</label>
+                                <input type="text" wire:model="bookingPhone" required
+                                       placeholder="Contoh: 081234567890"
+                                       class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+                                @error('bookingPhone') <span class="mt-1 text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-slate-700">Alamat *</label>
+                                <textarea wire:model="bookingAddress" required rows="3"
+                                          placeholder="Masukkan alamat lengkap Anda"
+                                          class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"></textarea>
+                                @error('bookingAddress') <span class="mt-1 text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div>
+                                <label class="mb-1 block text-sm font-medium text-slate-700">Catatan Tambahan</label>
+                                <textarea wire:model="bookingNotes" rows="2"
+                                          placeholder="Opsional: tambahkan catatan atau pertanyaan"
+                                          class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"></textarea>
+                            </div>
+                        </div>
+
+                        {{-- Actions --}}
+                        <div class="mt-6 flex gap-3">
+                            <button type="button" wire:click="closeBookingModal"
+                                    class="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                                Batal
+                            </button>
+                            <button type="submit" wire:loading.attr="disabled"
+                                    class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">
+                                <span wire:loading.remove wire:target="submitBooking">
+                                    <i class="fa-solid fa-paper-plane mr-1"></i>Ajukan Booking
+                                </span>
+                                <span wire:loading wire:target="submitBooking" class="flex items-center gap-2">
+                                    <svg class="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Mengirim...
+                                </span>
+                            </button>
+                        </div>
+                    </form>
                 </div>
-
-                <form class="mt-4 grid gap-3" @submit.prevent="inquiryName = null">
-                    <input type="text" required placeholder="Nama"
-                        class="h-11 rounded-xl border border-slate-200 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200">
-                    <input type="text" required placeholder="WhatsApp"
-                        class="h-11 rounded-xl border border-slate-200 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200">
-                    <textarea rows="4" placeholder="Kebutuhan singkat (jumlah, umur, preferensi)..."
-                        class="rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-200"></textarea>
-
-                    <div class="flex gap-2 pt-1">
-                        <button type="button"
-                            class="flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                            @click="inquiryName = null">Batal</button>
-                        <button type="submit"
-                            class="flex-1 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700">Kirim
-                            Inquiry</button>
-                    </div>
-
-                    <p class="text-xs text-slate-500">*Demo UI inquiry. Backend belum dihubungkan.</p>
-                </form>
             </div>
-        </div>
+        @endif
     </div>
 
     {{-- Product Detail Modal --}}
@@ -364,6 +457,17 @@
                             </button>
                             <button
                                 @click="openBooking()"
+                                wire:click="openBookingModal({
+                                    id: product?.id,
+                                    name: product?.name,
+                                    price: product?.price,
+                                    image: product?.image || '',
+                                    category: product?.category_name || '',
+                                    weight: product?.weight || '',
+                                    age: product?.age || '',
+                                    sex: product?.sex_label || '',
+                                    location: product?.origin || '',
+                                })"
                                 class="flex-1 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-3 font-semibold text-white shadow-lg shadow-amber-500/30 transition-all hover:from-amber-600 hover:to-amber-700 hover:shadow-amber-500/40"
                             >
                                 Booking Sekarang
