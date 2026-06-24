@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Support\Str;
 
 class Product extends Model
@@ -188,5 +189,34 @@ class Product extends Model
         }
 
         return asset('storage/' . $this->image);
+    }
+
+    /**
+     * Get users who favorited this product.
+     */
+    public function favoritedByUsers(): MorphToMany
+    {
+        return $this->morphToMany(User::class, 'favoritable', 'favorites');
+    }
+
+    /**
+     * Check if this product is favorited by a user.
+     */
+    public function isFavoritedBy(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return $this->favorites()->where('user_id', $user->id)->exists();
+    }
+
+    /**
+     * Get favorites for this product.
+     */
+    public function favorites(): HasMany
+    {
+        return $this->hasMany(Favorite::class, 'favoritable_id')
+            ->where('favoritable_type', Product::class);
     }
 }

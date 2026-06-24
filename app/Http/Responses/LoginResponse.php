@@ -25,6 +25,7 @@ class LoginResponse implements LoginResponseContract
             return to_route('peternak.dashboard');
         }
 
-        return to_route('pelanggan.dashboard');
+        // Redirect pelanggan ke home page, bukan dashboard
+        return to_route('home');
     }
 }

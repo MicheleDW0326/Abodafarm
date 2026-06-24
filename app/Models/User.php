@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -70,5 +72,42 @@ class User extends Authenticatable
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    // Customer Relations
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(Address::class);
+    }
+
+    public function defaultAddress(): ?Address
+    {
+        return $this->addresses()->where('is_default', true)->first();
+    }
+
+    public function favorites(): MorphMany
+    {
+        return $this->morphMany(Favorite::class, 'favoritable');
+    }
+
+    public function favoriteProducts(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'favorites', 'user_id', 'favoritable_id')
+            ->where('favoritable_type', Product::class);
+    }
+
+    public function customerNotifications(): HasMany
+    {
+        return $this->hasMany(CustomerNotification::class);
+    }
+
+    public function unreadCustomerNotifications(): HasMany
+    {
+        return $this->customerNotifications()->where('is_read', false);
+    }
+
+    public function unreadNotificationsCount(): int
+    {
+        return $this->customerNotifications()->where('is_read', false)->count();
     }
 }

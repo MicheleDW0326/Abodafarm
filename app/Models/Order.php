@@ -192,4 +192,36 @@ class Order extends Model
     {
         return 'BK-' . strtoupper(uniqid()) . '-' . date('Ymd');
     }
+
+    // Scope for cart-type orders (fresh meat)
+    public function scopeFreshOrders($query)
+    {
+        return $query->where('order_type', self::TYPE_CART);
+    }
+
+    // Scope for active orders (not cancelled, not completed)
+    public function scopeActive($query)
+    {
+        return $query->whereNotIn('status', ['cancelled', 'completed', 'rejected']);
+    }
+
+    // Scope for completed orders
+    public function scopeCompleted($query)
+    {
+        return $query->whereIn('status', ['delivered', 'completed']);
+    }
+
+    // Scope for user's bookings
+    public function scopeUserBookings($query, int $userId)
+    {
+        return $query->where('user_id', $userId)
+            ->where('order_type', self::TYPE_INQUIRY);
+    }
+
+    // Scope for user's orders
+    public function scopeUserOrders($query, int $userId)
+    {
+        return $query->where('user_id', $userId)
+            ->where('order_type', self::TYPE_CART);
+    }
 }

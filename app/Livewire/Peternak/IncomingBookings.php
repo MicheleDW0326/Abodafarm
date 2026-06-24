@@ -5,6 +5,7 @@ namespace App\Livewire\Peternak;
 use App\Models\Order;
 use App\Models\PeternakNotification;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
 
@@ -20,14 +21,18 @@ class IncomingBookings extends Component
     {
         $userId = auth()->id();
 
-        // Only show inquiry type orders (bookings) for products owned by this farmer
+        // Show ALL inquiry type orders (bookings)
+        // Admin/super admin sees all, farmer sees their own products
+        $isAdminOrStaff = auth()->user()->hasRole(['admin', 'staf']);
+
         $bookingsQuery = Order::booking()
-            ->whereHas('items.product', function ($query) use ($userId) {
-                $query->where('owner_id', $userId);
+            ->when(!$isAdminOrStaff, function ($query) use ($userId) {
+                // Farmer: only show bookings for their own products
+                $query->whereHas('items.product', function ($q) use ($userId) {
+                    $q->where('owner_id', $userId);
+                });
             })
-            ->with(['items.product' => function ($q) use ($userId) {
-                $q->where('owner_id', $userId);
-            }, 'user'])
+            ->with(['items.product', 'user'])
             ->when($this->searchQuery, function ($q) {
                 $q->where(function ($query) {
                     $query->where('order_number', 'like', '%' . $this->searchQuery . '%')
@@ -41,18 +46,21 @@ class IncomingBookings extends Component
 
         $bookings = $bookingsQuery->get();
 
-        // Stats - only count bookings for this farmer's products
-        $baseQuery = fn($q) => $q->whereHas('items.product', fn($pq) => $pq->where('owner_id', $userId));
+        // Stats
+        $statsQuery = Order::booking();
+        if (!$isAdminOrStaff) {
+            $statsQuery->whereHas('items.product', fn($q) => $q->where('owner_id', $userId));
+        }
 
         $stats = [
-            'total' => Order::booking()->where($baseQuery)->count(),
-            'pending' => Order::booking()->where($baseQuery)->where('status', 'pending')->count(),
-            'approved' => Order::booking()->where($baseQuery)->where('status', 'approved')->count(),
-            'rejected' => Order::booking()->where($baseQuery)->where('status', 'rejected')->count(),
+            'total' => (clone $statsQuery)->count(),
+            'pending' => (clone $statsQuery)->where('status', 'pending')->count(),
+            'approved' => (clone $statsQuery)->where('status', 'approved')->count(),
+            'rejected' => (clone $statsQuery)->where('status', 'rejected')->count(),
         ];
 
         $selectedBooking = $this->selectedBookingId
-            ? Order::with(['items.product' => fn($q) => $q->where('owner_id', $userId), 'user'])->find($this->selectedBookingId)
+            ? Order::with(['items.product', 'user'])->find($this->selectedBookingId)
             : null;
 
         return view('livewire.peternak.incoming-bookings', [
@@ -75,9 +83,15 @@ class IncomingBookings extends Component
     public function approveBooking(int $bookingId)
     {
         $userId = auth()->id();
+        $isAdminOrStaff = auth()->user()->hasRole(['admin', 'staf']);
 
-        $booking = Order::whereHas('items.product', fn($q) => $q->where('owner_id', $userId))
-            ->find($bookingId);
+        // Admin/staff can approve any booking, farmers only their own
+        $bookingQuery = Order::booking();
+        if (!$isAdminOrStaff) {
+            $bookingQuery->whereHas('items.product', fn($q) => $q->where('owner_id', $userId));
+        }
+
+        $booking = $bookingQuery->find($bookingId);
 
         if (!$booking) {
             $this->dispatch('alert', type: 'error', message: 'Booking tidak ditemukan.');
@@ -89,18 +103,18 @@ class IncomingBookings extends Component
             return;
         }
 
-        DB::transaction(function () use ($booking, $userId) {
+        DB::transaction(function () use ($booking) {
             $booking->approve();
 
-            // Get the product owner (farmer) name
-            $farmer = auth()->user();
+            // Get the approver name
+            $approver = auth()->user();
 
             // Create notification for customer
             PeternakNotification::create([
                 'user_id' => $booking->user_id,
                 'type' => 'booking_approved',
                 'title' => 'Booking Disetujui',
-                'message' => "Booking {$booking->order_number} telah disetujui oleh {$farmer->name}. Silakan hubungi peternak untuk langkah selanjutnya.",
+                'message' => "Booking {$booking->order_number} telah disetujui oleh {$approver->name}. Silakan hubungi peternak untuk langkah selanjutnya.",
                 'data' => json_encode([
                     'booking_id' => $booking->id,
                     'order_number' => $booking->order_number,
@@ -117,9 +131,15 @@ class IncomingBookings extends Component
     public function rejectBooking(int $bookingId)
     {
         $userId = auth()->id();
+        $isAdminOrStaff = auth()->user()->hasRole(['admin', 'staf']);
 
-        $booking = Order::whereHas('items.product', fn($q) => $q->where('owner_id', $userId))
-            ->find($bookingId);
+        // Admin/staff can reject any booking, farmers only their own
+        $bookingQuery = Order::booking();
+        if (!$isAdminOrStaff) {
+            $bookingQuery->whereHas('items.product', fn($q) => $q->where('owner_id', $userId));
+        }
+
+        $booking = $bookingQuery->find($bookingId);
 
         if (!$booking) {
             $this->dispatch('alert', type: 'error', message: 'Booking tidak ditemukan.');
@@ -131,18 +151,18 @@ class IncomingBookings extends Component
             return;
         }
 
-        DB::transaction(function () use ($booking, $userId) {
+        DB::transaction(function () use ($booking) {
             $booking->reject();
 
-            // Get the product owner (farmer) name
-            $farmer = auth()->user();
+            // Get the rejector name
+            $rejector = auth()->user();
 
             // Create notification for customer
             PeternakNotification::create([
                 'user_id' => $booking->user_id,
                 'type' => 'booking_rejected',
                 'title' => 'Booking Ditolak',
-                'message' => "Maaf, booking {$booking->order_number} telah ditolak oleh {$farmer->name}.",
+                'message' => "Maaf, booking {$booking->order_number} telah ditolak oleh {$rejector->name}.",
                 'data' => json_encode([
                     'booking_id' => $booking->id,
                     'order_number' => $booking->order_number,

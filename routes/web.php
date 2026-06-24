@@ -22,6 +22,12 @@ use App\Livewire\Peternak\Notifications;
 use App\Livewire\Peternak\AccountSettings;
 use App\Livewire\Peternak\IncomingBookings;
 use App\Livewire\Pelanggan\MyBookings;
+use App\Livewire\Pelanggan\Dashboard;
+use App\Livewire\Pelanggan\MyProfile;
+use App\Livewire\Pelanggan\MyOrders;
+use App\Livewire\Pelanggan\MyFavorites;
+use App\Livewire\Pelanggan\MyAddresses;
+use App\Livewire\Pelanggan\MyNotifications;
 use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -103,8 +109,13 @@ Route::middleware(['auth', 'verified', 'check.pelanggan'])
     ->prefix('pelanggan')
     ->name('pelanggan.')
     ->group(function (): void {
-        Route::view('/', 'dashboard')->name('dashboard');
+        Route::get('/', Dashboard::class)->name('dashboard');
+        Route::get('/profil', MyProfile::class)->name('profile');
         Route::get('/booking', MyBookings::class)->name('bookings');
+        Route::get('/pesanan', MyOrders::class)->name('orders');
+        Route::get('/favorit', MyFavorites::class)->name('favorites');
+        Route::get('/alamat', MyAddresses::class)->name('addresses');
+        Route::get('/notifikasi', MyNotifications::class)->name('notifications');
     });
 
 Route::get('/midtrans-test', function () {

@@ -34,7 +34,12 @@
     } elseif ($user?->hasRole('pelanggan')) {
         $menuItems = [
             ['route' => 'pelanggan.dashboard', 'label' => 'Dashboard', 'icon' => 'circle-gauge', 'submenu' => null],
-            ['route' => 'pelanggan.bookings', 'label' => 'Booking Saya', 'icon' => 'farmer.sidebar.booking', 'submenu' => null],
+            ['route' => 'pelanggan.profile', 'label' => 'Profil Saya', 'icon' => 'user-round', 'submenu' => null],
+            ['route' => 'pelanggan.bookings', 'label' => 'Booking Ternak', 'icon' => 'farmer.sidebar.booking', 'submenu' => null],
+            ['route' => 'pelanggan.orders', 'label' => 'Pesanan Daging', 'icon' => 'shoping-bag', 'submenu' => null],
+            ['route' => 'pelanggan.favorites', 'label' => 'Favorit', 'icon' => 'heart', 'submenu' => null],
+            ['route' => 'pelanggan.addresses', 'label' => 'Alamat Saya', 'icon' => 'map-pin', 'submenu' => null],
+            ['route' => 'pelanggan.notifications', 'label' => 'Notifikasi', 'icon' => 'bell', 'submenu' => null],
         ];
     }
 

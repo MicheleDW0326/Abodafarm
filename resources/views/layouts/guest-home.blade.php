@@ -16,6 +16,10 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
+
+    @if(config('googlemaps.api_key'))
+        <script src="https://maps.googleapis.com/maps/api/js?key={{ config('googlemaps.api_key') }}&libraries=places&loading=async" async defer></script>
+    @endif
 </head>
 
 <body class="font-['Outfit'] antialiased">

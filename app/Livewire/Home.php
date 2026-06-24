@@ -2,7 +2,7 @@
 
 namespace App\Livewire;
 
-use App\Models\{Category, Faq, FarmStatistic, HeroSlide, Order, OrderItem, Product, Testimonial};
+use App\Models\{Category, Faq, FarmStatistic, HeroSlide, Product, Testimonial};
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -36,15 +36,6 @@ class Home extends Component
     public array $testimonials = [];
 
     public array $faqs = [];
-
-    // Booking form properties
-    public bool $showBookingModal = false;
-    public ?array $bookingProduct = null;
-    public string $bookingName = '';
-    public string $bookingPhone = '';
-    public string $bookingAddress = '';
-    public string $bookingNotes = '';
-    public bool $isSubmitting = false;
 
     public function mount(): void
     {
@@ -242,105 +233,5 @@ class Home extends Component
     public function render()
     {
         return view('livewire.home');
-    }
-
-    // Booking methods
-    public function openBookingModal(array $product): void
-    {
-        $this->bookingProduct = $product;
-        $this->showBookingModal = true;
-        $this->resetForm();
-    }
-
-    public function closeBookingModal(): void
-    {
-        $this->showBookingModal = false;
-        $this->bookingProduct = null;
-        $this->resetForm();
-    }
-
-    public function resetForm(): void
-    {
-        $this->bookingName = '';
-        $this->bookingPhone = '';
-        $this->bookingAddress = '';
-        $this->bookingNotes = '';
-        $this->isSubmitting = false;
-    }
-
-    public function submitBooking(): void
-    {
-        $this->isSubmitting = true;
-
-        $this->validate([
-            'bookingName' => 'required|string|max:255',
-            'bookingPhone' => 'required|string|max:20',
-            'bookingAddress' => 'required|string|max:500',
-            'bookingNotes' => 'nullable|string|max:1000',
-        ], [
-            'bookingName.required' => 'Nama lengkap harus diisi',
-            'bookingPhone.required' => 'Nomor WhatsApp harus diisi',
-            'bookingAddress.required' => 'Alamat harus diisi',
-        ]);
-
-        try {
-            $product = Product::find($this->bookingProduct['id']);
-
-            if (!$product) {
-                $this->dispatch('alert', type: 'error', message: 'Produk tidak ditemukan.');
-                $this->isSubmitting = false;
-                return;
-            }
-
-            // Create booking order
-            $order = Order::create([
-                'order_number' => Order::generateBookingCode(),
-                'user_id' => auth()->id(),
-                'customer_name' => $this->bookingName,
-                'customer_phone' => $this->bookingPhone,
-                'customer_address' => $this->bookingAddress,
-                'notes' => $this->bookingNotes,
-                'total_items' => 1,
-                'total_amount' => $product->price,
-                'status' => Order::STATUS_PENDING,
-                'placed_at' => now(),
-                'order_type' => Order::TYPE_INQUIRY,
-            ]);
-
-            // Create order item
-            OrderItem::create([
-                'order_id' => $order->id,
-                'product_id' => $product->id,
-                'product_name' => $product->name,
-                'product_image' => $product->image,
-                'unit_price' => $product->price,
-                'quantity' => 1,
-                'subtotal' => $product->price,
-            ]);
-
-            // Notify the farmer/owner
-            if ($product->owner_id) {
-                \App\Models\PeternakNotification::create([
-                    'user_id' => $product->owner_id,
-                    'type' => 'new_booking',
-                    'title' => 'Booking Baru',
-                    'message' => "Ada booking baru untuk {$product->name} dari {$this->bookingName}.",
-                    'data' => json_encode([
-                        'booking_id' => $order->id,
-                        'order_number' => $order->order_number,
-                        'product_id' => $product->id,
-                    ]),
-                    'is_read' => false,
-                ]);
-            }
-
-            $this->dispatch('alert', type: 'success', message: 'Booking berhasil diajukan! Peternak akan segera menghubungi Anda.');
-            $this->closeBookingModal();
-
-        } catch (\Exception $e) {
-            $this->dispatch('alert', type: 'error', message: 'Terjadi kesalahan: ' . $e->getMessage());
-        } finally {
-            $this->isSubmitting = false;
-        }
     }
 }
