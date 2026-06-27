@@ -14,7 +14,8 @@ class FcmService
 
     public function __construct()
     {
-        $this->serverKey = config('services.fcm.server_key', env('FCM_SERVER_KEY', ''));
+        // Prioritize env variable directly, fallback to config
+        $this->serverKey = env('FCM_SERVER_KEY') ?: config('services.fcm.server_key', '');
     }
 
     /**

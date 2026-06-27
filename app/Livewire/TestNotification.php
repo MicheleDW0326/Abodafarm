@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\FcmToken;
 use App\Services\FcmService;
 use Livewire\Component;
 
@@ -22,11 +23,35 @@ class TestNotification extends Component
         $this->status = null;
         $this->error = null;
 
-        try {
-            $fcmService = app(FcmService::class);
+        $user = auth()->user();
+        $fcmService = app(FcmService::class);
 
+        // Debug: Check FCM configuration
+        $serverKey = env('FCM_SERVER_KEY');
+        \Log::info('FCM Debug', [
+            'user_id' => $user->id,
+            'server_key_set' => !empty($serverKey),
+            'server_key_prefix' => $serverKey ? substr($serverKey, 0, 10) . '...' : null,
+        ]);
+
+        // Check if user has FCM tokens
+        $tokens = FcmToken::where('user_id', $user->id)->active()->get();
+
+        \Log::info('FCM Tokens Debug', [
+            'user_id' => $user->id,
+            'tokens_count' => $tokens->count(),
+            'tokens' => $tokens->pluck('token')->map(fn($t) => substr($t, 0, 30) . '...')->toArray(),
+        ]);
+
+        if ($tokens->isEmpty()) {
+            $this->error = 'FCM Token belum tersimpan. Refresh halaman ini dan izinkan notifikasi saat muncul pop-up.';
+            $this->isLoading = false;
+            return;
+        }
+
+        try {
             $result = $fcmService->sendToUser(
-                auth()->user(),
+                $user,
                 'Test Notification! 🎉',
                 'Notifikasi FCM berhasil terkirim ke browser Anda.',
                 [
@@ -39,10 +64,15 @@ class TestNotification extends Component
             if ($result) {
                 $this->status = 'Notifikasi test berhasil dikirim! Cek browser Anda.';
             } else {
-                $this->error = 'Gagal mengirim notifikasi. Pastikan FCM token sudah tersimpan.';
+                $this->error = 'Gagal mengirim notifikasi. Cek console untuk detail.';
             }
         } catch (\Exception $e) {
             $this->error = 'Error: ' . $e->getMessage();
+            \Log::error('FCM Send Error', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
         } finally {
             $this->isLoading = false;
         }
