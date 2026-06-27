@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Address;
 use App\Models\CustomerNotification;
 use App\Models\Order;
+use App\Models\OrderStatusLog;
 use App\Models\Payment;
 use App\Services\FcmService;
 use App\Services\MidtransService;
@@ -64,6 +65,13 @@ class Checkout extends Component
 
     public string $newPostalCode = '';
 
+    // Service area validation
+    public bool $isInServiceArea = true;
+    public ?string $serviceAreaMessage = null;
+
+    // Show address modal (for inline address creation)
+    public bool $showAddressModal = false;
+
     public function mount(): void
     {
         $this->loadUserAddresses();
@@ -110,9 +118,12 @@ class Checkout extends Component
 
         $address = collect($this->userAddresses)->firstWhere('id', $addressId);
         if ($address) {
-            $this->address = $address['address'];
+            $this->address = $address['formatted_address'] ?? $address['address'];
             if ($address['phone']) {
                 $this->phone = $address['phone'];
+            }
+            if ($address['latitude'] && $address['longitude']) {
+                $this->checkServiceAreaFromAddress($address);
             }
         }
     }
@@ -122,6 +133,29 @@ class Checkout extends Component
         $this->selectedAddressId = null;
         $this->useNewAddress = true;
         $this->address = '';
+        $this->isInServiceArea = true;
+        $this->serviceAreaMessage = null;
+    }
+
+    public function checkServiceAreaFromAddress(array $address): void
+    {
+        // Simple check - in real implementation, use DeliveryArea model
+        $city = strtolower($address['city'] ?? '');
+        $province = strtolower($address['province'] ?? '');
+
+        // Default service areas in Sulawesi Utara
+        $serviceableCities = ['manado', 'bitung', 'tomohon', 'kotamobagu', 'minahasa', 'minahasa utara', 'minahasa selatan', 'minahasa tenggara', 'bolaang mongondow', 'sangihe', 'sitaro', 'talaud', 'donggala', 'parigi', 'moutong'];
+
+        foreach ($serviceableCities as $cityName) {
+            if (stripos($city, $cityName) !== false || stripos($province, 'sulawesi utara') !== false) {
+                $this->isInServiceArea = true;
+                $this->serviceAreaMessage = null;
+                return;
+            }
+        }
+
+        $this->isInServiceArea = false;
+        $this->serviceAreaMessage = 'Mohon maaf, lokasi Anda mungkin di luar area layanan pengiriman.';
     }
 
     public function saveAddress(): void
@@ -182,9 +216,15 @@ class Checkout extends Component
         $this->validate([
             'name' => ['required', 'string', 'max:100'],
             'phone' => ['required', 'string', 'max:30'],
-            'address' => ['required', 'string', 'max:300'],
+            'address' => ['required', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:300'],
         ]);
+
+        // Check if address is in service area (warning only, don't block)
+        if (!$this->isInServiceArea && $this->serviceAreaMessage) {
+            // Allow but warn - the address will still be saved
+            // In production, you might want to block this
+        }
 
         // Get cart items - prioritize cartData from hidden input
         $items = $this->getCartItems();
@@ -192,6 +232,15 @@ class Checkout extends Component
         if (empty($items)) {
             $this->addError('cart', 'Keranjang kosong. Tambahkan produk terlebih dahulu.');
             return;
+        }
+
+        // Get courier notes if using saved address
+        $courierNotes = null;
+        if ($this->selectedAddressId) {
+            $address = Address::find($this->selectedAddressId);
+            if ($address) {
+                $courierNotes = $address->courier_notes;
+            }
         }
 
         $order = DB::transaction(function () use ($items): Order {
@@ -222,6 +271,14 @@ class Checkout extends Component
 
             return $order;
         });
+
+        // Log initial status
+        OrderStatusLog::logCreation(
+            $order,
+            OrderStatusLog::TRIGGER_CUSTOMER,
+            auth()->id(),
+            'Pesanan dibuat melalui checkout'
+        );
 
         // Store order ID for payment processing
         $this->currentOrderId = $order->id;

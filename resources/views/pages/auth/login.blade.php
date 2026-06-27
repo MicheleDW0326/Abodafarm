@@ -2,7 +2,44 @@
     headline="Masuk untuk lanjut belanja bahan segar hari ini."
     description="Akses riwayat pesanan, simpan favorit, dan checkout lebih cepat dengan akun AbodaFarm kamu."
     image="https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=crop&w=1200&q=80">
-    <div class="space-y-8" x-data="{ showPassword: false }">
+    <div class="space-y-8" x-data="{
+        showPassword: false,
+        showAlert: false,
+        alertType: 'error',
+        alertTitle: '',
+        alertMessage: '',
+
+        triggerAlert(type, title, message) {
+            this.alertType = type;
+            this.alertTitle = title;
+            this.alertMessage = message;
+            this.showAlert = true;
+        },
+
+        closeAlert() {
+            this.showAlert = false;
+        },
+
+        init() {
+            @if($errors->any() || session('error'))
+                setTimeout(() => {
+                    this.triggerAlert(
+                        'error',
+                        @if($errors->has('email')) 'Email Tidak Valid'
+                        @elseif($errors->has('password')) 'Kata Sandi Salah'
+                        @else 'Login Gagal' @endif,
+                        @if($errors->has('email')) '{{ addslashes($errors->first('email')) }}'
+                        @elseif($errors->has('password')) '{{ addslashes($errors->first('password')) }}'
+                        @else '{{ addslashes(session('error')) }}' @endif
+                    );
+                }, 100);
+            @endif
+        }
+    }">
+
+        {{-- Error Alert Popup --}}
+        @include('components.auth.error-popup')
+
         <div>
             <h1 class="text-3xl font-black tracking-tight text-slate-900">Masuk ke akun</h1>
             <p class="mt-2 text-sm text-slate-500">Gunakan email dan kata sandi untuk masuk ke AbodaFarm.</p>
@@ -14,7 +51,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('login.store') }}" class="space-y-5">
+        <form method="POST" action="{{ route('login.store') }}" class="space-y-5" x-data="{ submitting: false }" @submit="submitting = true">
             @csrf
 
             <div>
@@ -31,9 +68,6 @@
                         autocomplete="email" placeholder="nama@email.com"
                         class="w-full rounded-2xl border border-slate-200 bg-white px-10 py-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10">
                 </div>
-                @error('email')
-                    <p class="mt-1.5 text-xs font-medium text-rose-600">{{ $message }}</p>
-                @enderror
             </div>
 
             <div>
@@ -73,9 +107,6 @@
                         </svg>
                     </button>
                 </div>
-                @error('password')
-                    <p class="mt-1.5 text-xs font-medium text-rose-600">{{ $message }}</p>
-                @enderror
             </div>
 
             <label class="flex items-center gap-3 text-sm text-slate-600">

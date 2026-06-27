@@ -2,8 +2,11 @@
 
 namespace App\Livewire\Pelanggan;
 
-use App\Models\Order;
+use App\Events\OrderStatusChanged;
 use App\Models\CustomerNotification;
+use App\Models\Order;
+use App\Models\OrderStatusLog;
+use App\Services\OrderStateMachine;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -15,6 +18,9 @@ class MyBookings extends Component
     public string $statusFilter = 'all';
     public string $searchQuery = '';
     public ?int $selectedBookingId = null;
+
+    // Timeline data for selected booking
+    public array $selectedBookingTimeline = [];
 
     public array $statusOptions = [
         'all' => 'Semua',
@@ -32,7 +38,7 @@ class MyBookings extends Component
         // Get only inquiry type orders (bookings) for this customer
         $bookingsQuery = Order::booking()
             ->where('user_id', $userId)
-            ->with(['items.product.owner.farmProfile'])
+            ->with(['items.product.owner.farmProfile', 'statusLogs'])
             ->when($this->searchQuery, function ($q) {
                 $q->where(function ($query) {
                     $query->where('order_number', 'like', '%' . $this->searchQuery . '%');
@@ -54,9 +60,15 @@ class MyBookings extends Component
             'completed' => Order::booking()->where('user_id', $userId)->where('status', 'completed')->count(),
         ];
 
-        $selectedBooking = $this->selectedBookingId
-            ? Order::with(['items.product.owner.farmProfile'])->find($this->selectedBookingId)
-            : null;
+        $selectedBooking = null;
+        if ($this->selectedBookingId) {
+            $selectedBooking = Order::with(['items.product.owner.farmProfile', 'statusLogs.triggeredBy'])
+                ->find($this->selectedBookingId);
+
+            if ($selectedBooking) {
+                $this->selectedBookingTimeline = $selectedBooking->timeline_data;
+            }
+        }
 
         return view('livewire.pelanggan.my-bookings', [
             'bookings' => $bookings,
@@ -68,11 +80,18 @@ class MyBookings extends Component
     public function selectBooking(int $bookingId): void
     {
         $this->selectedBookingId = $bookingId;
+
+        // Load timeline data
+        $booking = Order::with('statusLogs')->find($bookingId);
+        if ($booking) {
+            $this->selectedBookingTimeline = $booking->timeline_data;
+        }
     }
 
     public function closeDetail(): void
     {
         $this->selectedBookingId = null;
+        $this->selectedBookingTimeline = [];
     }
 
     public function cancelBooking(int $bookingId): void
@@ -84,15 +103,27 @@ class MyBookings extends Component
             ->first();
 
         if ($booking) {
-            $booking->update(['status' => 'cancelled']);
+            $fromStatus = $booking->status;
 
-            // Create notification
-            CustomerNotification::forOrderStatus(
+            // Use state machine for cancellation
+            $result = OrderStateMachine::transitionToCancelled(
+                $booking,
+                OrderStatusLog::TRIGGER_CUSTOMER,
                 auth()->id(),
-                $booking->order_number,
-                'cancelled',
-                'Booking Anda telah dibatalkan.'
+                'Dibatalkan oleh pelanggan'
             );
+
+            if ($result['success']) {
+                // Dispatch event
+                event(new OrderStatusChanged(
+                    $booking->fresh(['statusLogs']),
+                    $fromStatus,
+                    Order::STATUS_CANCELLED,
+                    OrderStatusLog::TRIGGER_CUSTOMER,
+                    auth()->id(),
+                    'Dibatalkan oleh pelanggan'
+                ));
+            }
 
             $this->closeDetail();
 
@@ -101,6 +132,16 @@ class MyBookings extends Component
                 'title' => 'Berhasil',
                 'message' => 'Booking berhasil dibatalkan.',
             ]);
+        }
+    }
+
+    /**
+     * Refresh booking data (called from Livewire polling).
+     */
+    public function refreshBooking(): void
+    {
+        if ($this->selectedBookingId) {
+            $this->selectBooking($this->selectedBookingId);
         }
     }
 }

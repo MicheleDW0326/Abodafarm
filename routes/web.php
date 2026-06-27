@@ -29,6 +29,11 @@ use App\Livewire\Pelanggan\MyOrders;
 use App\Livewire\Pelanggan\MyFavorites;
 use App\Livewire\Pelanggan\MyAddresses;
 use App\Livewire\Pelanggan\MyNotifications;
+use App\Livewire\Customer\MyReviews;
+use App\Livewire\Customer\SubmitProductReview;
+use App\Livewire\Customer\SubmitFarmerReview;
+use App\Livewire\Admin\ReviewModeration;
+use App\Livewire\Admin\FarmerVerification;
 use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -73,6 +78,7 @@ Route::middleware(['auth', 'verified', 'check.admin'])
         Route::get('/laporan-keuangan', FinancialReport::class)->name('finance');
         Route::get('/notifikasi', AdminNotifications::class)->name('notifications');
         Route::get('/pengaturan-toko', StoreSetting::class)->name('settings');
+        Route::get('/verifikasi-peternak', FarmerVerification::class)->name('farmer-verification');
     });
 
 Route::middleware(['auth', 'verified', 'check.staff'])

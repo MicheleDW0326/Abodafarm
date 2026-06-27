@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Events\OrderStatusChanged;
+use App\Events\PaymentReceived;
 use App\Models\Order;
+use App\Models\OrderStatusLog;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
@@ -221,19 +224,35 @@ class MidtransService
         // Update paid_at if transaction is successful
         if (in_array($status, ['capture', 'settlement'])) {
             if ($transactionStatus->fraud_status === 'accept' || $transactionStatus->fraud_status === null) {
+                $fromStatus = $order->status;
+
+                // Update payment
                 $payment->paid_at = now();
                 $payment->transaction_status = Payment::STATUS_SETTLEMENT;
                 $payment->save();
 
-                // Update order status
-                $order->update([
-                    'status' => 'paid',
-                    'admin_notes' => ($order->admin_notes ?? '') . "\n" .
-                        "Payment confirmed via Midtrans. Transaction ID: {$transactionStatus->transaction_id}",
-                ]);
+                // Use state machine for order status
+                $notes = "Pembayaran berhasil via Midtrans. Transaction ID: {$transactionStatus->transaction_id}";
+                $result = OrderStateMachine::transition(
+                    $order,
+                    Order::STATUS_PAID,
+                    OrderStatusLog::TRIGGER_WEBHOOK,
+                    null,
+                    $notes
+                );
 
-                // Send FCM notification to customer
-                self::sendPaymentSuccessNotification($order, $transactionStatus->transaction_id);
+                if ($result['success']) {
+                    // Dispatch events
+                    event(new PaymentReceived($order, $payment, $transactionStatus->transaction_id));
+                    event(new OrderStatusChanged(
+                        $order->fresh(),
+                        $fromStatus,
+                        Order::STATUS_PAID,
+                        OrderStatusLog::TRIGGER_WEBHOOK,
+                        null,
+                        $notes
+                    ));
+                }
 
                 Log::info('Order marked as paid', [
                     'order_id' => $order->id,
@@ -244,20 +263,33 @@ class MidtransService
             }
         }
 
-        // Handle other statuses
+        // Handle other statuses - payment failed/cancelled/expired
         $payment->transaction_status = $status;
         $payment->save();
 
-        // Update order status based on payment status
-        $orderStatusMap = [
-            'deny' => 'payment_failed',
-            'cancel' => 'cancelled',
-            'expire' => 'expired',
-            'refund' => 'refunded',
-        ];
+        // Use state machine for cancellation
+        $failedStatuses = ['deny', 'cancel', 'expire'];
+        if (in_array($status, $failedStatuses)) {
+            $fromStatus = $order->status;
+            $notes = "Pembayaran {$status}: " . ($transactionStatus->status_message ?? '');
+            $result = OrderStateMachine::transition(
+                $order,
+                Order::STATUS_CANCELLED,
+                OrderStatusLog::TRIGGER_WEBHOOK,
+                null,
+                $notes
+            );
 
-        if (isset($orderStatusMap[$status])) {
-            $order->update(['status' => $orderStatusMap[$status]]);
+            if ($result['success']) {
+                event(new OrderStatusChanged(
+                    $order->fresh(),
+                    $fromStatus,
+                    Order::STATUS_CANCELLED,
+                    OrderStatusLog::TRIGGER_WEBHOOK,
+                    null,
+                    $notes
+                ));
+            }
         }
 
         return true;

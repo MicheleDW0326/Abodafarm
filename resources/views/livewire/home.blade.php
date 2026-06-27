@@ -35,7 +35,6 @@
         this.persistCart();
         this.showAddToast(product.name);
 
-        // Dispatch event for cart drawer to update
         this.$dispatch('cart-updated');
     },
 

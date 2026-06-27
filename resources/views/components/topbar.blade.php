@@ -25,7 +25,6 @@
             @auth
                 <a href="{{ route('dashboard') }}"
                     class="rounded-xl border border-sky-200 px-4 py-2 text-sm font-medium text-sky-700 transition hover:bg-sky-50">Dashboard</a>
-                @livewire('test-notification')
             @else
                 <a href="{{ route('login') }}"
                     class="rounded-xl border border-sky-200 px-4 py-2 text-sm font-medium text-sky-700 transition hover:bg-sky-50">Masuk</a>

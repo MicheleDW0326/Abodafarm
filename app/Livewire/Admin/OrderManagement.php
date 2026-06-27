@@ -2,7 +2,10 @@
 
 namespace App\Livewire\Admin;
 
+use App\Events\OrderStatusChanged;
 use App\Models\Order;
+use App\Models\OrderStatusLog;
+use App\Services\OrderStateMachine;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -24,8 +27,15 @@ class OrderManagement extends Component
     // Order Details
     public ?Order $selectedOrder = null;
 
+    // Timeline data for selected order
+    public array $selectedOrderTimeline = [];
+
     // UI State
     public bool $showDetailModal = false;
+
+    // Status change
+    public bool $showStatusModal = false;
+    public string $newStatus = '';
 
     protected $queryString = [
         'tab' => ['except' => 'all'],
@@ -46,7 +56,8 @@ class OrderManagement extends Component
 
     public function viewOrder(Order $order)
     {
-        $this->selectedOrder = $order->load('items');
+        $this->selectedOrder = $order->load(['items', 'user', 'statusLogs.triggeredBy']);
+        $this->selectedOrderTimeline = $this->selectedOrder->timeline_data;
         $this->showDetailModal = true;
     }
 
@@ -54,12 +65,72 @@ class OrderManagement extends Component
     {
         $this->showDetailModal = false;
         $this->selectedOrder = null;
+        $this->selectedOrderTimeline = [];
+        $this->showStatusModal = false;
+        $this->newStatus = '';
+    }
+
+    public function openStatusModal(string $status)
+    {
+        $this->newStatus = $status;
+        $this->showStatusModal = true;
+    }
+
+    public function closeStatusModal()
+    {
+        $this->showStatusModal = false;
+        $this->newStatus = '';
     }
 
     public function updateStatus(Order $order, string $status)
     {
-        $order->update(['status' => $status]);
-        $this->dispatch('showAlert', ['type' => 'success', 'title' => 'Berhasil!', 'message' => 'Status pesanan berhasil diupdate!']);
+        $fromStatus = $order->status;
+
+        // Use state machine for transition
+        $result = OrderStateMachine::transition(
+            $order,
+            $status,
+            OrderStatusLog::TRIGGER_ADMIN,
+            auth()->id(),
+            'Status diupdate oleh admin'
+        );
+
+        if ($result['success']) {
+            // Dispatch event
+            event(new OrderStatusChanged(
+                $order->fresh(['statusLogs']),
+                $fromStatus,
+                $status,
+                OrderStatusLog::TRIGGER_ADMIN,
+                auth()->id(),
+                'Status diupdate oleh admin'
+            ));
+
+            // Refresh selected order
+            if ($this->selectedOrder && $this->selectedOrder->id === $order->id) {
+                $this->selectedOrder = $order->fresh(['items', 'user', 'statusLogs.triggeredBy']);
+                $this->selectedOrderTimeline = $this->selectedOrder->timeline_data;
+            }
+
+            $this->closeStatusModal();
+
+            $this->dispatch('showAlert', [
+                'type' => 'success',
+                'title' => 'Berhasil!',
+                'message' => 'Status pesanan berhasil diupdate!'
+            ]);
+        } else {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'Gagal!',
+                'message' => $result['message']
+            ]);
+        }
+    }
+
+    public function getValidNextStatuses(Order $order): array
+    {
+        return OrderStateMachine::getValidNextStatuses($order);
     }
 
     public function getOrderStats()
@@ -87,6 +158,7 @@ class OrderManagement extends Component
     public function render()
     {
         $ordersQuery = Order::query()
+            ->with(['user', 'statusLogs'])
             ->when($this->searchQuery, function ($query) {
                 $query->where(function ($q) {
                     $q->where('order_number', 'like', '%' . $this->searchQuery . '%')

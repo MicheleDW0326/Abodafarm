@@ -110,4 +110,44 @@ class User extends Authenticatable
     {
         return $this->customerNotifications()->where('is_read', false)->count();
     }
+
+    // Review Relations
+
+    /**
+     * Get reviews made by this user.
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    /**
+     * Get reviews for products owned by this user (as farmer).
+     */
+    public function productReviews(): HasMany
+    {
+        return $this->hasMany(Review::class, 'farmer_id');
+    }
+
+    /**
+     * Get average rating as farmer.
+     */
+    public function getFarmerRatingAttribute(): float
+    {
+        $reviews = $this->productReviews()->approved()->get();
+
+        if ($reviews->isEmpty()) {
+            return 0;
+        }
+
+        return round($reviews->avg('rating'), 1);
+    }
+
+    /**
+     * Get total reviews as farmer.
+     */
+    public function getTotalFarmerReviewsAttribute(): int
+    {
+        return $this->productReviews()->approved()->count();
+    }
 }

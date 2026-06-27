@@ -219,4 +219,50 @@ class Product extends Model
         return $this->hasMany(Favorite::class, 'favoritable_id')
             ->where('favoritable_type', Product::class);
     }
+
+    /**
+     * Get all reviews for this product.
+     */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class)->where('review_type', 'product');
+    }
+
+    /**
+     * Get approved reviews for this product.
+     */
+    public function approvedReviews(): HasMany
+    {
+        return $this->reviews()->where('status', Review::STATUS_APPROVED);
+    }
+
+    /**
+     * Get rating distribution attribute.
+     */
+    public function getRatingDistributionAttribute(): array
+    {
+        return [
+            5 => $this->rating_5_count ?? 0,
+            4 => $this->rating_4_count ?? 0,
+            3 => $this->rating_3_count ?? 0,
+            2 => $this->rating_2_count ?? 0,
+            1 => $this->rating_1_count ?? 0,
+        ];
+    }
+
+    /**
+     * Get formatted rating (e.g., "4.5").
+     */
+    public function getFormattedRatingAttribute(): string
+    {
+        return number_format($this->rating ?? 0, 1);
+    }
+
+    /**
+     * Check if product has reviews.
+     */
+    public function hasReviews(): bool
+    {
+        return ($this->total_reviews ?? 0) > 0;
+    }
 }

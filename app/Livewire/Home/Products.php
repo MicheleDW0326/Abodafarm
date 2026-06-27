@@ -2,7 +2,8 @@
 
 namespace App\Livewire\Home;
 
-use App\Models\{Address, Order, OrderItem, Product, User};
+use App\Models\{Address, Order, OrderItem, OrderStatusLog, Product, User};
+use App\Events\NewBookingReceived;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
@@ -53,6 +54,10 @@ class Products extends Component
     public bool $showSuccessModal = false;
     public string $lastBookingNumber = '';
     public string $lastBookingProduct = '';
+
+    // Address requirement check
+    public bool $showAddressRequiredModal = false;
+    public ?array $pendingBookingProduct = null;
 
     public function mount(array $productsLive = [], array $productsFresh = []): void
     {
@@ -118,10 +123,33 @@ class Products extends Component
             return;
         }
 
+        // Check if user has any addresses
+        $hasAddress = Address::where('user_id', auth()->id())->exists();
+
+        if (!$hasAddress) {
+            // Store pending product for later
+            $this->pendingBookingProduct = $product;
+            $this->showAddressRequiredModal = true;
+            return;
+        }
+
         $this->bookingProduct = $product;
         $this->showBookingModal = true;
         $this->loadUserAddresses();
         $this->resetForm();
+    }
+
+    public function closeAddressRequiredModal(): void
+    {
+        $this->showAddressRequiredModal = false;
+        $this->pendingBookingProduct = null;
+    }
+
+    public function proceedToAddAddress(): void
+    {
+        // Redirect to address management page
+        $this->dispatch('navigate-to-addresses');
+        $this->closeAddressRequiredModal();
     }
 
     public function loadUserAddresses(): void
@@ -327,31 +355,41 @@ class Products extends Component
                 'subtotal' => $product->price,
             ]);
 
+            // Log initial status
+            OrderStatusLog::logCreation(
+                $order,
+                OrderStatusLog::TRIGGER_CUSTOMER,
+                auth()->id(),
+                'Booking dibuat melalui halaman produk'
+            );
+
             // Update address phone if different
             if ($address && $address->phone !== $this->bookingPhone) {
                 $address->update(['phone' => $this->bookingPhone]);
             }
 
-            // Notify the farmer/owner using NotificationService
+            // Dispatch event for new booking (for real-time notifications)
+            $farmer = null;
             if ($product->owner_id) {
                 $farmer = User::find($product->owner_id);
+            }
 
-                if ($farmer) {
-                    try {
-                        $notificationService = app(NotificationService::class);
-                        $notificationService->newBooking(
-                            $farmer,
-                            auth()->user(),
-                            $product->name,
-                            $order->order_number
-                        );
-                    } catch (\Exception $e) {
-                        \Log::error('Notification failed for new booking', [
-                            'booking_id' => $order->id,
-                            'farmer_id' => $product->owner_id,
-                            'error' => $e->getMessage(),
-                        ]);
-                    }
+            // Notify the farmer/owner using NotificationService
+            if ($farmer) {
+                try {
+                    $notificationService = app(NotificationService::class);
+                    $notificationService->newBooking(
+                        $farmer,
+                        auth()->user(),
+                        $product->name,
+                        $order->order_number
+                    );
+                } catch (\Exception $e) {
+                    \Log::error('Notification failed for new booking', [
+                        'booking_id' => $order->id,
+                        'farmer_id' => $product->owner_id,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
             }
 

@@ -1007,4 +1007,64 @@
             </div>
         </div>
     @endif
+
+    {{-- Address Required Modal --}}
+    @if($showAddressRequiredModal)
+        <div x-data="{ show: true }"
+             x-show="show"
+             x-on:keydown.escape.window="show = false; @this.closeAddressRequiredModal()"
+             class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0">
+            <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+                 x-show="show"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95">
+                {{-- Icon --}}
+                <div class="flex justify-center pt-8">
+                    <div class="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+                        <svg class="h-8 w-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                    </div>
+                </div>
+
+                {{-- Content --}}
+                <div class="px-6 pb-2 pt-4 text-center">
+                    <h3 class="text-lg font-bold text-slate-900">Lengkapi Alamat Terlebih Dahulu</h3>
+                    <p class="mt-2 text-sm text-slate-600">
+                        Anda perlu menambahkan alamat pengiriman sebelum dapat melakukan booking ternak.
+                    </p>
+                </div>
+
+                {{-- Actions --}}
+                <div class="flex gap-3 px-6 pb-6 pt-4">
+                    <button type="button"
+                            wire:click="closeAddressRequiredModal()"
+                            @click="show = false"
+                            class="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">
+                        Batal
+                    </button>
+                    <button type="button"
+                            wire:click="proceedToAddAddress()"
+                            @click="show = false; window.location.href = '{{ route('pelanggan.addresses') }}'"
+                            class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition-all hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.98]">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        Tambah Alamat
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
 </section>

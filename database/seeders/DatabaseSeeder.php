@@ -27,22 +27,22 @@ class DatabaseSeeder extends Seeder
         $users = [
             [
                 'name' => 'Royland',
-                'email' => 'royland@abodafarm.test',
+                'email' => 'admin@gmail.com',
                 'role' => 'admin',
             ],
             [
                 'name' => 'Michele',
-                'email' => 'michele@abodafarm.test',
+                'email' => 'staf@gmail.com',
                 'role' => 'staf',
             ],
             [
                 'name' => 'Johan Pakpahan',
-                'email' => 'johan@abodafarm.test',
+                'email' => 'peternak@gmail.com',
                 'role' => 'peternak',
             ],
             [
                 'name' => 'Siti Aminah',
-                'email' => 'siti@abodafarm.test',
+                'email' => 'Lorto@gmail.com',
                 'role' => 'pelanggan',
             ],
         ];

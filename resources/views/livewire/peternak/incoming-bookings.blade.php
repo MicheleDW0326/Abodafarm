@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div class="space-y-6" wire:poll.5s="refreshBooking">
     {{-- Header --}}
     <div>
         <h2 class="text-xl font-bold text-slate-900">Booking Masuk</h2>
@@ -213,6 +213,65 @@
                         <div class="mb-6 rounded-lg border border-blue-100 bg-blue-50 p-4">
                             <p class="text-xs text-slate-500">Catatan dari Pelanggan</p>
                             <p class="mt-1 text-sm text-slate-700">{{ $selectedBooking->notes }}</p>
+                        </div>
+                    @endif
+
+                    {{-- Timeline --}}
+                    @if(count($selectedBookingTimeline) > 0)
+                        <div class="mb-6">
+                            <h4 class="mb-4 text-sm font-semibold text-slate-900">Riwayat Status</h4>
+                            <div class="relative">
+                                {{-- Vertical Line --}}
+                                <div class="absolute left-4 top-0 h-full w-0.5 bg-slate-200"></div>
+
+                                {{-- Timeline Items --}}
+                                <div class="space-y-4">
+                                    @foreach($selectedBookingTimeline as $index => $item)
+                                        <div class="relative flex gap-4">
+                                            {{-- Timeline Dot --}}
+                                            <div class="relative z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-white
+                                                @if($item['is_current'])
+                                                    bg-emerald-500 text-white shadow-lg
+                                                @elseif($item['is_terminal'] && !$item['is_current'])
+                                                    bg-red-100 text-red-500
+                                                @else
+                                                    bg-slate-200 text-slate-500
+                                                @endif
+                                            ">
+                                                @if($item['is_current'])
+                                                    <i class="fa-solid fa-circle text-xs"></i>
+                                                @else
+                                                    <i class="fa-solid fa-check text-xs"></i>
+                                                @endif
+                                            </div>
+
+                                            {{-- Content --}}
+                                            <div class="flex-1 pb-4">
+                                                <div class="rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
+                                                    <div class="flex items-start justify-between">
+                                                        <div>
+                                                            <p class="font-semibold text-slate-900">
+                                                                {{ $item['status_label'] }}
+                                                            </p>
+                                                            <p class="mt-1 text-xs text-slate-500">
+                                                                {{ $item['formatted_date'] ?? '' }} · {{ $item['formatted_time'] ?? '' }}
+                                                            </p>
+                                                        </div>
+                                                        @if($item['triggered_by_name'])
+                                                            <span class="rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600">
+                                                                {{ $item['triggered_by_name'] }}
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                    @if($item['notes'])
+                                                        <p class="mt-2 text-sm text-slate-600">{{ $item['notes'] }}</p>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
                         </div>
                     @endif
 

@@ -222,7 +222,12 @@
                         <!-- Address Selection -->
                         @if (count($userAddresses) > 0)
                             <div>
-                                <label class="mb-2 block text-sm font-semibold text-slate-700">Pilih Alamat</label>
+                                <div class="mb-2 flex items-center justify-between">
+                                    <label class="text-sm font-semibold text-slate-700">Pilih Alamat</label>
+                                    <a href="{{ route('pelanggan.addresses') }}" class="text-xs text-emerald-600 hover:text-emerald-700">
+                                        <i class="fa-solid fa-external-link-alt mr-1"></i> Kelola Alamat
+                                    </a>
+                                </div>
                                 <div class="space-y-2">
                                     @foreach($userAddresses as $addr)
                                         <label class="flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition hover:bg-slate-50 {{ $selectedAddressId == $addr['id'] ? 'border-sky-500 bg-sky-50' : 'border-slate-200' }}">
@@ -236,6 +241,11 @@
                                                 </div>
                                                 <p class="mt-1 text-xs text-slate-500">{{ $addr['address'] }}</p>
                                                 <p class="text-xs text-slate-400">{{ $addr['district'] }}, {{ $addr['city'] }}, {{ $addr['province'] }}</p>
+                                                @if($addr['courier_notes'])
+                                                    <p class="mt-1 text-xs text-slate-500 italic">
+                                                        <i class="fa-solid fa-sticky-note mr-1 text-slate-400"></i>{{ Str::limit($addr['courier_notes'], 40) }}
+                                                    </p>
+                                                @endif
                                             </div>
                                         </label>
                                     @endforeach
@@ -250,6 +260,16 @@
                                     @endif
                                 </div>
                             </div>
+
+                            {{-- Service Area Warning --}}
+                            @if(!$isInServiceArea && $serviceAreaMessage)
+                                <div class="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                                    <div class="flex items-start gap-2">
+                                        <i class="fa-solid fa-exclamation-triangle mt-0.5 text-amber-500"></i>
+                                        <p class="text-xs text-amber-700">{{ $serviceAreaMessage }}</p>
+                                    </div>
+                                </div>
+                            @endif
                         @endif
 
                         <!-- New Address Form -->
