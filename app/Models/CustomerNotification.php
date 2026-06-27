@@ -14,6 +14,7 @@ class CustomerNotification extends Model
 
     // Type constants
     const TYPE_ORDER_STATUS = 'order_status';
+    const TYPE_PAYMENT_SUCCESS = 'payment_success';
     const TYPE_BOOKING_APPROVED = 'booking_approved';
     const TYPE_BOOKING_REJECTED = 'booking_rejected';
     const TYPE_ORDER_SHIPPED = 'order_shipped';
@@ -109,6 +110,7 @@ class CustomerNotification extends Model
     {
         return match($this->type) {
             self::TYPE_ORDER_STATUS, self::TYPE_ORDER_SHIPPED => 'heroicon-o-truck',
+            self::TYPE_PAYMENT_SUCCESS => 'heroicon-o-check-circle',
             self::TYPE_BOOKING_APPROVED => 'heroicon-o-check-circle',
             self::TYPE_BOOKING_REJECTED => 'heroicon-o-x-circle',
             self::TYPE_ORDER_DELIVERED => 'heroicon-o-package',
@@ -123,7 +125,7 @@ class CustomerNotification extends Model
     public function getColorClassAttribute(): string
     {
         return match($this->type) {
-            self::TYPE_BOOKING_APPROVED, self::TYPE_ORDER_DELIVERED => 'text-emerald-600 bg-emerald-50',
+            self::TYPE_PAYMENT_SUCCESS, self::TYPE_BOOKING_APPROVED, self::TYPE_ORDER_DELIVERED => 'text-emerald-600 bg-emerald-50',
             self::TYPE_BOOKING_REJECTED => 'text-red-600 bg-red-50',
             self::TYPE_ORDER_SHIPPED => 'text-purple-600 bg-purple-50',
             self::TYPE_PROMO => 'text-amber-600 bg-amber-50',
@@ -176,6 +178,23 @@ class CustomerNotification extends Model
             'message' => $message,
             'data' => [
                 'booking_code' => $bookingCode,
+            ],
+        ]);
+    }
+
+    /**
+     * Create a notification for payment success.
+     */
+    public static function forPaymentSuccess(int $userId, string $orderNumber, string $amount): self
+    {
+        return static::create([
+            'user_id' => $userId,
+            'type' => self::TYPE_PAYMENT_SUCCESS,
+            'title' => "Pembayaran Berhasil!",
+            'message' => "Pembayaran untuk pesanan {$orderNumber} sebesar {$amount} telah berhasil. Pesanan Anda sedang diproses.",
+            'data' => [
+                'order_number' => $orderNumber,
+                'amount' => $amount,
             ],
         ]);
     }

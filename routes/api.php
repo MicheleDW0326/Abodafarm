@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\FcmController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ProductController;
 use Illuminate\Support\Facades\Route;
@@ -23,4 +24,11 @@ Route::prefix('payments')->group(function () {
 
     // Get payment status
     Route::get('/status', [PaymentController::class, 'status'])->name('api.payments.status');
+});
+
+// FCM Token Routes (Sanctum - for mobile API)
+Route::middleware(['auth:sanctum'])->prefix('fcm')->group(function () {
+    Route::post('/save-token', [FcmController::class, 'saveToken'])->name('api.fcm.save-token');
+    Route::post('/remove-token', [FcmController::class, 'removeToken'])->name('api.fcm.remove-token');
+    Route::get('/tokens', [FcmController::class, 'getTokens'])->name('api.fcm.tokens');
 });

@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Home;
 
-use App\Models\{Address, Order, OrderItem, Product};
-use App\Models\PeternakNotification;
+use App\Models\{Address, Order, OrderItem, Product, User};
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -12,11 +12,19 @@ class Products extends Component
 {
     use WithFileUploads;
 
+    protected $listeners = ['search-updated' => 'handleSearchUpdate'];
+
     /** @var array<int, array<string,mixed>> */
     public array $productsLive = [];
 
     /** @var array<int, array<string,mixed>> */
     public array $productsFresh = [];
+
+    /** Search filter */
+    public string $search = '';
+
+    /** Filtered live products based on search */
+    public array $filteredLiveProducts = [];
 
     // Booking form properties
     public bool $showBookingModal = false;
@@ -41,10 +49,51 @@ class Products extends Component
 
     public bool $isSubmitting = false;
 
+    // Success modal
+    public bool $showSuccessModal = false;
+    public string $lastBookingNumber = '';
+    public string $lastBookingProduct = '';
+
     public function mount(array $productsLive = [], array $productsFresh = []): void
     {
         $this->productsLive = $productsLive;
         $this->productsFresh = $productsFresh;
+        $this->filteredLiveProducts = $productsLive;
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->filterProducts();
+    }
+
+    public function filterProducts(): void
+    {
+        $term = trim(mb_strtolower($this->search));
+
+        if ($term === '') {
+            $this->filteredLiveProducts = $this->productsLive;
+            return;
+        }
+
+        $this->filteredLiveProducts = array_values(array_filter($this->productsLive, function (array $product) use ($term): bool {
+            $haystack = mb_strtolower(implode(' ', [
+                $product['name'] ?? '',
+                $product['category'] ?? '',
+                $product['location'] ?? '',
+                $product['status'] ?? '',
+                $product['weight'] ?? '',
+                $product['age'] ?? '',
+                $product['sex'] ?? '',
+            ]));
+
+            return str_contains($haystack, $term);
+        }));
+    }
+
+    public function handleSearchUpdate(string $search): void
+    {
+        $this->search = $search;
+        $this->filterProducts();
     }
 
     public function addToCart(int $index): void
@@ -129,7 +178,17 @@ class Products extends Component
         $this->newLongitude = null;
         $this->newGooglePlaceId = '';
         $this->isSubmitting = false;
+        $this->showSuccessModal = false;
+        $this->lastBookingNumber = '';
+        $this->lastBookingProduct = '';
         $this->resetValidation();
+    }
+
+    public function closeSuccessModal(): void
+    {
+        $this->showSuccessModal = false;
+        $this->lastBookingNumber = '';
+        $this->lastBookingProduct = '';
     }
 
     public function selectExistingAddress(int $addressId): void
@@ -273,23 +332,33 @@ class Products extends Component
                 $address->update(['phone' => $this->bookingPhone]);
             }
 
-            // Notify the farmer/owner
+            // Notify the farmer/owner using NotificationService
             if ($product->owner_id) {
-                PeternakNotification::create([
-                    'user_id' => $product->owner_id,
-                    'type' => 'new_booking',
-                    'title' => 'Booking Baru',
-                    'message' => "Ada booking baru untuk {$product->name} dari {$this->bookingName}.",
-                    'data' => json_encode([
-                        'booking_id' => $order->id,
-                        'order_number' => $order->order_number,
-                        'product_id' => $product->id,
-                    ]),
-                    'is_read' => false,
-                ]);
+                $farmer = User::find($product->owner_id);
+
+                if ($farmer) {
+                    try {
+                        $notificationService = app(NotificationService::class);
+                        $notificationService->newBooking(
+                            $farmer,
+                            auth()->user(),
+                            $product->name,
+                            $order->order_number
+                        );
+                    } catch (\Exception $e) {
+                        \Log::error('Notification failed for new booking', [
+                            'booking_id' => $order->id,
+                            'farmer_id' => $product->owner_id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
             }
 
-            $this->dispatch('alert', type: 'success', message: 'Booking berhasil diajukan! Peternak akan segera menghubungi Anda.');
+            // Show success modal
+            $this->lastBookingNumber = $order->order_number;
+            $this->lastBookingProduct = $product->name;
+            $this->showSuccessModal = true;
             $this->closeBookingModal();
 
         } catch (\Exception $e) {

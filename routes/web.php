@@ -3,6 +3,7 @@
 use App\Livewire\Admin\CustomerManagement;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
 use App\Livewire\Admin\FinancialReport;
+use App\Livewire\Admin\Notifications as AdminNotifications;
 use App\Livewire\Admin\OrderManagement;
 use App\Livewire\Admin\ProductManagement;
 use App\Livewire\Admin\StaffManagement;
@@ -13,12 +14,12 @@ use App\Livewire\About;
 use App\Livewire\Contact;
 use App\Livewire\Peternak\Dashboard as PeternakDashboard;
 use App\Livewire\Peternak\LivestockManagement;
+use App\Livewire\Peternak\Notifications;
 use App\Livewire\Peternak\Orders;
 use App\Livewire\Peternak\Shipments;
 use App\Livewire\Peternak\SalesHistory;
 use App\Livewire\Peternak\Wallet;
 use App\Livewire\Peternak\FarmProfileSettings;
-use App\Livewire\Peternak\Notifications;
 use App\Livewire\Peternak\AccountSettings;
 use App\Livewire\Peternak\IncomingBookings;
 use App\Livewire\Pelanggan\MyBookings;
@@ -36,6 +37,11 @@ Route::get('/', Home::class)->name('home');
 Route::get('/tentang-kami', About::class)->name('about');
 Route::get('/kontak', Contact::class)->name('contact');
 Route::get('/checkout', Checkout::class)->name('checkout');
+
+// FCM Token Routes (web - session auth)
+Route::middleware(['auth'])->prefix('fcm-token')->group(function () {
+    Route::post('/save', [App\Http\Controllers\Api\FcmController::class, 'saveToken'])->name('fcm-token.save');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function (Request $request) {
@@ -65,6 +71,7 @@ Route::middleware(['auth', 'verified', 'check.admin'])
         Route::get('/pelanggan', CustomerManagement::class)->name('customers');
         Route::get('/staf', StaffManagement::class)->name('staff');
         Route::get('/laporan-keuangan', FinancialReport::class)->name('finance');
+        Route::get('/notifikasi', AdminNotifications::class)->name('notifications');
         Route::get('/pengaturan-toko', StoreSetting::class)->name('settings');
     });
 

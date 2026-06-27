@@ -215,19 +215,27 @@ class Home extends Component
             return $this->liveLivestockProducts;
         }
 
-        return array_values(array_filter($this->liveLivestockProducts, function (array $product) use ($term): bool {
-            $haystack = mb_strtolower(implode(' ', [
-                $product['name'] ?? '',
-                $product['category'] ?? '',
-                $product['location'] ?? '',
-                $product['status'] ?? '',
-                $product['weight'] ?? '',
-                $product['age'] ?? '',
-                $product['sex'] ?? '',
-            ]));
+        return array_values(array_filter(
+            $this->liveLivestockProducts,
+            function (array $product) use ($term): bool {
+                $haystack = mb_strtolower(implode(' ', [
+                    $product['name'] ?? '',
+                    $product['category'] ?? '',
+                    $product['location'] ?? '',
+                    $product['status'] ?? '',
+                    $product['weight'] ?? '',
+                    $product['age'] ?? '',
+                    $product['sex'] ?? '',
+                ]));
 
-            return str_contains($haystack, $term);
-        }));
+                return str_contains($haystack, $term);
+            }
+        ));
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->dispatch('search-updated', search: $this->search);
     }
 
     public function render()

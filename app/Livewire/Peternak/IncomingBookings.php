@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Peternak;
 
+use App\Models\CustomerNotification;
 use App\Models\Order;
-use App\Models\PeternakNotification;
+use App\Models\User;
+use App\Services\NotificationService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -103,26 +105,32 @@ class IncomingBookings extends Component
             return;
         }
 
+        $customer = $booking->user;
+        $productName = $booking->items->first()?->product_name ?? 'Ternak';
+
         DB::transaction(function () use ($booking) {
             $booking->approve();
-
-            // Get the approver name
-            $approver = auth()->user();
-
-            // Create notification for customer
-            PeternakNotification::create([
-                'user_id' => $booking->user_id,
-                'type' => 'booking_approved',
-                'title' => 'Booking Disetujui',
-                'message' => "Booking {$booking->order_number} telah disetujui oleh {$approver->name}. Silakan hubungi peternak untuk langkah selanjutnya.",
-                'data' => json_encode([
-                    'booking_id' => $booking->id,
-                    'order_number' => $booking->order_number,
-                    'action' => 'approved',
-                ]),
-                'is_read' => false,
-            ]);
         });
+
+        // Send notification to customer using NotificationService
+        if ($customer) {
+            try {
+                $notificationService = app(NotificationService::class);
+                $notificationService->bookingApproved(
+                    $customer,
+                    $productName,
+                    $booking->order_number
+                );
+
+                // Refresh notification dropdown
+                $this->dispatch('refresh-notifications');
+            } catch (\Exception $e) {
+                \Log::error('Notification failed for booking approval', [
+                    'booking_id' => $booking->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         $this->dispatch('alert', type: 'success', message: 'Booking berhasil disetujui.');
         $this->closeDetail();
@@ -151,26 +159,32 @@ class IncomingBookings extends Component
             return;
         }
 
+        $customer = $booking->user;
+        $productName = $booking->items->first()?->product_name ?? 'Ternak';
+
         DB::transaction(function () use ($booking) {
             $booking->reject();
-
-            // Get the rejector name
-            $rejector = auth()->user();
-
-            // Create notification for customer
-            PeternakNotification::create([
-                'user_id' => $booking->user_id,
-                'type' => 'booking_rejected',
-                'title' => 'Booking Ditolak',
-                'message' => "Maaf, booking {$booking->order_number} telah ditolak oleh {$rejector->name}.",
-                'data' => json_encode([
-                    'booking_id' => $booking->id,
-                    'order_number' => $booking->order_number,
-                    'action' => 'rejected',
-                ]),
-                'is_read' => false,
-            ]);
         });
+
+        // Send notification to customer using NotificationService
+        if ($customer) {
+            try {
+                $notificationService = app(NotificationService::class);
+                $notificationService->bookingRejected(
+                    $customer,
+                    $productName,
+                    $booking->order_number
+                );
+
+                // Refresh notification dropdown
+                $this->dispatch('refresh-notifications');
+            } catch (\Exception $e) {
+                \Log::error('Notification failed for booking rejection', [
+                    'booking_id' => $booking->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         $this->dispatch('alert', type: 'info', message: 'Booking telah ditolak.');
         $this->closeDetail();

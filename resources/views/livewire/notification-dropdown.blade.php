@@ -31,7 +31,7 @@
             @if($unreadCount > 0)
                 <button
                     type="button"
-                    wire:click="markAsRead({{ $notifications->first()?->id }})"
+                    wire:click="markAllAsRead"
                     class="text-xs text-emerald-600 hover:text-emerald-700"
                 >
                     Tandai semua dibaca
@@ -41,19 +41,36 @@
 
         <div class="max-h-80 overflow-y-auto">
             @forelse($notifications as $notification)
+                @php
+                    $isUnread = !$notification->is_read;
+                    $iconClass = $notification->icon ?? 'fa-solid fa-bell';
+
+                    // Override icon based on type
+                    if ($notification->source === 'customer') {
+                        $iconClass = match($notification->type) {
+                            'payment_success' => 'fa-solid fa-credit-card text-green-500',
+                            'order_status' => 'fa-solid fa-truck text-blue-500',
+                            'booking_approved' => 'fa-solid fa-circle-check text-green-500',
+                            'booking_rejected' => 'fa-solid fa-circle-xmark text-red-500',
+                            'order_shipped' => 'fa-solid fa-box text-purple-500',
+                            'order_delivered' => 'fa-solid fa-check-double text-emerald-500',
+                            default => 'fa-solid fa-bell text-slate-500',
+                        };
+                    }
+                @endphp
                 <div
-                    class="flex items-start gap-3 border-b border-slate-50 px-4 py-3 transition hover:bg-slate-50 {{ !$notification->is_read ? 'bg-emerald-50/50' : '' }}"
-                    @if(!$notification->is_read) wire:click="markAsRead({{ $notification->id }})" @endif
+                    class="flex items-start gap-3 border-b border-slate-50 px-4 py-3 transition hover:bg-slate-50 {{ $isUnread ? 'bg-emerald-50/50' : '' }}"
+                    @if($isUnread) wire:click="markAsRead({{ $notification->id }}, '{{ $notification->source }}')" @endif
                 >
-                    <div class="mt-0.5 rounded-full p-1.5 {{ !$notification->is_read ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500' }}">
-                        <i class="{{ $notification->icon }} text-sm"></i>
+                    <div class="mt-0.5 rounded-full p-1.5 {{ $isUnread ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500' }}">
+                        <i class="{{ $iconClass }} text-sm"></i>
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-medium text-slate-900 line-clamp-1">{{ $notification->title }}</p>
                         <p class="text-xs text-slate-500 line-clamp-2">{{ $notification->message }}</p>
                         <p class="mt-1 text-xs text-slate-400">{{ $notification->created_at->diffForHumans() }}</p>
                     </div>
-                    @if(!$notification->is_read)
+                    @if($isUnread)
                         <span class="size-2 rounded-full bg-emerald-500 mt-2"></span>
                     @endif
                 </div>

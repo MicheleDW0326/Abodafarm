@@ -27,6 +27,12 @@ return [
 
     ],
 
+    'fcm' => [
+        'server_key' => env('FCM_SERVER_KEY'),
+        'project_id' => env('FCM_PROJECT_ID'),
+        'api_url' => 'https://fcm.googleapis.com/fcm/send',
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Http\Responses\LoginResponse;
+use App\Services\FcmService;
 use App\Services\MidtransService;
+use App\Services\NotificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +25,16 @@ class AppServiceProvider extends ServiceProvider
         // Register MidtransService as singleton
         $this->app->singleton(MidtransService::class, function ($app) {
             return new MidtransService();
+        });
+
+        // Register FcmService as singleton
+        $this->app->singleton(FcmService::class, function ($app) {
+            return new FcmService();
+        });
+
+        // Register NotificationService as singleton
+        $this->app->singleton(NotificationService::class, function ($app) {
+            return new NotificationService($app->make(FcmService::class));
         });
     }
 

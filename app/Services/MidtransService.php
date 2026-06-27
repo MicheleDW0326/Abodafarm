@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Midtrans\Config;
 use Midtrans\Snap;
@@ -231,6 +232,9 @@ class MidtransService
                         "Payment confirmed via Midtrans. Transaction ID: {$transactionStatus->transaction_id}",
                 ]);
 
+                // Send FCM notification to customer
+                self::sendPaymentSuccessNotification($order, $transactionStatus->transaction_id);
+
                 Log::info('Order marked as paid', [
                     'order_id' => $order->id,
                     'transaction_id' => $transactionStatus->transaction_id,
@@ -284,6 +288,48 @@ class MidtransService
                 'error' => $e->getMessage(),
             ]);
             return null;
+        }
+    }
+
+    /**
+     * Send payment success notification via FCM and in-app notification.
+     */
+    protected static function sendPaymentSuccessNotification(Order $order, ?string $transactionId = null): void
+    {
+        // Get the user
+        $user = $order->user;
+
+        if (!$user) {
+            Log::warning('Cannot send payment notification: User not found', [
+                'order_id' => $order->id,
+            ]);
+            return;
+        }
+
+        $orderNumber = $order->order_number;
+        $totalAmount = 'Rp ' . number_format($order->total_amount, 0, ',', '.');
+        $itemCount = $order->total_items;
+
+        // Use NotificationService for unified notification
+        try {
+            $notificationService = app(NotificationService::class);
+            $notificationService->paymentSuccess(
+                $user,
+                $orderNumber,
+                $totalAmount,
+                $itemCount
+            );
+
+            Log::info('Payment success notification sent via NotificationService', [
+                'order_id' => $order->id,
+                'user_id' => $user->id,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send payment success notification', [
+                'order_id' => $order->id,
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

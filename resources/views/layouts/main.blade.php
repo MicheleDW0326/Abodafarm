@@ -83,6 +83,9 @@
 
                         @livewire('notification-dropdown')
 
+                        <!-- FCM Token Manager - Hidden component -->
+                        @livewire('save-fcm-token')
+
                         <div class="hidden items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600 lg:flex">
                             <svg class="size-4 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                 <rect x="3" y="4" width="18" height="18" rx="2" />
@@ -102,6 +105,18 @@
         @livewireScripts
         @include('sweetalert::alert')
         @include('components.alerts.sweet-alert')
+
+        <script>
+            // Global listener for refresh notifications event
+            document.addEventListener('DOMContentLoaded', () => {
+                window.addEventListener('refresh-notifications', () => {
+                    // Trigger Livewire component to refresh
+                    if (window.livewire) {
+                        window.livewire.dispatch('refresh-notifications');
+                    }
+                });
+            });
+        </script>
         @stack('scripts')
     </body>
 </html>

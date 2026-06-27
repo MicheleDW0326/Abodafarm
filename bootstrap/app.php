@@ -14,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withSchedule(function ($schedule) {
+        // Cleanup old notifications every hour
+        $schedule->command('notifications:cleanup --hours=24')->hourly();
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'check.admin' => \App\Http\Middleware\CheckAdmin::class,

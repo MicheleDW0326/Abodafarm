@@ -2,8 +2,11 @@
 
 namespace App\Livewire;
 
+use App\Models\Address;
+use App\Models\CustomerNotification;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Services\FcmService;
 use App\Services\MidtransService;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
@@ -42,6 +45,138 @@ class Checkout extends Component
 
     public ?string $errorMessage = null;
 
+    // Address properties
+    public array $userAddresses = [];
+
+    public ?int $selectedAddressId = null;
+
+    public bool $useNewAddress = false;
+
+    public string $newAddressLabel = '';
+
+    public string $newFullAddress = '';
+
+    public string $newProvince = '';
+
+    public string $newCity = '';
+
+    public string $newDistrict = '';
+
+    public string $newPostalCode = '';
+
+    public function mount(): void
+    {
+        $this->loadUserAddresses();
+    }
+
+    public function loadUserAddresses(): void
+    {
+        if (!auth()->check()) {
+            $this->userAddresses = [];
+            return;
+        }
+
+        $this->userAddresses = Address::where('user_id', auth()->id())
+            ->orderByDesc('is_default')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->toArray();
+
+        // Auto-fill name and phone from user profile
+        $this->name = auth()->user()->name ?? '';
+        $this->phone = auth()->user()->phone ?? '';
+
+        // Auto-select default address
+        $defaultAddress = collect($this->userAddresses)->firstWhere('is_default', true);
+        if ($defaultAddress) {
+            $this->selectedAddressId = $defaultAddress['id'];
+            $this->address = $defaultAddress['address'];
+            $this->phone = $defaultAddress['phone'] ?: $this->phone;
+        } elseif (!empty($this->userAddresses)) {
+            // If no default, select first address
+            $firstAddress = $this->userAddresses[0] ?? null;
+            if ($firstAddress) {
+                $this->selectedAddressId = $firstAddress['id'];
+                $this->address = $firstAddress['address'];
+                $this->phone = $firstAddress['phone'] ?: $this->phone;
+            }
+        }
+    }
+
+    public function selectAddress(int $addressId): void
+    {
+        $this->selectedAddressId = $addressId;
+        $this->useNewAddress = false;
+
+        $address = collect($this->userAddresses)->firstWhere('id', $addressId);
+        if ($address) {
+            $this->address = $address['address'];
+            if ($address['phone']) {
+                $this->phone = $address['phone'];
+            }
+        }
+    }
+
+    public function showNewAddressForm(): void
+    {
+        $this->selectedAddressId = null;
+        $this->useNewAddress = true;
+        $this->address = '';
+    }
+
+    public function saveAddress(): void
+    {
+        if (!auth()->check()) {
+            return;
+        }
+
+        $this->validate([
+            'newAddressLabel' => 'required|string|max:50',
+            'newFullAddress' => 'required|string|max:500',
+            'newProvince' => 'required|string|max:100',
+            'newCity' => 'required|string|max:100',
+            'newDistrict' => 'required|string|max:100',
+            'newPostalCode' => 'nullable|string|max:10',
+        ]);
+
+        $address = Address::create([
+            'user_id' => auth()->id(),
+            'label' => $this->newAddressLabel,
+            'recipient_name' => $this->name,
+            'phone' => $this->phone,
+            'address' => $this->newFullAddress,
+            'province' => $this->newProvince,
+            'city' => $this->newCity,
+            'district' => $this->newDistrict,
+            'postal_code' => $this->newPostalCode,
+            'is_default' => empty($this->userAddresses),
+        ]);
+
+        // Update current form data
+        $this->address = $address->full_address;
+        $this->selectedAddressId = $address->id;
+        $this->useNewAddress = false;
+
+        // Reload addresses
+        $this->loadUserAddresses();
+    }
+
+    public function useExistingAddress(): void
+    {
+        $this->useNewAddress = false;
+        $this->newAddressLabel = '';
+        $this->newFullAddress = '';
+        $this->newProvince = '';
+        $this->newCity = '';
+        $this->newDistrict = '';
+        $this->newPostalCode = '';
+
+        // Restore selected address
+        if ($this->selectedAddressId) {
+            $this->selectAddress($this->selectedAddressId);
+        }
+    }
+
     public function placeOrder(): void
     {
         $this->validate([
@@ -62,6 +197,7 @@ class Checkout extends Component
         $order = DB::transaction(function () use ($items): Order {
             $order = Order::create([
                 'order_number' => 'FG-'.now()->format('YmdHis').'-'.str_pad((string) random_int(0, 999), 3, '0', STR_PAD_LEFT),
+                'user_id' => auth()->id(),
                 'customer_name' => $this->name,
                 'customer_phone' => $this->phone,
                 'customer_address' => $this->address,
@@ -70,6 +206,7 @@ class Checkout extends Component
                 'total_amount' => $this->cartTotal,
                 'status' => 'pending',
                 'placed_at' => now(),
+                'order_type' => Order::TYPE_CART,
             ]);
 
             $order->items()->createMany(array_map(
@@ -194,6 +331,9 @@ class Checkout extends Component
                         $order->update(['status' => 'paid']);
                         $order->refresh();
                         $order->payment->refresh();
+
+                        // Send payment success notification
+                        $this->sendPaymentSuccessNotification($order);
                     }
                 }
             }
@@ -308,6 +448,43 @@ class Checkout extends Component
     {
         // Force Livewire to re-render by toggling a dummy property
         $this->dispatch('cart-refreshed');
+    }
+
+    /**
+     * Send payment success notification to customer.
+     */
+    protected function sendPaymentSuccessNotification(Order $order): void
+    {
+        $user = $order->user;
+
+        if (!$user) {
+            return;
+        }
+
+        $orderNumber = $order->order_number;
+        $totalAmount = 'Rp ' . number_format($order->total_amount, 0, ',', '.');
+
+        // Create in-app notification
+        CustomerNotification::forPaymentSuccess($user->id, $orderNumber, $totalAmount);
+
+        // Send FCM push notification
+        try {
+            $fcmService = app(FcmService::class);
+            $fcmService->sendPaymentSuccessNotification(
+                $user,
+                $orderNumber,
+                $totalAmount,
+                $order->total_items
+            );
+        } catch (\Exception $e) {
+            \Log::error('Failed to send payment success notification', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Dispatch browser event to refresh notification dropdown
+        $this->dispatch('refresh-notifications');
     }
 
     public function render()

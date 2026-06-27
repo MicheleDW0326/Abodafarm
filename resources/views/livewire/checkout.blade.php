@@ -7,6 +7,12 @@
     cartItems: [],
 
     init() {
+        // Check if payment is already completed
+        @if ($this->paymentStatus && $this->paymentStatus['is_completed'])
+            this.showPaymentSuccessAlert();
+            return;
+        @endif
+
         // Load cart from localStorage
         this.cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
 
@@ -30,6 +36,21 @@
 
         // Check URL params for payment status
         this.checkPaymentFinish();
+    },
+
+    showPaymentSuccessAlert() {
+        Swal.fire({
+            icon: 'success',
+            title: 'Pembayaran Berhasil!',
+            html: 'Pesanan Anda sedang diproses. Anda akan diarahkan ke halaman utama.',
+            timer: 3000,
+            timerProgressBar: true,
+            showConfirmButton: false,
+            didClose: () => {
+                localStorage.removeItem('abodafarm_cart');
+                window.location.href = '{{ route('pelanggan.dashboard') }}';
+            }
+        });
     },
 
     checkSnapToken() {
@@ -106,6 +127,7 @@
                 console.log('Payment Success:', result);
                 component.paymentFinished = true;
                 component.$wire.refreshPaymentStatus();
+                component.showPaymentSuccessAlert();
             },
             onPending: function(result) {
                 console.log('Payment Pending:', result);
@@ -131,25 +153,6 @@
         }
     }
 }" class="min-h-screen bg-sky-50 py-12">
-
-    <!-- Payment Success Banner -->
-    @if ($this->paymentStatus && $this->paymentStatus['is_completed'])
-        <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <div class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
-                <div class="mx-auto mb-3 flex size-16 items-center justify-center rounded-full bg-emerald-100">
-                    <svg class="size-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                </div>
-                <h2 class="text-2xl font-bold text-emerald-800">Pembayaran Berhasil!</h2>
-                <p class="mt-2 text-emerald-700">Terima kasih! Pesanan kamu dengan nomor <span class="font-bold">{{ $placedOrderNumber }}</span> sedang diproses.</p>
-                <div class="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm text-slate-600">
-                    <span>ID Transaksi:</span>
-                    <span class="font-mono font-semibold">{{ $this->paymentStatus['transaction_id'] ?? 'N/A' }}</span>
-                </div>
-            </div>
-        </div>
-    @endif
 
     <div class="mx-auto grid max-w-6xl gap-8 px-4 sm:px-6 lg:grid-cols-5 lg:px-8">
         <section class="lg:col-span-3">
@@ -216,15 +219,101 @@
                             @error('phone') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                         </div>
 
-                        <div>
-                            <label class="mb-1 block text-sm font-semibold text-slate-700">Alamat Lengkap</label>
-                            <textarea wire:model="address" rows="4" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="Jalan, nomor rumah, kelurahan, kecamatan"></textarea>
-                            @error('address') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
-                        </div>
+                        <!-- Address Selection -->
+                        @if (count($userAddresses) > 0)
+                            <div>
+                                <label class="mb-2 block text-sm font-semibold text-slate-700">Pilih Alamat</label>
+                                <div class="space-y-2">
+                                    @foreach($userAddresses as $addr)
+                                        <label class="flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition hover:bg-slate-50 {{ $selectedAddressId == $addr['id'] ? 'border-sky-500 bg-sky-50' : 'border-slate-200' }}">
+                                            <input type="radio" name="address" value="{{ $addr['id'] }}" wire:model.live="selectedAddressId" wire:change="selectAddress({{ $addr['id'] }})" class="mt-1 size-4 text-sky-500">
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-sm font-semibold text-slate-800">{{ $addr['label'] }}</span>
+                                                    @if($addr['is_default'])
+                                                        <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">Utama</span>
+                                                    @endif
+                                                </div>
+                                                <p class="mt-1 text-xs text-slate-500">{{ $addr['address'] }}</p>
+                                                <p class="text-xs text-slate-400">{{ $addr['district'] }}, {{ $addr['city'] }}, {{ $addr['province'] }}</p>
+                                            </div>
+                                        </label>
+                                    @endforeach
+
+                                    @if(!$useNewAddress)
+                                        <button type="button" wire:click="showNewAddressForm" class="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 p-3 text-sm text-slate-500 transition hover:border-sky-400 hover:text-sky-600">
+                                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                            </svg>
+                                            Tambah alamat baru
+                                        </button>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- New Address Form -->
+                        @if($useNewAddress || count($userAddresses) == 0)
+                            <div class="space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4">
+                                <h4 class="text-sm font-semibold text-sky-800">Alamat Baru</h4>
+
+                                <div>
+                                    <label class="mb-1 block text-xs font-medium text-slate-600">Label Alamat</label>
+                                    <input wire:model="newAddressLabel" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" placeholder="Contoh: Rumah, Kantor">
+                                    @error('newAddressLabel') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                </div>
+
+                                <div>
+                                    <label class="mb-1 block text-xs font-medium text-slate-600">Alamat Lengkap</label>
+                                    <textarea wire:model="newFullAddress" rows="2" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none" placeholder="Jalan, nomor rumah, RT/RW"></textarea>
+                                    @error('newFullAddress') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="mb-1 block text-xs font-medium text-slate-600">Kota/Kabupaten</label>
+                                        <input wire:model="newCity" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none">
+                                        @error('newCity') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="mb-1 block text-xs font-medium text-slate-600">Kecamatan</label>
+                                        <input wire:model="newDistrict" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none">
+                                        @error('newDistrict') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="mb-1 block text-xs font-medium text-slate-600">Provinsi</label>
+                                        <input wire:model="newProvince" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none">
+                                        @error('newProvince') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                                    </div>
+                                    <div>
+                                        <label class="mb-1 block text-xs font-medium text-slate-600">Kode Pos</label>
+                                        <input wire:model="newPostalCode" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none">
+                                    </div>
+                                </div>
+
+                                @if(count($userAddresses) > 0)
+                                    <button type="button" wire:click="useExistingAddress" class="text-xs text-sky-600 hover:text-sky-800">
+                                        ← Kembali pilih alamat tersimpan
+                                    </button>
+                                @endif
+                            </div>
+                        @endif
+
+                        <!-- Manual Address Input (shown if no saved addresses) -->
+                        @if(count($userAddresses) == 0 && !$useNewAddress)
+                            <div>
+                                <label class="mb-1 block text-sm font-semibold text-slate-700">Alamat Lengkap</label>
+                                <textarea wire:model="address" rows="3" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="Jalan, nomor rumah, kelurahan, kecamatan"></textarea>
+                                @error('address') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
+                            </div>
+                        @endif
 
                         <div>
                             <label class="mb-1 block text-sm font-semibold text-slate-700">Catatan (opsional)</label>
-                            <textarea wire:model="notes" rows="3" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="Contoh: tolong potong fillet kecil"></textarea>
+                            <textarea wire:model="notes" rows="2" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="Contoh: tolong potong fillet kecil"></textarea>
                             @error('notes') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                         </div>
 
@@ -275,9 +364,32 @@
                             </div>
                         @endif
 
-                        <!-- Action Buttons -->
-                        <div class="flex flex-wrap gap-3">
-                            @if (!$this->paymentStatus || !$this->paymentStatus['is_completed'])
+                        <!-- Payment Completed Banner -->
+                        @if ($this->paymentStatus && $this->paymentStatus['is_completed'])
+                            <div class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+                                <div class="mx-auto mb-3 flex size-16 items-center justify-center rounded-full bg-emerald-100">
+                                    <svg class="size-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </div>
+                                <h2 class="text-xl font-bold text-emerald-800">Pembayaran Berhasil!</h2>
+                                <p class="mt-2 text-emerald-700">Terima kasih! Pesanan Anda sedang diproses.</p>
+                                <div class="mt-4 inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm text-slate-600">
+                                    <span>ID Transaksi:</span>
+                                    <span class="font-mono font-semibold">{{ $this->paymentStatus['transaction_id'] ?? 'N/A' }}</span>
+                                </div>
+                                <div class="mt-4">
+                                    <a href="{{ route('pelanggan.dashboard') }}" class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600">
+                                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                                        </svg>
+                                        Kembali ke Dashboard
+                                    </a>
+                                </div>
+                            </div>
+                        @else
+                            <!-- Action Buttons -->
+                            <div class="flex flex-wrap gap-3">
                                 <button
                                     wire:click="openPaymentModal"
                                     @if($isLoadingPayment) disabled @endif
@@ -295,17 +407,17 @@
                                         Bayar Sekarang
                                     @endif
                                 </button>
-                            @endif
 
-                            <button
-                                wire:click="refreshPaymentStatus"
-                                class="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                                <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                </svg>
-                                Cek Status
-                            </button>
-                        </div>
+                                <button
+                                    wire:click="refreshPaymentStatus"
+                                    class="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                    </svg>
+                                    Cek Status
+                                </button>
+                            </div>
+                        @endif
                     </div>
                 @endif
             </div>

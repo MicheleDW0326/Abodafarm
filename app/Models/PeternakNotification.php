@@ -48,6 +48,9 @@ class PeternakNotification extends Model
             'payment_verified' => 'fa-solid fa-check-circle text-green-500',
             'livestock_sold' => 'fa-solid fa-hand-holding-dollar text-emerald-500',
             'review' => 'fa-solid fa-star text-yellow-500',
+            'new_booking' => 'fa-solid fa-calendar-check text-amber-500',
+            'booking_approved' => 'fa-solid fa-circle-check text-green-500',
+            'booking_rejected' => 'fa-solid fa-circle-xmark text-red-500',
             default => 'fa-solid fa-bell text-gray-500',
         };
     }

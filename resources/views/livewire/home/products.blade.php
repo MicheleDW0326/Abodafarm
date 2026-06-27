@@ -108,7 +108,7 @@
             {{-- Ternak Hidup (Inquiry) --}}
             <template x-if="activeTab === 'live'">
                 <div class="contents">
-                    @foreach ($productsLive as $index => $product)
+                    @foreach ($filteredLiveProducts as $index => $product)
                         <article
                             class="overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-md shadow-emerald-50">
                             <div class="relative">
@@ -926,4 +926,85 @@
             </div>
         </div>
     </div>
+
+    {{-- Success Modal --}}
+    @if($showSuccessModal)
+        <div x-data="{ show: true }"
+             x-show="show"
+             x-on:keydown.escape.window="show = false; @this.closeSuccessModal()"
+             class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition ease-in duration-200"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0">
+            <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+                 x-show="show"
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0 scale-95"
+                 x-transition:enter-end="opacity-100 scale-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100 scale-100"
+                 x-transition:leave-end="opacity-0 scale-95">
+                {{-- Success Animation --}}
+                <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 p-8 text-center">
+                    <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-white/20">
+                        <svg class="h-10 w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                    <h3 class="mt-4 text-xl font-bold text-white">Booking Berhasil!</h3>
+                    <p class="mt-2 text-emerald-100">Permintaan booking Anda telah diajukan</p>
+                </div>
+
+                {{-- Content --}}
+                <div class="p-6">
+                    {{-- Booking Details --}}
+                    <div class="rounded-xl bg-slate-50 p-4">
+                        <div class="mb-3 flex items-center justify-between">
+                            <span class="text-sm text-slate-500">Kode Booking</span>
+                            <span class="font-mono font-bold text-emerald-600">{{ $lastBookingNumber }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-slate-500">Ternak</span>
+                            <span class="font-medium text-slate-900">{{ $lastBookingProduct }}</span>
+                        </div>
+                    </div>
+
+                    {{-- Info --}}
+                    <div class="mt-4 flex items-start gap-3 rounded-xl bg-amber-50 p-4">
+                        <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                        </svg>
+                        <div class="text-sm text-amber-700">
+                            <p class="font-medium">Langkah Selanjutnya:</p>
+                            <ul class="mt-1 space-y-1 text-amber-600">
+                                <li>1. Peternak akan meninjau booking Anda</li>
+                                <li>2. Anda akan menerima notifikasi via WhatsApp</li>
+                                <li>3. Hubungi peternak untuk detail pembayaran</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    {{-- Actions --}}
+                    <div class="mt-6 flex gap-3">
+                        <a href="{{ route('pelanggan.bookings') }}"
+                           class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                            </svg>
+                            Lihat Booking Saya
+                        </a>
+                        <button type="button"
+                                wire:click="closeSuccessModal()"
+                                @click="show = false"
+                                class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition-all hover:from-emerald-600 hover:to-emerald-700">
+                            Selesai
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </section>
