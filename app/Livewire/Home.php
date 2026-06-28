@@ -6,11 +6,9 @@ use App\Models\{Category, Faq, FarmStatistic, HeroSlide, Product, Testimonial};
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.guest-home')]
-#[Title('AbodaFarm')]
 class Home extends Component
 {
     public string $search = '';

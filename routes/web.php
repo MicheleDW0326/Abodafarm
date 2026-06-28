@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\CustomAuthenticatedSessionController;
 use App\Livewire\Admin\CustomerManagement;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
 use App\Livewire\Admin\FinancialReport;
@@ -37,6 +38,11 @@ use App\Livewire\Admin\FarmerVerification;
 use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+// Custom logout route (Fortify will use our custom controller for login)
+Route::middleware('auth')->group(function () {
+    Route::post('/logout', [CustomAuthenticatedSessionController::class, 'destroy'])->name('logout');
+});
 
 Route::get('/', Home::class)->name('home');
 Route::get('/tentang-kami', About::class)->name('about');

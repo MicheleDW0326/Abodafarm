@@ -18,7 +18,11 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Override Fortify's default login controller with our custom one
+        $this->app->singleton(
+            \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::class,
+            \App\Http\Controllers\Auth\CustomAuthenticatedSessionController::class
+        );
     }
 
     /**

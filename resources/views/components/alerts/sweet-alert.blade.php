@@ -19,8 +19,10 @@
         });
 
         // Listen untuk confirm dialog - call server method via wire:id
-        Livewire.on('showConfirm', (data) => {
+        // Data[1] contains the component id from Livewire event system
+        Livewire.on('showConfirm', (data, componentId) => {
             const { title, message, confirmText = 'Ya', cancelText = 'Tidak', confirmAction } = data[0];
+            const sourceComponentId = componentId || data[1];
 
             Swal.fire({
                 title: title || 'Konfirmasi',
@@ -33,10 +35,13 @@
                 cancelButtonText: cancelText
             }).then((result) => {
                 if (result.isConfirmed && confirmAction) {
-                    // Find the Livewire component and call the method
-                    const component = Livewire.first();
+                    // Use the component that dispatched the event
+                    const component = sourceComponentId ? Livewire.find(sourceComponentId) : Livewire.first();
+
                     if (component && typeof component.call === 'function') {
                         component.call(confirmAction);
+                    } else {
+                        console.error('Livewire component not found for action:', confirmAction);
                     }
                 }
             });
