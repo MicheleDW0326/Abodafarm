@@ -185,7 +185,8 @@ class ProductManagement extends Component
             'title' => 'Konfirmasi Hapus',
             'message' => 'Apakah Anda yakin ingin menghapus produk ini?',
             'confirmText' => 'Ya, Hapus',
-            'confirmAction' => 'deleteProductConfirmed'
+            'confirmAction' => 'deleteProductConfirmed',
+            'componentId' => $this->id(),
         ]);
     }
 
@@ -302,7 +303,8 @@ class ProductManagement extends Component
             'title' => 'Konfirmasi Hapus',
             'message' => 'Apakah Anda yakin ingin menghapus kategori ini?',
             'confirmText' => 'Ya, Hapus',
-            'confirmAction' => 'deleteCategoryConfirmed'
+            'confirmAction' => 'deleteCategoryConfirmed',
+            'componentId' => $this->id(),
         ]);
     }
 

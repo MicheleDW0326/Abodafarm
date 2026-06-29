@@ -137,7 +137,8 @@ class StaffManagement extends Component
             'title' => 'Konfirmasi Hapus',
             'message' => 'Apakah Anda yakin ingin menghapus user ini?',
             'confirmText' => 'Ya, Hapus',
-            'confirmAction' => 'deleteUserConfirmed'
+            'confirmAction' => 'deleteUserConfirmed',
+            'componentId' => $this->id(),
         ]);
     }
 

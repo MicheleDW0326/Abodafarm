@@ -45,25 +45,30 @@ trait ProfileValidationRules
      */
     protected function emailRules(?int $userId = null): array
     {
-        $disposableDomains = [
-            'mailinator.com', 'tempmail.com', 'throwaway.email', 'guerrillamail.com',
-            'guerrillamail.org', 'guerrillamail.net', 'sharklasers.com', 'grr.la',
-            'trashmail.com', 'trashmail.net', 'fakeinbox.com', 'mailnesia.com',
-            'tempmailaddress.com', 'getnada.com', 'getairmail.com', 'yopmail.com',
-            '10minutemail.com', '10minutemail.net', 'temp-mail.org', 'tempail.com',
-            'moakt.com', 'fake.com', 'sss.com', 'ssss.com', 'test.com', 'aaaa.com',
-            'abc.com', 'test123.com', 'asdf.com', 'qwerty.com',
-        ];
-
         return [
             'required',
             'string',
-            'email:rfc,dns', // RFC validation + DNS check for MX records
+            'email:rfc,dns',
             'max:255',
-            Rule::excludeIf(function ($attribute, $value) use ($disposableDomains) {
-                $domain = strtolower(explode('@', $value)[1] ?? '');
-                return in_array($domain, $disposableDomains);
-            }),
+            new class implements ValidationRule {
+                protected array $disposableDomains = [
+                    'mailinator.com', 'tempmail.com', 'throwaway.email', 'guerrillamail.com',
+                    'guerrillamail.org', 'guerrillamail.net', 'sharklasers.com', 'grr.la',
+                    'trashmail.com', 'trashmail.net', 'fakeinbox.com', 'mailnesia.com',
+                    'tempmailaddress.com', 'getnada.com', 'getairmail.com', 'yopmail.com',
+                    '10minutemail.com', '10minutemail.net', 'temp-mail.org', 'tempail.com',
+                    'moakt.com', 'fake.com', 'sss.com', 'ssss.com', 'test.com', 'aaaa.com',
+                    'abc.com', 'test123.com', 'asdf.com', 'qwerty.com',
+                ];
+
+                public function validate(string $attribute, mixed $value, \Closure $fail): void
+                {
+                    $domain = strtolower(explode('@', $value)[1] ?? '');
+                    if (in_array($domain, $this->disposableDomains)) {
+                        $fail('Domain email tidak valid. Gunakan email aktif.');
+                    }
+                }
+            },
             $userId === null
                 ? Rule::unique(User::class)
                 : Rule::unique(User::class)->ignore($userId),

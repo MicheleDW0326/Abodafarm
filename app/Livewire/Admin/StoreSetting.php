@@ -169,7 +169,8 @@ class StoreSetting extends Component
             'title' => 'Konfirmasi Hapus',
             'message' => 'Apakah Anda yakin ingin menghapus data ini?',
             'confirmText' => 'Ya, Hapus',
-            'confirmAction' => 'deleteConfirmed'
+            'confirmAction' => 'deleteConfirmed',
+            'componentId' => $this->id(),
         ]);
     }
 
