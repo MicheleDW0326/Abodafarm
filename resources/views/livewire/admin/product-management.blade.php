@@ -61,7 +61,7 @@
                     :class="typeFilter === 'all' ? 'bg-emerald-100 text-emerald-700 border-emerald-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
                     class="px-3 py-2 text-xs font-medium rounded-lg border transition-all"
                 >
-                    Semua ({{ $liveProductsCount + $freshProductsCount }})
+                    Semua ({{ $liveProductsCount + $freshProductsCount + $supplyProductsCount }})
                 </button>
                 <button
                     @click="typeFilter = 'live'"
@@ -76,6 +76,13 @@
                     class="px-3 py-2 text-xs font-medium rounded-lg border transition-all"
                 >
                     <i class="fa-solid fa-drumstick-bite mr-1"></i>Daging ({{ $freshProductsCount }})
+                </button>
+                <button
+                    @click="typeFilter = 'supply'"
+                    :class="typeFilter === 'supply' ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+                    class="px-3 py-2 text-xs font-medium rounded-lg border transition-all"
+                >
+                    <i class="fa-solid fa-box-open mr-1"></i>Barang ({{ $supplyProductsCount }})
                 </button>
             </div>
 
@@ -134,9 +141,13 @@
                                         <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">
                                             <i class="fa-solid fa-cow mr-1"></i>Ternak Hidup
                                         </span>
-                                    @else
+                                    @elseif($product->type === 'fresh')
                                         <span class="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700">
                                             <i class="fa-solid fa-drumstick-bite mr-1"></i>Daging Segar
+                                        </span>
+                                    @elseif($product->type === 'supply')
+                                        <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
+                                            <i class="fa-solid fa-box-open mr-1"></i>Pakan & Perlengkapan
                                         </span>
                                     @endif
                                 </td>
@@ -350,8 +361,8 @@
     <div x-show="activeTab === 'categories'" x-transition class="space-y-4">
         <div class="flex items-center justify-between">
             <div>
-                <h3 class="text-lg font-semibold text-slate-900">Daftar Kategori</h3>
-                <p class="text-sm text-slate-500">Kelola kategori produk</p>
+                <h3 class="text-lg font-semibold text-slate-900">Kategori</h3>
+                <p class="text-sm text-slate-500">Kelola kategori produk di halaman utama</p>
             </div>
             <button
                 wire:click="openCategoryModal()"
@@ -360,62 +371,83 @@
                 <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 5v14M5 12h14" stroke-linecap="round" />
                 </svg>
-                Tambah Kategori
+                Tambah
             </button>
         </div>
 
-        <div class="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            @foreach ($categories as $category)
-                <div class="group rounded-lg border-2 border-slate-200 bg-white p-4 transition-all duration-300 hover:border-emerald-500 hover:shadow-lg">
-                    <div class="flex items-start justify-between">
-                        <div class="flex items-center gap-3">
-                            @if($category->icon)
-                                <div class="flex size-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
-                                    <i class="{{ $category->icon }}"></i>
+        <div class="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <table class="w-full">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">Kategori</th>
+                        <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">Slug</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold uppercase text-slate-600">Produk</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold uppercase text-slate-600">Status</th>
+                        <th class="px-4 py-3 text-center text-xs font-semibold uppercase text-slate-600">Urutan</th>
+                        <th class="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-600">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse($categories as $cat)
+                        <tr class="hover:bg-slate-50/50">
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-3">
+                                    @if($cat->image_url)
+                                        <img src="{{ $cat->image_url }}" alt="{{ $cat->name }}" class="size-10 rounded-lg object-cover" />
+                                    @else
+                                        <div class="flex size-10 items-center justify-center rounded-lg bg-emerald-100 text-lg">
+                                            {{ $cat->icon ?: '📦' }}
+                                        </div>
+                                    @endif
+                                    <div>
+                                        <p class="font-medium text-slate-900">{{ $cat->name }}</p>
+                                        <p class="text-xs text-slate-500 line-clamp-1">{{ Str::limit($cat->description, 50) }}</p>
+                                    </div>
                                 </div>
-                            @endif
-                            <div>
-                                <h4 class="font-semibold text-slate-900">{{ $category->name }}</h4>
-                                <p class="text-xs text-slate-500">{{ $category->products()->count() }} produk</p>
-                            </div>
-                        </div>
-                        <div class="flex gap-1">
-                            <button
-                                wire:click="openCategoryModal({{ $category->id }})"
-                                class="rounded p-1.5 text-slate-400 transition-all duration-300 hover:bg-blue-100 hover:text-blue-600"
-                            >
-                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke-linecap="round" stroke-linejoin="round" />
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </button>
-                            @if($category->products()->count() === 0)
-                                <button
-                                    wire:click="confirmDeleteCategory({{ $category->id }})"
-                                    class="rounded p-1.5 text-slate-400 transition-all duration-300 hover:bg-red-100 hover:text-red-600"
-                                >
-                                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6h16z" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
+                            </td>
+                            <td class="px-4 py-3">
+                                <code class="rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">{{ $cat->slug }}</code>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-sm font-medium text-slate-600">
+                                    {{ $cat->products()->count() }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <button wire:click="toggleCategoryActive({{ $cat->id }})" class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition {{ $cat->is_active ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
+                                    @if($cat->is_active)
+                                        <i class="fa-solid fa-check-circle"></i> Aktif
+                                    @else
+                                        <i class="fa-solid fa-times-circle"></i> Nonaktif
+                                    @endif
                                 </button>
-                            @endif
-                        </div>
-                    </div>
-                    @if($category->description)
-                        <p class="mt-2 text-xs text-slate-500">{{ Str::limit($category->description, 80) }}</p>
-                    @endif
-                    <div class="mt-3 flex items-center gap-2">
-                        @if($category->is_active)
-                            <span class="rounded bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">Aktif</span>
-                        @else
-                            <span class="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">Nonaktif</span>
-                        @endif
-                        @if($category->slug)
-                            <span class="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">/{{ $category->slug }}</span>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="text-sm text-slate-600">{{ $cat->sort_order }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <div class="flex justify-end gap-1">
+                                    <button wire:click="openCategoryModal({{ $cat->id }})" class="rounded p-2 text-slate-400 hover:bg-blue-100 hover:text-blue-600">
+                                        <i class="fa-solid fa-edit"></i>
+                                    </button>
+                                    <button wire:click="confirmDeleteCategory({{ $cat->id }})" class="rounded p-2 text-slate-400 hover:bg-red-100 hover:text-red-600">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-4 py-12 text-center">
+                                <div class="text-slate-400">
+                                    <i class="fa-solid fa-layer-group text-4xl mb-3"></i>
+                                    <p>Belum ada kategori</p>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
     </div>
 

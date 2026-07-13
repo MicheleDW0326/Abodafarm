@@ -1,13 +1,31 @@
 <div
     x-data="{
         show: true,
+        isImportantPage: false,
         init() {
+            const importantRoutes = ['checkout', 'payment', 'login', 'logout', 'register', 'confirmation'];
+            const currentPath = window.location.pathname;
+            this.isImportantPage = importantRoutes.some(route => currentPath.includes(route));
+
+            // Check if this is initial page load or navigation
+            const hasVisited = sessionStorage.getItem('abodafarm.visited');
+
+            if (hasVisited && !this.isImportantPage) {
+                // Already visited and not important - skip splash screen
+                this.show = false;
+                document.getElementById('splash-screen')?.remove();
+                return;
+            }
+
+            // First visit OR important page - show splash screen
+            sessionStorage.setItem('abodafarm.visited', 'true');
+
             setTimeout(() => {
                 this.show = false;
                 setTimeout(() => {
                     document.getElementById('splash-screen')?.remove();
-                }, 800);
-            }, 2500);
+                }, 700);
+            }, this.isImportantPage ? 1500 : 2500);
         }
     }"
     x-show="show"

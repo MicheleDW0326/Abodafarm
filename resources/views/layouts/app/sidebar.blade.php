@@ -156,24 +156,22 @@
         {{-- Expanded Menu with Submenus --}}
         <div x-show="!sidebarCollapsed" x-cloak class="space-y-1">
             @foreach ($menuItems as $index => $item)
-                @php($isActive = isset($item['route']) && (request()->routeIs($item['route']) || request()->routeIs($item['route'] . '.*')))
                 @php($hasSubmenu = isset($item['submenu']) && is_array($item['submenu']) && count($item['submenu']) > 0)
+                @php($routePattern = isset($item['route']) ? '\/' . str_replace('.', '\/', $item['route']) : '')
 
                 @if ($hasSubmenu)
                     {{-- Parent menu with submenu --}}
-                    <div x-data="{ open: {{ $isActive ? 'true' : 'false' }} }" class="space-y-1">
+                    <div x-data="{ open: isRouteActive('{{ $routePattern }}') }" class="space-y-1">
                         <button type="button"
-                            class="sidebar-menu-item group relative flex w-full items-center justify-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 hover:bg-white/10 hover:translate-x-1"
-                            :class="open ? 'bg-gradient-to-r from-emerald-500/40 to-emerald-600/20 text-emerald-300' :
-                                'text-white/70 hover:text-white'"
+                            class="sidebar-menu-item group relative flex w-full items-center justify-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 hover:bg-white/10"
+                            :class="(open || isRouteActive('{{ $routePattern }}')) ? 'bg-gradient-to-r from-emerald-500/30 to-emerald-600/10 text-emerald-300 translate-x-1' : 'text-white/70'"
                             @click="open = !open">
-                            @if ($isActive)
-                                <span
-                                    class="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50"></span>
-                            @endif
                             <span
-                                class="grid size-5 shrink-0 place-content-center text-white/70 transition-transform duration-300"
-                                :class="open ? 'text-emerald-300' : 'group-hover:scale-110'">
+                                class="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50 transition-all duration-300"
+                                :class="(open || isRouteActive('{{ $routePattern }}')) ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0'"></span>
+                            <span
+                                class="grid size-5 shrink-0 place-content-center transition-all duration-300"
+                                :class="(open || isRouteActive('{{ $routePattern }}')) ? 'text-emerald-300 scale-110' : 'text-white/70 group-hover:scale-110'">
                                 @include('livewire.icons.' . str_replace('.', '/', $item['icon']))
                             </span>
                             <span class="flex-1 text-left">{{ $item['label'] }}</span>
@@ -186,13 +184,8 @@
 
                         <div x-show="open" x-collapse class="pl-4 space-y-0.5">
                             @foreach ($item['submenu'] as $subItem)
-                                @php($subActive = request()->routeIs($subItem['route']) || request()->routeIs($subItem['route'] . '.*'))
-                                <a href="{{ $subItem['url'] }}"
-                                    class="sidebar-submenu-item group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white/10 hover:translate-x-1"
-                                    @class([
-                                        'bg-emerald-500/30 text-emerald-300 border-l-2 border-emerald-400' => $subActive,
-                                        'text-white/60 hover:text-white border-l-2 border-transparent hover:border-emerald-400/50' => !$subActive,
-                                    ])>
+                                <a href="{{ $subItem['url'] }}" wire:navigate
+                                    class="sidebar-submenu-item group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 hover:bg-white/10 text-white/60 hover:text-white border-l-2 border-transparent hover:border-emerald-400/50">
                                     <span
                                         class="grid size-4 shrink-0 place-content-center text-white/60 transition-transform duration-300 group-hover:scale-110 group-hover:text-white">
                                         @include('livewire.icons.' . str_replace('.', '/', $subItem['icon']))
@@ -204,21 +197,18 @@
                     </div>
                 @else
                     {{-- Single menu item --}}
-                    <a href="{{ $item['url'] }}"
-                        class="sidebar-menu-item group relative flex items-center justify-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 hover:bg-white/10 hover:translate-x-1"
-                        @class([
-                            'bg-gradient-to-r from-emerald-500/40 to-emerald-600/20 text-emerald-300 shadow-lg shadow-emerald-500/20' => $isActive,
-                            'text-white/70 hover:text-white' => !$isActive,
-                        ])>
-                        @if ($isActive)
-                            <span
-                                class="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50"></span>
-                        @endif
+                    <a href="{{ $item['url'] }}" wire:navigate
+                        class="sidebar-menu-item group relative flex items-center justify-start gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300 hover:bg-white/10"
+                        :class="isRouteActive('{{ $routePattern }}') ? 'bg-gradient-to-r from-emerald-500/30 to-emerald-600/10 text-emerald-300 shadow-lg shadow-emerald-500/10 translate-x-1' : 'text-white/70'">
                         <span
-                            class="grid size-5 shrink-0 place-content-center text-white/70 transition-transform duration-300 group-hover:scale-110 group-hover:text-white">
+                            class="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50 transition-all duration-300"
+                            :class="isRouteActive('{{ $routePattern }}') ? 'opacity-100 scale-y-100' : 'opacity-0 scale-y-0'"></span>
+                        <span
+                            class="grid size-5 shrink-0 place-content-center transition-all duration-300"
+                            :class="isRouteActive('{{ $routePattern }}') ? 'text-emerald-300 scale-110' : 'text-white/70 group-hover:scale-110'">
                             @include('livewire.icons.' . $item['icon'])
                         </span>
-                        <span class="inline-flex whitespace-nowrap text-white/70">{{ $item['label'] }}</span>
+                        <span class="inline-flex whitespace-nowrap">{{ $item['label'] }}</span>
                     </a>
                 @endif
             @endforeach
@@ -227,18 +217,18 @@
         {{-- Collapsed Menu - Icon Grid --}}
         <div x-show="sidebarCollapsed" x-cloak class="space-y-1">
             @foreach ($menuItems as $index => $item)
-                @php($isActive = isset($item['route']) && (request()->routeIs($item['route']) || request()->routeIs($item['route'] . '.*')))
                 @php($hasSubmenu = isset($item['submenu']) && is_array($item['submenu']) && count($item['submenu']) > 0)
+                @php($routePattern = isset($item['route']) ? '\/' . str_replace('.', '\/', $item['route']) : '')
 
                 @if ($hasSubmenu)
                     <div x-data="{ open: false }" class="relative">
                         <button type="button"
-                            class="sidebar-menu-item group relative flex items-center justify-center rounded-xl w-10 h-10 mx-auto transition-all duration-300 hover:bg-white/10"
-                            :class="open ? 'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-400/50' :
-                                'text-white/70 hover:text-white'"
+                            class="sidebar-menu-item group relative flex items-center justify-center rounded-xl w-11 h-11 mx-auto transition-all duration-300"
+                            :class="(open || isRouteActive('{{ $routePattern }}')) ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/50 scale-110' : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'"
                             @click="open = !open">
                             <span
-                                class="grid size-5 place-content-center text-white/70 transition-transform duration-300 group-hover:scale-110 group-hover:text-white">
+                                class="grid size-5 place-content-center transition-transform duration-300"
+                                :class="(open || isRouteActive('{{ $routePattern }}')) ? 'scale-110' : 'group-hover:scale-110'">
                                 @include('livewire.icons.' . str_replace('.', '/', $item['icon']))
                             </span>
 
@@ -260,9 +250,8 @@
                             <div class="px-3 py-1.5 text-xs font-semibold text-white/40 uppercase tracking-wider">
                                 {{ $item['label'] }}</div>
                             @foreach ($item['submenu'] as $subItem)
-                                @php($subActive = request()->routeIs($subItem['route']) || request()->routeIs($subItem['route'] . '.*'))
-                                <a href="{{ $subItem['url'] }}"
-                                    class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors @if ($subActive) bg-emerald-500/30 text-emerald-300 @else text-white/70 hover:bg-white/10 hover:text-white @endif">
+                                <a href="{{ $subItem['url'] }}" wire:navigate
+                                    class="flex items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-white/10 hover:text-white">
                                     <span class="grid size-4 place-content-center">
                                         @include('livewire.icons.' . str_replace('.', '/', $subItem['icon']))
                                     </span>
@@ -272,16 +261,19 @@
                         </div>
                     </div>
                 @else
-                    <a href="{{ $item['url'] }}"
-                        class="sidebar-menu-item group relative flex items-center justify-center rounded-xl w-10 h-10 mx-auto transition-all duration-300 hover:bg-white/10"
-                        @class([
-                            'bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-400/50' => $isActive,
-                            'text-white/70 hover:text-white' => !$isActive,
-                        ])>
+                    <a href="{{ $item['url'] }}" wire:navigate
+                        class="sidebar-menu-item group relative flex items-center justify-center rounded-xl w-11 h-11 mx-auto transition-all duration-300"
+                        :class="isRouteActive('{{ $routePattern }}') ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/50 scale-110' : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'">
                         <span
-                            class="grid size-5 place-content-center text-white/70 transition-transform duration-300 group-hover:scale-110 group-hover:text-white">
+                            class="grid size-5 place-content-center transition-transform duration-300"
+                            :class="isRouteActive('{{ $routePattern }}') ? 'scale-110' : 'group-hover:scale-110'">
                             @include('livewire.icons.' . $item['icon'])
                         </span>
+
+                        {{-- Glow ring effect --}}
+                        <span
+                            class="absolute inset-0 rounded-xl bg-emerald-400/20 blur-md transition-opacity duration-300"
+                            :class="isRouteActive('{{ $routePattern }}') ? 'opacity-100 animate-pulse' : 'opacity-0'"></span>
 
                         <span
                             class="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 translate-x-2 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-white opacity-0 shadow-lg ring-1 ring-white/10 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100">
@@ -312,7 +304,8 @@
 
             <div x-show="accountMenuOpen" x-transition
                 class="absolute bottom-full left-0 right-0 mb-2 rounded-lg border border-white/10 bg-slate-900 shadow-xl overflow-hidden z-50">
-                <a href="#"
+                @if($user?->hasRole('admin'))
+                <a href="{{ route('admin.account-settings') }}"
                     class="block w-full px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white flex items-center gap-2 group">
                     <svg class="size-4 text-white/60 group-hover:text-white" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2">
@@ -321,6 +314,7 @@
                     </svg>
                     Pengaturan Akun
                 </a>
+                @endif
                 <form method="POST" action="{{ route('logout') }}" class="block">
                     @csrf
                     <button type="submit"
@@ -341,7 +335,8 @@
         <div class="relative">
             <div x-show="accountMenuOpen" x-transition
                 class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 flex flex-col gap-1 z-50">
-                <a href="#"
+                @if($user?->hasRole('admin'))
+                <a href="{{ route('admin.account-settings') }}"
                     class="account-menu-item group flex items-center justify-center size-10 rounded-lg bg-white/10 text-white/60 transition hover:bg-emerald-500 hover:text-white hover:shadow-lg hover:shadow-emerald-500/50"
                     style="animation-delay: 0ms">
                     <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -349,6 +344,7 @@
                             stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </a>
+                @endif
                 <form method="POST" action="{{ route('logout') }}" class="block">
                     @csrf
                     <button type="submit"

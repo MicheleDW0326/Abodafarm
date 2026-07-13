@@ -388,19 +388,21 @@
                                 <input
                                     type="text"
                                     wire:model="barnLocation"
-                                    placeholder="Contoh: Kandang A1"
-                                    class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                    placeholder="Terisi otomatis dari profil peternakan"
+                                    class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-slate-50"
                                 />
+                                <p class="mt-1 text-xs text-slate-500">Otomatis dari alamat peternakan</p>
                             </div>
 
                             <div>
-                                <label class="mb-1.5 block text-sm font-medium text-slate-700">Asal</label>
+                                <label class="mb-1.5 block text-sm font-medium text-slate-700">Asal Peternakan</label>
                                 <input
                                     type="text"
                                     wire:model="origin"
-                                    placeholder="Contoh: Talaud"
-                                    class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                                    placeholder="Terisi otomatis dari nama peternakan"
+                                    class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 bg-slate-50"
                                 />
+                                <p class="mt-1 text-xs text-slate-500">Otomatis dari nama peternakan</p>
                             </div>
 
                             <div>

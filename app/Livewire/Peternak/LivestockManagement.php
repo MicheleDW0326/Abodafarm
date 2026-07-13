@@ -3,6 +3,7 @@
 namespace App\Livewire\Peternak;
 
 use App\Models\Category;
+use App\Models\FarmProfile;
 use App\Models\Product;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
@@ -47,12 +48,38 @@ class LivestockManagement extends Component
 
     public function mount()
     {
-        //
+        // Load farm profile for auto-sync
+        $this->syncFromFarmProfile();
+    }
+
+    /**
+     * Sync barn location and origin from farm profile
+     * - Origin: farm_name
+     * - Barn Location: address, fallback to village
+     */
+    protected function syncFromFarmProfile(): void
+    {
+        $farmProfile = FarmProfile::where('user_id', auth()->id())->first();
+
+        if ($farmProfile) {
+            // Origin = farm_name
+            $this->origin = $farmProfile->farm_name ?? '';
+
+            // Barn Location = address, fallback to village
+            $this->barnLocation = $farmProfile->address
+                ?: ($farmProfile->village
+                    ? "{$farmProfile->village}" . ($farmProfile->district ? ", {$farmProfile->district}" : '')
+                    : '');
+        } else {
+            $this->origin = '';
+            $this->barnLocation = '';
+        }
     }
 
     public function openModal(?int $id = null)
     {
         if ($id) {
+            // Edit existing livestock - keep existing values
             $product = Product::where('owner_id', auth()->id())->findOrFail($id);
             $this->editingId = $product->id;
             $this->name = $product->name;
@@ -70,7 +97,9 @@ class LivestockManagement extends Component
             $this->existingImage = $product->image;
             $this->gallery = $product->images ?? [];
         } else {
+            // New livestock - sync from farm profile
             $this->resetForm();
+            $this->syncFromFarmProfile();
         }
         $this->showModal = true;
     }

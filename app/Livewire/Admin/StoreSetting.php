@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Models\Category;
 use App\Models\DeliveryArea;
 use App\Models\Faq;
 use App\Models\FarmStatistic;
@@ -20,7 +21,7 @@ class StoreSetting extends Component
     use WithFileUploads;
 
     // Tab
-    public string $activeTab = 'testimonials';
+    public string $activeTab = 'categories';
 
     // Delete Confirmation
     public ?int $pendingDeleteId = null;

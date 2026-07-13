@@ -1,4 +1,6 @@
-<div class="min-h-screen bg-gradient-to-b from-sky-50 via-white to-emerald-50">
+<div class="min-h-screen bg-gradient-to-b from-sky-50 via-white to-emerald-50"
+    x-data="{ activeRoute: '' }"
+    x-init="activeRoute = window.location.pathname; window.addEventListener('livewire:navigated', () => activeRoute = window.location.pathname)">
     <!-- Topbar Navigation -->
     <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm">
         <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,15 +22,34 @@
                 <!-- Desktop Navigation -->
                 <div class="hidden md:flex items-center gap-8">
                     <a href="{{ route('home') }}"
-                        class="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">Beranda</a>
+                        class="relative text-sm font-medium transition-colors"
+                        :class="activeRoute === '/' || activeRoute === '/home' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'">
+                        Beranda
+                        <span x-show="activeRoute === '/' || activeRoute === '/home'" class="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-emerald-500"></span>
+                    </a>
                     <a href="{{ route('home') }}#produk"
-                        class="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">Produk</a>
+                        class="relative text-sm font-medium transition-colors"
+                        :class="activeRoute.includes('/produk') ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'">
+                        Produk
+                        <span x-show="activeRoute.includes('/produk')" class="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-emerald-500"></span>
+                    </a>
                     <a href="{{ route('home') }}#tentang"
-                        class="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">Tentang</a>
+                        class="relative text-sm font-medium transition-colors"
+                        :class="activeRoute.includes('/about') ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'">
+                        Tentang
+                        <span x-show="activeRoute.includes('/about')" class="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-emerald-500"></span>
+                    </a>
                     <a href="{{ route('home') }}#faq"
-                        class="text-sm font-medium text-slate-600 hover:text-emerald-600 transition-colors">FAQ</a>
+                        class="relative text-sm font-medium transition-colors"
+                        :class="activeRoute.includes('/faq') ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'">
+                        FAQ
+                        <span x-show="activeRoute.includes('/faq')" class="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-emerald-500"></span>
+                    </a>
                     <a href="{{ route('contact') }}"
-                        class="text-sm font-semibold text-emerald-600">{{-- Route::is('contact') ? 'text-emerald-600' : '' --}}Hubungi</a>
+                        class="relative text-sm font-medium transition-colors text-emerald-600">
+                        Hubungi
+                        <span class="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-emerald-500"></span>
+                    </a>
                 </div>
 
                 <!-- CTA Button -->

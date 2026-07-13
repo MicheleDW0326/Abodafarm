@@ -43,7 +43,7 @@
                 {{-- Product Type Selection --}}
                 <div>
                     <label class="block text-sm font-semibold text-slate-900 mb-2">Tipe Produk</label>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-3 gap-3">
                         <button
                             type="button"
                             wire:click="$set('productType', 'live')"
@@ -51,7 +51,7 @@
                             class="flex items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 transition-all"
                         >
                             <i class="fa-solid fa-cow"></i>
-                            <span class="font-medium">Ternak Hidup</span>
+                            <span class="font-medium">Ternak</span>
                         </button>
                         <button
                             type="button"
@@ -60,7 +60,16 @@
                             class="flex items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 transition-all"
                         >
                             <i class="fa-solid fa-drumstick-bite"></i>
-                            <span class="font-medium">Daging Segar</span>
+                            <span class="font-medium">Daging</span>
+                        </button>
+                        <button
+                            type="button"
+                            wire:click="$set('productType', 'supply')"
+                            :class="$wire.productType === 'supply' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 hover:border-amber-300'"
+                            class="flex items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 transition-all"
+                        >
+                            <i class="fa-solid fa-box-open"></i>
+                            <span class="font-medium">Barang</span>
                         </button>
                     </div>
                 </div>
@@ -87,6 +96,17 @@
                             @endforeach
                         </select>
                         @error('productCategory') <span class="text-red-600 text-xs">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-900 mb-1">Peternak (Pemilik)</label>
+                        <select wire:model.live="productOwner" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition">
+                            <option value="">Pilih Peternak (Opsional)</option>
+                            @foreach ($peternaks as $peternak)
+                                <option value="{{ $peternak['id'] }}">{{ $peternak['name'] }} @if($peternak['farm_name'] !== 'Belum ada profil') - {{ $peternak['farm_name'] }} @endif</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-xs text-slate-500">Lokasi & asal peternakan akan otomatis terisi</p>
                     </div>
 
                     <div>
@@ -140,8 +160,15 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-slate-900 mb-1">Asal Daerah</label>
-                            <input type="text" wire:model.live="productOrigin" placeholder="Contoh: Talaud" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition" />
+                            <label class="block text-sm font-medium text-slate-900 mb-1">Asal Peternakan</label>
+                            <input type="text" wire:model.live="productOrigin" placeholder="Akan terisi otomatis dari nama peternakan" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition bg-slate-50" readonly />
+                            <p class="mt-1 text-xs text-slate-500">Otomatis dari nama peternakan saat memilih peternak</p>
+                        </div>
+
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium text-slate-900 mb-1">Lokasi Kandang</label>
+                            <input type="text" wire:model.live="productBarnLocation" placeholder="Akan terisi otomatis dari profil peternak" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition bg-slate-50" readonly />
+                            <p class="mt-1 text-xs text-slate-500">Otomatis terisi dari alamat peternakan saat memilih peternak</p>
                         </div>
                     </div>
 
@@ -158,6 +185,37 @@
                     <div>
                         <label class="block text-sm font-medium text-slate-900 mb-1">Berat per Unit (kg)</label>
                         <input type="number" wire:model.live="productWeightPerUnit" step="0.1" min="0" placeholder="0" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition" />
+                    </div>
+                </div>
+
+                {{-- Supply Product Fields --}}
+                <div x-show="$wire.productType === 'supply'" x-transition class="space-y-4 rounded-lg bg-amber-50 p-4">
+                    <h4 class="font-semibold text-amber-800"><i class="fa-solid fa-box-open mr-2"></i>Info Pakan & Perlengkapan</h4>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-900 mb-1">Unit</label>
+                            <input type="text" wire:model.live="productUnit" placeholder="Contoh: kg, pcs, sak" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-900 mb-1">Harga Diskon (Rp)</label>
+                            <input type="number" wire:model.live="productDiscountPrice" min="0" placeholder="Kosongkan jika tidak ada diskon" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-900 mb-1">Spesifikasi</label>
+                        <textarea rows="3" wire:model.live="productSpecifications" placeholder="Detail teknis produk..." class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-900 mb-1">Cara Pakai</label>
+                        <textarea rows="3" wire:model.live="productHowToUse" placeholder="Panduan penggunaan produk..." class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-900 mb-1">Info Pengiriman</label>
+                        <textarea rows="2" wire:model.live="productShippingInfo" placeholder="Informasi pengiriman dan pengemasan..." class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition"></textarea>
                     </div>
                 </div>
 
@@ -257,62 +315,114 @@
 {{-- =========================================== --}}
 
 <template x-teleport="body">
-    <div x-show="$wire.showCategoryModal" x-transition.opacity.duration.300ms class="fixed inset-0 z-[99999]">
+    <div x-show="$wire.showCategoryModal" x-transition.opacity.duration.300ms class="fixed inset-0 z-[99999] overflow-y-auto">
         <div class="absolute inset-0 bg-black/50" @click="$wire.closeCategoryModal()" @keydown.escape.window="$wire.closeCategoryModal()"></div>
-        <div class="absolute left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white shadow-xl overflow-hidden" @click.stop>
-        {{-- Header --}}
-        <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-            <h3 class="text-lg font-semibold text-slate-900">
-                @if ($editingCategoryId)
-                    <i class="fa-solid fa-edit mr-2 text-blue-500"></i>Edit Kategori
-                @else
-                    <i class="fa-solid fa-plus mr-2 text-emerald-500"></i>Tambah Kategori
-                @endif
-            </h3>
-            <button @click="$wire.closeCategoryModal()" class="text-slate-400 transition hover:text-slate-600">
-                <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-            </button>
-        </div>
-
-        {{-- Body --}}
-        <div class="px-6 py-4">
-            <form wire:submit.prevent="saveCategory" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-900 mb-1">Nama Kategori *</label>
-                    <input type="text" wire:model.live="categoryName" placeholder="Contoh: Sapi" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition" />
-                    @error('categoryName') <span class="text-red-600 text-xs">{{ $message }}</span> @enderror
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-slate-900 mb-1">Slug</label>
-                    <input type="text" wire:model.live="categorySlug" placeholder="auto-generate dari nama" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition" />
-                    <p class="mt-1 text-xs text-slate-400">Biarkan kosong untuk auto-generate</p>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-slate-900 mb-1">Icon (FontAwesome class)</label>
-                    <input type="text" wire:model.live="categoryIcon" placeholder="Contoh: fa-solid fa-cow" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition" />
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-slate-900 mb-1">Deskripsi</label>
-                    <textarea rows="2" wire:model.live="categoryDescription" placeholder="Deskripsi kategori..." class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition"></textarea>
-                </div>
-
-                <div class="flex gap-3 pt-4 border-t border-slate-200">
-                    <button type="button" @click="$wire.closeCategoryModal()" class="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-300 hover:bg-slate-50">
-                        Batal
-                    </button>
-                    <button type="submit" class="flex-1 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-500/30">
-                        <i class="fa-solid fa-save mr-2"></i>Simpan
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="relative w-full max-w-2xl rounded-xl bg-white shadow-xl" @click.stop>
+                {{-- Header --}}
+                <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                        @if ($editingCategoryId)
+                            <i class="fa-solid fa-edit mr-2 text-blue-500"></i>Edit Kategori
+                        @else
+                            <i class="fa-solid fa-plus mr-2 text-emerald-500"></i>Tambah Kategori
+                        @endif
+                    </h3>
+                    <button @click="$wire.closeCategoryModal()" class="text-slate-400 transition hover:text-slate-600">
+                        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
                     </button>
                 </div>
-            </form>
+
+                {{-- Body --}}
+                <div class="p-6">
+                    <form wire:submit.prevent="saveCategory" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-6">
+                            {{-- KIRI --}}
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-900 mb-1">Nama Kategori *</label>
+                                    <input type="text" wire:model.live="categoryName" placeholder="Contoh: Sapi" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition" />
+                                    @error('categoryName') <span class="text-red-600 text-xs">{{ $message }}</span> @enderror
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-900 mb-1">Slug</label>
+                                    <input type="text" wire:model.live="categorySlug" placeholder="auto-generate dari nama" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition" />
+                                    <p class="mt-1 text-xs text-slate-400">Biarkan kosong untuk auto-generate</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-900 mb-1">Deskripsi</label>
+                                    <textarea rows="3" wire:model.live="categoryDescription" placeholder="Deskripsi singkat..." class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition"></textarea>
+                                </div>
+
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" wire:model.live="categoryIsActive" id="categoryIsActive" class="size-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                                    <label for="categoryIsActive" class="text-sm text-slate-900">Aktif</label>
+                                </div>
+                            </div>
+
+                            {{-- KANAN --}}
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-900 mb-1">Icon</label>
+                                    <select wire:model.live="categoryIcon" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition">
+                                        <option value="">-- Pilih Icon --</option>
+                                        <option value="🐄">🐄 Sapi</option>
+                                        <option value="🐐">🐐 Kambing</option>
+                                        <option value="🐑">🐑 Domba</option>
+                                        <option value="🐔">🐔 Ayam</option>
+                                        <option value="🦆">🦆 Bebek</option>
+                                        <option value="🐰">🐰 Kelinci</option>
+                                        <option value="🐷">🐷 Babi</option>
+                                        <option value="🐴">🐴 Kuda</option>
+                                        <option value="🦃">🦃 Kalkun</option>
+                                        <option value="🦚">🦚 Merak</option>
+                                        <option value="🐓">🐓 Jago</option>
+                                        <option value="🥚">🥚 Telur</option>
+                                        <option value="🥩">🥩 Daging</option>
+                                        <option value="🌾">🌾 Pakan</option>
+                                        <option value="🌿">🌿 Rumput</option>
+                                        <option value="🧹">🧹 Kandang</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-900 mb-1">Urutan</label>
+                                    <input type="number" wire:model.live="categorySortOrder" min="0" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition" />
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-slate-900 mb-1">Gambar</label>
+                                    <input type="file" wire:model.live="categoryImage" accept="image/*" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm file:mr-3 file:rounded file:border-0 file:bg-emerald-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-emerald-700" />
+                                    @if($categoryImage)
+                                        <div class="mt-2">
+                                            <img src="{{ $categoryImage->temporaryUrl() }}" class="h-20 rounded-lg object-cover" />
+                                        </div>
+                                    @elseif($categoryImagePath)
+                                        <div class="mt-2">
+                                            <img src="{{ str_starts_with($categoryImagePath, 'http') ? $categoryImagePath : asset('storage/' . $categoryImagePath) }}" class="h-20 rounded-lg object-cover" />
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3 pt-4 border-t border-slate-200">
+                            <button type="button" @click="$wire.closeCategoryModal()" class="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-300 hover:bg-slate-50">
+                                Batal
+                            </button>
+                            <button type="submit" class="flex-1 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-500/30">
+                                <i class="fa-solid fa-save mr-2"></i>Simpan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
-</div>
 </template>
 
 {{-- =========================================== --}}

@@ -1,4 +1,6 @@
-<header class="sticky top-0 z-40 border-b border-emerald-100/80 bg-white/85 backdrop-blur">
+<header class="sticky top-0 z-40 border-b border-emerald-100/80 bg-white/85 backdrop-blur"
+    x-data="{ activeRoute: '' }"
+    x-init="activeRoute = window.location.pathname; window.addEventListener('livewire:navigated', () => activeRoute = window.location.pathname)">
 
     <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <a href="{{ url('/') }}" class="flex items-center gap-3">
@@ -9,10 +11,36 @@
         </a>
 
         <nav class="hidden items-center gap-8 text-sm font-medium lg:flex">
-            <a href="{{ url('/') }}" class="transition hover:text-emerald-700">Beranda</a>
-            <a href="{{ route('home') }}#ternak" class="transition hover:text-emerald-700">Ternak</a>
-            <a href="{{ route('about') }}" class="transition hover:text-emerald-700">Tentang Kami</a>
-            <a href="{{ route('contact') }}" class="transition hover:text-emerald-700">Kontak</a>
+            <a href="{{ url('/') }}"
+                class="relative transition hover:text-emerald-700"
+                :class="activeRoute === '/' ? 'text-emerald-700' : 'text-slate-600'">
+                Beranda
+                <span x-show="activeRoute === '/'" class="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-emerald-500"></span>
+            </a>
+            <a href="{{ route('gallery') }}"
+                class="relative transition hover:text-emerald-700"
+                :class="activeRoute.includes('/galeri') ? 'text-emerald-700' : 'text-slate-600'">
+                Galeri
+                <span x-show="activeRoute.includes('/galeri')" class="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-emerald-500"></span>
+            </a>
+            <a href="{{ route('shop') }}"
+                class="relative transition hover:text-emerald-700"
+                :class="activeRoute.includes('/shop') ? 'text-emerald-700' : 'text-slate-600'">
+                Toko
+                <span x-show="activeRoute.includes('/shop')" class="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-emerald-500"></span>
+            </a>
+            <a href="{{ route('about') }}"
+                class="relative transition hover:text-emerald-700"
+                :class="activeRoute.includes('/about') ? 'text-emerald-700' : 'text-slate-600'">
+                Tentang Kami
+                <span x-show="activeRoute.includes('/about')" class="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-emerald-500"></span>
+            </a>
+            <a href="{{ route('contact') }}"
+                class="relative transition hover:text-emerald-700"
+                :class="activeRoute.includes('/contact') ? 'text-emerald-700' : 'text-slate-600'">
+                Kontak
+                <span x-show="activeRoute.includes('/contact')" class="absolute -bottom-1 left-0 h-0.5 w-full rounded-full bg-emerald-500"></span>
+            </a>
         </nav>
 
         <div class="hidden items-center gap-3 lg:flex">
@@ -36,7 +64,7 @@
                     x-text="cartCount"
                     class="absolute -right-2 -top-2 grid size-5 place-content-center rounded-full bg-emerald-500 text-[11px] font-bold text-white"></span>
             </button>
-            <a href="#produk"
+            <a href="{{ route('shop') }}"
                 class="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-300/50 transition hover:bg-emerald-700">Belanja</a>
             <button onclick="Livewire.emitTo('side-panel','toggle')"
                 class="ml-2 rounded-xl border border-sky-200 bg-white px-3 py-2 text-sm font-semibold text-sky-700 transition hover:bg-sky-50"
@@ -55,10 +83,31 @@
 
     <div x-show="mobileOpen" x-transition class="border-t border-sky-100 bg-white px-4 py-4 md:hidden">
         <div class="flex flex-col gap-3 text-sm font-medium">
-            <a href="#kategori" @click="mobileOpen = false">Kategori</a>
-            <a href="#produk" @click="mobileOpen = false">Produk</a>
-            <a href="#keunggulan" @click="mobileOpen = false">Keunggulan</a>
-            <a href="#faq" @click="mobileOpen = false">FAQ</a>
+            <a href="{{ url('/') }}" @click="mobileOpen = false"
+                class="flex items-center gap-2 rounded-lg px-3 py-2 transition"
+                :class="activeRoute === '/' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
+                <i class="fa-solid fa-home w-5"></i> Beranda
+            </a>
+            <a href="{{ route('gallery') }}" @click="mobileOpen = false"
+                class="flex items-center gap-2 rounded-lg px-3 py-2 transition"
+                :class="activeRoute.includes('/galeri') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
+                <i class="fa-solid fa-images w-5"></i> Galeri
+            </a>
+            <a href="{{ route('shop') }}" @click="mobileOpen = false"
+                class="flex items-center gap-2 rounded-lg px-3 py-2 transition"
+                :class="activeRoute.includes('/shop') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
+                <i class="fa-solid fa-store w-5"></i> Toko
+            </a>
+            <a href="{{ route('about') }}" @click="mobileOpen = false"
+                class="flex items-center gap-2 rounded-lg px-3 py-2 transition"
+                :class="activeRoute.includes('/about') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
+                <i class="fa-solid fa-info-circle w-5"></i> Tentang Kami
+            </a>
+            <a href="{{ route('contact') }}" @click="mobileOpen = false"
+                class="flex items-center gap-2 rounded-lg px-3 py-2 transition"
+                :class="activeRoute.includes('/contact') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
+                <i class="fa-solid fa-envelope w-5"></i> Kontak
+            </a>
             @auth
                 <a href="{{ route('dashboard') }}" @click="mobileOpen = false"
                     class="mt-2 rounded-lg border border-sky-200 px-3 py-2 text-left">Dashboard</a>

@@ -20,11 +20,14 @@ class Product extends Model
         'slug',
         'description',
         'price',
+        'discount_price',
+        'discount_percent',
         'image',
         'images',
-        'type', // 'live' or 'fresh'
+        'type', // 'live', 'fresh', or 'supply'
         'status', // 'available', 'pre_order', 'in_care', 'sold'
         'stock',
+        'unit',
         // Livestock info
         'weight',
         'age',
@@ -36,10 +39,16 @@ class Product extends Model
         // Fresh meat info
         'weight_per_unit',
         'is_featured',
+        // Supply product info
+        'specifications',
+        'how_to_use',
+        'shipping_info',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
+        'discount_price' => 'decimal:2',
+        'discount_percent' => 'decimal:2',
         'stock' => 'integer',
         'weight' => 'decimal:2',
         'weight_per_unit' => 'decimal:2',
@@ -96,6 +105,11 @@ class Product extends Model
         return $query->where('type', 'fresh');
     }
 
+    public function scopeSupply($query)
+    {
+        return $query->where('type', 'supply');
+    }
+
     public function scopeAvailable($query)
     {
         return $query->where('status', 'available');
@@ -137,6 +151,11 @@ class Product extends Model
         return $this->type === 'fresh';
     }
 
+    public function isSupply(): bool
+    {
+        return $this->type === 'supply';
+    }
+
     public function isAvailable(): bool
     {
         return $this->status === 'available';
@@ -171,6 +190,57 @@ class Product extends Model
     public function getFormattedPriceAttribute(): string
     {
         return 'Rp ' . number_format($this->price, 0, ',', '.');
+    }
+
+    public function getCurrentPriceAttribute(): float
+    {
+        return (float) ($this->has_discount ? $this->discount_price : $this->price);
+    }
+
+    public function getFormattedCurrentPriceAttribute(): string
+    {
+        return 'Rp ' . number_format($this->current_price, 0, ',', '.');
+    }
+
+    public function getFormattedDiscountPriceAttribute(): string
+    {
+        if (!$this->has_discount) {
+            return null;
+        }
+        return 'Rp ' . number_format($this->discount_price, 0, ',', '.');
+    }
+
+    public function getHasDiscountAttribute(): bool
+    {
+        return $this->discount_price !== null && (float)$this->discount_price > 0 && (float)$this->discount_price < (float)$this->price;
+    }
+
+    public function getDiscountPercentageAttribute(): int
+    {
+        if (!$this->has_discount || (float)$this->price <= 0) {
+            return 0;
+        }
+        return (int) round((($this->price - $this->discount_price) / $this->price) * 100);
+    }
+
+    public function getStockStatusAttribute(): string
+    {
+        if ($this->stock <= 0) {
+            return 'out_of_stock';
+        } elseif ($this->stock <= 5) {
+            return 'low_stock';
+        }
+        return 'in_stock';
+    }
+
+    public function getStockStatusLabelAttribute(): string
+    {
+        return match($this->stock_status) {
+            'out_of_stock' => 'Stok Habis',
+            'low_stock' => 'Stok Terbatas',
+            'in_stock' => 'Tersedia',
+            default => 'Tersedia',
+        };
     }
 
     public function getCartKeyAttribute(): string

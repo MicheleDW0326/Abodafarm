@@ -167,7 +167,8 @@ class FarmProfile extends Model
         $user = $this->user;
 
         return [
-            'active_products' => $user?->products()->where('is_active', true)->count() ?? 0,
+            // Note: Removed is_active filter as products table doesn't have this column
+            'active_products' => $user?->products()->count() ?? 0,
             'total_products' => $user?->products()->count() ?? 0,
             'completed_bookings' => $user?->orders()
                 ->whereIn('status', ['completed', 'delivered'])

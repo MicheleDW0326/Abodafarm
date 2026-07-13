@@ -1,8 +1,9 @@
 <div
     x-data="{
         loading: true,
+        showForNavigation: false,
         init() {
-            // Hide loading when Livewire finishes loading
+            // Initial page load - always show
             window.addEventListener('load', () => {
                 setTimeout(() => {
                     this.loading = false;
@@ -13,6 +14,26 @@
             setTimeout(() => {
                 this.loading = false;
             }, 3000);
+
+            // Listen for navigation loading events
+            window.addEventListener('livewire:navigating', (event) => {
+                const importantRoutes = [
+                    'checkout', 'payment', 'login', 'logout', 'register',
+                    'order.confirmation', 'booking.confirmation'
+                ];
+                const url = event.detail?.url || window.location.pathname;
+                const isImportant = importantRoutes.some(route => url.includes(route));
+
+                if (isImportant) {
+                    this.showForNavigation = true;
+                    this.loading = true;
+                }
+            });
+
+            window.addEventListener('livewire:navigated', () => {
+                this.loading = false;
+                this.showForNavigation = false;
+            });
         }
     }"
     x-show="loading"

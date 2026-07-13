@@ -19,6 +19,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('notifications:cleanup --hours=24')->hourly();
     })
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->web(append: [
+            \Illuminate\Session\Middleware\StartSession::class,
+            \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+        ]);
+
         $middleware->alias([
             'check.admin' => \App\Http\Middleware\CheckAdmin::class,
             'check.staff' => 'App\\Http\\Middleware\\CheckStaff',

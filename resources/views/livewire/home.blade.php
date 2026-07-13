@@ -16,7 +16,8 @@
     },
 
     addToCart(product) {
-        const key = 'product_' + product.id;
+        const type = product.type || 'fresh';
+        const key = 'product_' + product.id + '_' + type;
         const existing = this.cartItems.find(item => item.key === key);
 
         if (existing) {
@@ -28,6 +29,7 @@
                 name: product.name,
                 price: parseInt(product.price),
                 image: product.image,
+                type: type,
                 qty: 1
             });
         }

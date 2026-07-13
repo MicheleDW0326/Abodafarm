@@ -4,7 +4,7 @@
         {{-- Header --}}
         <div class="flex items-center justify-between">
             <div>
-                <p class="text-sm text-slate-500">Kelola konten website: testimonials, FAQs, hero slides, statistik, dan area pengiriman</p>
+                <p class="text-sm text-slate-500">Kelola konten website: testimonials, FAQs, hero slides, statistik, dan area pengiriman. Untuk kategori produk, lihat di Manajemen Produk.</p>
             </div>
         </div>
 

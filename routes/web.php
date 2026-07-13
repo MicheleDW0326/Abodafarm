@@ -9,10 +9,14 @@ use App\Livewire\Admin\OrderManagement;
 use App\Livewire\Admin\ProductManagement;
 use App\Livewire\Admin\StaffManagement;
 use App\Livewire\Admin\StoreSetting;
+use App\Livewire\Admin\AccountSettings as AdminAccountSettings;
 use App\Livewire\Checkout;
 use App\Livewire\Home;
 use App\Livewire\About;
 use App\Livewire\Contact;
+use App\Livewire\Gallery;
+use App\Livewire\Shop;
+use App\Livewire\Shop\ProductDetail;
 use App\Livewire\Peternak\Dashboard as PeternakDashboard;
 use App\Livewire\Peternak\LivestockManagement;
 use App\Livewire\Peternak\Notifications;
@@ -47,7 +51,12 @@ Route::middleware('auth')->group(function () {
 Route::get('/', Home::class)->name('home');
 Route::get('/tentang-kami', About::class)->name('about');
 Route::get('/kontak', Contact::class)->name('contact');
+Route::get('/galeri', Gallery::class)->name('gallery');
 Route::get('/checkout', Checkout::class)->name('checkout');
+
+// Shop - Feed & Farm Supplies
+Route::get('/shop', Shop::class)->name('shop');
+Route::get('/shop/{slug}', ProductDetail::class)->name('shop.product');
 
 // FCM Token Routes (web - session auth)
 Route::middleware(['auth'])->prefix('fcm-token')->group(function () {
@@ -84,6 +93,7 @@ Route::middleware(['auth', 'verified', 'check.admin'])
         Route::get('/laporan-keuangan', FinancialReport::class)->name('finance');
         Route::get('/notifikasi', AdminNotifications::class)->name('notifications');
         Route::get('/pengaturan-toko', StoreSetting::class)->name('settings');
+        Route::get('/pengaturan-akun', AdminAccountSettings::class)->name('account-settings');
         Route::get('/verifikasi-peternak', FarmerVerification::class)->name('farmer-verification');
     });
 

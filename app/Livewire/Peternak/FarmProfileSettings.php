@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Livewire\Attributes\Title;
 
 #[Layout('layouts.main')]
 #[Title('Profil Peternakan')]
@@ -15,7 +16,20 @@ class FarmProfileSettings extends Component
 {
     use WithFileUploads;
 
-    public ?FarmProfile $profileModel = null;
+    // Store only the ID to avoid Eloquent hydration issues
+    protected ?int $profileModelId = null;
+
+    // Extracted profile data for blade (avoid passing model directly)
+    public ?int $profileCompletion = 0;
+    public ?array $missingFields = [];
+    public bool $isVerified = false;
+    public array $stats = [
+        'active_products' => 0,
+        'completed_bookings' => 0,
+        'rating' => 0,
+        'total_reviews' => 0,
+    ];
+
     public string $farmName = '';
     public string $description = '';
     public string $phone = '';
@@ -38,6 +52,7 @@ class FarmProfileSettings extends Component
     public ?float $longitude = null;
     public string $googlePlaceId = '';
     public string $searchQuery = '';
+    public string $postalCode = '';
 
     // Gallery
     public $newGalleryImages = [];
@@ -52,24 +67,49 @@ class FarmProfileSettings extends Component
 
     public function loadProfile()
     {
-        $this->profileModel = FarmProfile::where('user_id', auth()->id())->first();
+        // Store only the ID, not the full model to avoid hydration issues
+        $profile = FarmProfile::where('user_id', auth()->id())->first();
 
-        if ($this->profileModel) {
-            $this->farmName = $this->profileModel->farm_name;
-            $this->description = $this->profileModel->description ?? '';
-            $this->phone = $this->profileModel->phone ?? '';
-            $this->village = $this->profileModel->village ?? '';
-            $this->district = $this->profileModel->district ?? '';
-            $this->regency = $this->profileModel->regency ?? '';
-            $this->province = $this->profileModel->province ?? '';
-            $this->address = $this->profileModel->address ?? '';
-            $this->existingImage = $this->profileModel->image;
-            $this->existingCoverImage = $this->profileModel->cover_image;
-            $this->existingLogo = $this->profileModel->logo;
-            $this->latitude = $this->profileModel->latitude;
-            $this->longitude = $this->profileModel->longitude;
-            $this->googlePlaceId = $this->profileModel->google_place_id ?? '';
-            $this->galleries = $this->profileModel->galleries()->get()->toArray();
+        if ($profile) {
+            $this->profileModelId = $profile->id;
+            $this->farmName = $profile->farm_name;
+            $this->description = $profile->description ?? '';
+            $this->phone = $profile->phone ?? '';
+            $this->village = $profile->village ?? '';
+            $this->district = $profile->district ?? '';
+            $this->regency = $profile->regency ?? '';
+            $this->province = $profile->province ?? '';
+            $this->address = $profile->address ?? '';
+            $this->postalCode = $profile->postal_code ?? '';
+            $this->existingImage = $profile->image;
+            $this->existingCoverImage = $profile->cover_image;
+            $this->existingLogo = $profile->logo;
+            $this->latitude = $profile->latitude;
+            $this->longitude = $profile->longitude;
+            $this->googlePlaceId = $profile->google_place_id ?? '';
+            $this->galleries = $profile->galleries()->get()->toArray();
+
+            // Extract profile data for blade template
+            $this->profileCompletion = $profile->profile_completion ?? 0;
+            $this->missingFields = $profile->missing_fields ?? [];
+            $this->isVerified = $profile->is_verified ?? false;
+            $this->stats = $profile->stats ?? [
+                'active_products' => 0,
+                'completed_bookings' => 0,
+                'rating' => 0,
+                'total_reviews' => 0,
+            ];
+        } else {
+            // Reset values when no profile exists
+            $this->profileCompletion = 0;
+            $this->missingFields = [];
+            $this->isVerified = false;
+            $this->stats = [
+                'active_products' => 0,
+                'completed_bookings' => 0,
+                'rating' => 0,
+                'total_reviews' => 0,
+            ];
         }
     }
 
@@ -102,6 +142,7 @@ class FarmProfileSettings extends Component
                 'regency' => $this->regency ?: null,
                 'province' => $this->province ?: null,
                 'address' => $this->address ?: null,
+                'postal_code' => $this->postalCode ?: null,
                 'latitude' => $this->latitude,
                 'longitude' => $this->longitude,
                 'google_place_id' => $this->googlePlaceId ?: null,
@@ -160,15 +201,15 @@ class FarmProfileSettings extends Component
     {
         if ($type === 'cover' && $this->existingCoverImage) {
             Storage::disk('public')->delete($this->existingCoverImage);
-            $this->profileModel->update(['cover_image' => null]);
+            FarmProfile::where('id', $this->profileModelId)->update(['cover_image' => null]);
             $this->existingCoverImage = null;
         } elseif ($type === 'logo' && $this->existingLogo) {
             Storage::disk('public')->delete($this->existingLogo);
-            $this->profileModel->update(['logo' => null]);
+            FarmProfile::where('id', $this->profileModelId)->update(['logo' => null]);
             $this->existingLogo = null;
         } elseif ($type === 'image' && $this->existingImage) {
             Storage::disk('public')->delete($this->existingImage);
-            $this->profileModel->update(['image' => null]);
+            FarmProfile::where('id', $this->profileModelId)->update(['image' => null]);
             $this->existingImage = null;
         }
     }
@@ -183,10 +224,11 @@ class FarmProfileSettings extends Component
     public function deleteGallery(int $id): void
     {
         $gallery = FarmGallery::find($id);
-        if ($gallery && $this->profileModel && $gallery->farm_profile_id === $this->profileModel->id) {
+        if ($gallery && $this->profileModelId && $gallery->farm_profile_id === $this->profileModelId) {
             Storage::disk('public')->delete($gallery->image);
             $gallery->delete();
-            $this->galleries = $this->profileModel->fresh()->galleries()->get()->toArray();
+            // Reload galleries from fresh query
+            $this->galleries = FarmProfile::find($this->profileModelId)?->galleries()->get()->toArray() ?? [];
         }
     }
 
