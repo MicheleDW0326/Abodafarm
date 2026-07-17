@@ -7,16 +7,8 @@
             <div class="flex items-center justify-between h-16">
                 <!-- Logo -->
                 <a href="{{ route('home') }}" class="flex items-center gap-2.5 group">
-                    <span
-                        class="grid size-9 place-content-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-sm font-black text-white shadow-lg shadow-emerald-500/30 group-hover:shadow-emerald-500/50 transition-shadow">
-                        AF
-                    </span>
-                    <div>
-                        <span class="block text-lg font-black tracking-tight text-slate-900">Aboda<span
-                                class="text-emerald-600">Farm</span></span>
-                        <span class="block text-[10px] uppercase tracking-[0.2em] text-slate-400 -mt-0.5">Pasar Ternak
-                            Organik</span>
-                    </div>
+                    <img src="/icons/MainLogo.png" alt="AbodaFarm Logo" class="h-9 w-auto object-contain">
+                    <span class="block text-lg font-black tracking-tight text-slate-900">Aboda<span class="text-emerald-600">Farm</span></span>
                 </a>
 
                 <!-- Desktop Navigation -->
@@ -95,7 +87,8 @@
             <div class="grid lg:grid-cols-5 gap-8 lg:gap-12">
                 <!-- Contact Info -->
                 <div class="lg:col-span-2 space-y-6">
-                    <div class="bg-white rounded-2xl border border-slate-100 shadow-lg shadow-slate-200/50 p-6 lg:p-8">
+                    <div class="bg-white rounded-2xl border border-slate-100 shadow-lg shadow-slate-200/50 p-6 lg:p-8"
+                        data-aos="fade-right">
                         <h2 class="text-2xl font-bold text-slate-900 mb-2">Informasi Kontak</h2>
                         <p class="text-slate-500 text-sm mb-6">Hubungi kami melalui berbagai saluran berikut</p>
 
@@ -201,7 +194,8 @@
 
                 <!-- Contact Form -->
                 <div class="lg:col-span-3">
-                    <div class="bg-white rounded-2xl border border-slate-100 shadow-lg shadow-slate-200/50 p-6 lg:p-8">
+                    <div class="bg-white rounded-2xl border border-slate-100 shadow-lg shadow-slate-200/50 p-6 lg:p-8"
+                        data-aos="fade-left">
                         @if ($submitted)
                             <!-- Success State -->
                             <div class="text-center py-8">
@@ -397,7 +391,8 @@
             <div class="grid lg:grid-cols-3 gap-6">
                 <!-- Map -->
                 <div
-                    class="lg:col-span-2 rounded-2xl overflow-hidden shadow-xl shadow-slate-200/50 border border-slate-200">
+                    class="lg:col-span-2 rounded-2xl overflow-hidden shadow-xl shadow-slate-200/50 border border-slate-200"
+                    data-aos="fade-right">
                     <div class="aspect-video lg:aspect-auto lg:h-full min-h-[400px] bg-slate-100">
                         <iframe
                             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d127092.54565993707!2d124.82!3d1.33!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3287758564d8a1a1%3A0x4e0d4f8a5c6e0f0a!2sTalaud%2C%20Sulawesi%20Utara!5e0!3m2!1sid!2sid!4v1600000000000!5m2!1sid!2sid"
@@ -410,7 +405,8 @@
                 <!-- Info Card -->
                 <div class="space-y-4">
                     <div
-                        class="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-2xl p-6 text-white shadow-xl shadow-emerald-500/30">
+                        class="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-2xl p-6 text-white shadow-xl shadow-emerald-500/30"
+                        data-aos="fade-left" data-aos-delay="0">
                         <div class="size-12 rounded-xl bg-white/20 flex items-center justify-center mb-4">
                             <svg class="size-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2">
@@ -426,7 +422,8 @@
                         </p>
                     </div>
 
-                    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-lg">
+                    <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-lg"
+                        data-aos="fade-left" data-aos-delay="100">
                         <h3 class="font-bold text-slate-900 mb-4 flex items-center gap-2">
                             <svg class="size-5 text-emerald-600" viewBox="0 0 24 24" fill="none"
                                 stroke="currentColor" stroke-width="2">
@@ -473,16 +470,8 @@
                 <!-- Brand -->
                 <div class="md:col-span-2">
                     <a href="{{ route('home') }}" class="flex items-center gap-2.5 mb-4">
-                        <span
-                            class="grid size-10 place-content-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-sm font-black text-white shadow-lg shadow-emerald-500/30">
-                            AF
-                        </span>
-                        <div>
-                            <span class="block text-xl font-black tracking-tight text-slate-900">Aboda<span
-                                    class="text-emerald-600">Farm</span></span>
-                            <span class="block text-[10px] uppercase tracking-[0.2em] text-slate-400 -mt-0.5">Pasar
-                                Ternak Organik</span>
-                        </div>
+                        <img src="/icons/MainLogo.png" alt="AbodaFarm Logo" class="h-10 w-auto object-contain">
+                        <span class="block text-xl font-black tracking-tight text-slate-900">Aboda<span class="text-emerald-600">Farm</span></span>
                     </a>
                     <p class="text-slate-500 text-sm leading-relaxed max-w-sm">
                         Menyediakan produk peternakan organik berkualitas tinggi langsung dari peternak lokal Sulawesi

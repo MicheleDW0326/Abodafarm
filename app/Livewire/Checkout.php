@@ -10,6 +10,7 @@ use App\Models\Payment;
 use App\Services\FcmService;
 use App\Services\MidtransService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -20,6 +21,8 @@ use Livewire\Component;
 class Checkout extends Component
 {
     private const CART_SESSION_KEY = 'abodafarm.cart';
+    private const CHECKOUT_FORM_KEY = 'abodafarm_checkout_form';
+    private const ORDER_ID_KEY = 'abodafarm_checkout_order_id';
 
     public string $name = '';
 
@@ -74,7 +77,74 @@ class Checkout extends Component
 
     public function mount(): void
     {
+        // Restore form state from session if exists
+        $this->restoreFormState();
+
+        // Restore order ID if exists (for mid-order reload)
+        $savedOrderId = Session::get(self::ORDER_ID_KEY);
+        if ($savedOrderId) {
+            $this->currentOrderId = $savedOrderId;
+            $order = Order::find($savedOrderId);
+            if ($order) {
+                $this->placedOrderNumber = $order->order_number;
+                $this->orderPlaced = true;
+            }
+        }
+
         $this->loadUserAddresses();
+    }
+
+    /**
+     * Restore form state from session.
+     */
+    protected function restoreFormState(): void
+    {
+        $saved = Session::get(self::CHECKOUT_FORM_KEY);
+
+        if ($saved && is_array($saved)) {
+            $this->name = $saved['name'] ?? '';
+            $this->phone = $saved['phone'] ?? '';
+            $this->address = $saved['address'] ?? '';
+            $this->notes = $saved['notes'] ?? '';
+            $this->selectedAddressId = $saved['selectedAddressId'] ?? null;
+            $this->useNewAddress = $saved['useNewAddress'] ?? false;
+            $this->newAddressLabel = $saved['newAddressLabel'] ?? '';
+            $this->newFullAddress = $saved['newFullAddress'] ?? '';
+            $this->newProvince = $saved['newProvince'] ?? '';
+            $this->newCity = $saved['newCity'] ?? '';
+            $this->newDistrict = $saved['newDistrict'] ?? '';
+            $this->newPostalCode = $saved['newPostalCode'] ?? '';
+        }
+    }
+
+    /**
+     * Save form state to session.
+     */
+    protected function saveFormState(): void
+    {
+        Session::put(self::CHECKOUT_FORM_KEY, [
+            'name' => $this->name,
+            'phone' => $this->phone,
+            'address' => $this->address,
+            'notes' => $this->notes,
+            'selectedAddressId' => $this->selectedAddressId,
+            'useNewAddress' => $this->useNewAddress,
+            'newAddressLabel' => $this->newAddressLabel,
+            'newFullAddress' => $this->newFullAddress,
+            'newProvince' => $this->newProvince,
+            'newCity' => $this->newCity,
+            'newDistrict' => $this->newDistrict,
+            'newPostalCode' => $this->newPostalCode,
+        ]);
+    }
+
+    /**
+     * Clear saved form state.
+     */
+    protected function clearFormState(): void
+    {
+        Session::forget(self::CHECKOUT_FORM_KEY);
+        Session::forget(self::ORDER_ID_KEY);
     }
 
     public function loadUserAddresses(): void
@@ -89,6 +159,15 @@ class Checkout extends Component
             ->orderBy('created_at', 'desc')
             ->get()
             ->toArray();
+
+        // Only auto-fill if there's no saved form state
+        $hasSavedState = Session::has(self::CHECKOUT_FORM_KEY);
+        $hasExistingOrder = Session::has(self::ORDER_ID_KEY);
+
+        // If user already has saved state or existing order, don't auto-fill
+        if ($hasSavedState || $hasExistingOrder) {
+            return;
+        }
 
         // Auto-fill name and phone from user profile
         $this->name = auth()->user()->name ?? '';
@@ -126,6 +205,8 @@ class Checkout extends Component
                 $this->checkServiceAreaFromAddress($address);
             }
         }
+
+        $this->saveFormState();
     }
 
     public function showNewAddressForm(): void
@@ -135,6 +216,8 @@ class Checkout extends Component
         $this->address = '';
         $this->isInServiceArea = true;
         $this->serviceAreaMessage = null;
+
+        $this->saveFormState();
     }
 
     public function checkServiceAreaFromAddress(array $address): void
@@ -193,6 +276,9 @@ class Checkout extends Component
 
         // Reload addresses
         $this->loadUserAddresses();
+
+        // Save state to session
+        $this->saveFormState();
     }
 
     public function useExistingAddress(): void
@@ -209,6 +295,8 @@ class Checkout extends Component
         if ($this->selectedAddressId) {
             $this->selectAddress($this->selectedAddressId);
         }
+
+        $this->saveFormState();
     }
 
     public function placeOrder(): void
@@ -234,6 +322,13 @@ class Checkout extends Component
             return;
         }
 
+        // Validate stock for all cart items
+        $stockErrors = $this->validateCartStock($items);
+        if (!empty($stockErrors)) {
+            $this->addError('cart', implode(', ', $stockErrors));
+            return;
+        }
+
         // Get courier notes if using saved address
         $courierNotes = null;
         if ($this->selectedAddressId) {
@@ -245,7 +340,7 @@ class Checkout extends Component
 
         $order = DB::transaction(function () use ($items): Order {
             $order = Order::create([
-                'order_number' => 'FG-'.now()->format('YmdHis').'-'.str_pad((string) random_int(0, 999), 3, '0', STR_PAD_LEFT),
+                'order_number' => 'FG-' . now()->format('YmdHis') . '-' . str_pad((string) random_int(0, 999), 3, '0', STR_PAD_LEFT),
                 'user_id' => auth()->id(),
                 'customer_name' => $this->name,
                 'customer_phone' => $this->phone,
@@ -259,7 +354,7 @@ class Checkout extends Component
             ]);
 
             $order->items()->createMany(array_map(
-                static fn (array $item): array => [
+                static fn(array $item): array => [
                     'product_name' => $item['name'],
                     'product_image' => $item['image'] ?? null,
                     'unit_price' => (int) $item['price'],
@@ -285,6 +380,12 @@ class Checkout extends Component
         $this->placedOrderNumber = $order->order_number;
         $this->orderPlaced = true;
 
+        // Save order ID to session (for reload persistence)
+        Session::put(self::ORDER_ID_KEY, $order->id);
+
+        // Save form state to session
+        $this->saveFormState();
+
         // Clear cart
         session()->forget(self::CART_SESSION_KEY);
 
@@ -299,6 +400,13 @@ class Checkout extends Component
     public function openPaymentModal(): void
     {
         if (!$this->currentOrderId) {
+            $this->errorMessage = 'Order tidak ditemukan.';
+            return;
+        }
+
+        // Check if order still exists
+        $order = Order::find($this->currentOrderId);
+        if (!$order) {
             $this->errorMessage = 'Order tidak ditemukan.';
             return;
         }
@@ -336,7 +444,6 @@ class Checkout extends Component
                 'snap_token' => $this->snapToken,
                 'order_id' => $this->currentOrderId,
             ]);
-
         } catch (\Exception $e) {
             $this->errorMessage = 'Gagal membuat token pembayaran: ' . $e->getMessage();
             \Log::error('Midtrans Snap Token Error', [
@@ -388,6 +495,9 @@ class Checkout extends Component
                         $order->update(['status' => 'paid']);
                         $order->refresh();
                         $order->payment->refresh();
+
+                        // Decrement stock for all items
+                        $this->decrementOrderStock($order);
 
                         // Send payment success notification
                         $this->sendPaymentSuccessNotification($order);
@@ -485,7 +595,7 @@ class Checkout extends Component
     {
         $items = $this->getCartItems();
         return array_sum(array_map(
-            fn (array $item): int => ((int) $item['price']) * ((int) $item['qty']),
+            fn(array $item): int => ((int) $item['price']) * ((int) $item['qty']),
             $items
         ));
     }
@@ -499,12 +609,88 @@ class Checkout extends Component
     }
 
     /**
+     * Auto-save form state when any tracked property is updated.
+     * This ensures form data persists on page reload.
+     */
+    public function updated($property, $value): void
+    {
+        // Don't save during payment modal operations
+        if ($this->showPaymentModal) {
+            return;
+        }
+
+        // Don't save sensitive fields or UI-only properties
+        $skipProperties = [
+            'snapToken',
+            'showPaymentModal',
+            'isLoadingPayment',
+            'errorMessage',
+            'orderPlaced',
+            'placedOrderNumber',
+            'currentOrderId',
+            'cartData',
+            'showAddressModal',
+            'userAddresses',
+        ];
+
+        if (in_array($property, $skipProperties)) {
+            return;
+        }
+
+        // Save form state
+        $this->saveFormState();
+    }
+
+    /**
      * Refresh cart from session (called from frontend after localStorage sync).
      */
     public function refreshCart(): void
     {
         // Force Livewire to re-render by toggling a dummy property
         $this->dispatch('cart-refreshed');
+    }
+
+    /**
+     * Validate stock for all cart items.
+     * Returns array of error messages if any items have insufficient stock.
+     */
+    protected function validateCartStock(array $items): array
+    {
+        $errors = [];
+        $productModel = new \App\Models\Product();
+
+        foreach ($items as $item) {
+            if (!isset($item['product_id'])) {
+                continue; // Skip items without product_id (legacy items)
+            }
+
+            $product = $productModel->find($item['product_id']);
+
+            if (!$product) {
+                $errors[] = "Produk '{$item['name']}' tidak ditemukan.";
+                continue;
+            }
+
+            if ($product->stock <= 0) {
+                $errors[] = "'{$item['name']}' - Stok habis.";
+            } elseif ($item['qty'] > $product->stock) {
+                $errors[] = "'{$item['name']}' - Hanya tersedia {$product->stock} unit.";
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Decrement stock for all items in an order.
+     */
+    protected function decrementOrderStock(Order $order): void
+    {
+        foreach ($order->items as $item) {
+            if ($item->product_id && $item->product) {
+                $item->product->decrement('stock', $item->quantity);
+            }
+        }
     }
 
     /**

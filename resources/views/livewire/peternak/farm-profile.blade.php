@@ -6,7 +6,6 @@
     mapInitialized: false,
 
     init() {
-        // Tunggu Alpine + Livewire selesai render
         this.$nextTick(() => {
             this.waitForGoogleMaps();
         });
@@ -180,8 +179,7 @@
                         <p class="text-sm text-slate-500 mt-0.5">Semakin lengkap, semakin terpercaya</p>
                     </div>
                     <div class="text-right">
-                        <span
-                            class="text-3xl font-bold text-emerald-600">{{ $profileCompletion ?? 0 }}%</span>
+                        <span class="text-3xl font-bold text-emerald-600">{{ $profileCompletion ?? 0 }}%</span>
                     </div>
                 </div>
                 <div class="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
@@ -432,8 +430,8 @@
                 @if (count($galleries) < 10)
                     <div>
                         <div class="relative">
-                            <input type="file" wire:model.live.debounce.500ms="newGalleryImages" accept="image/*" multiple
-                                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                            <input type="file" wire:model.live.debounce.500ms="newGalleryImages" accept="image/*"
+                                multiple class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                             <div
                                 class="flex items-center justify-center gap-3 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 transition-all hover:border-emerald-400 hover:bg-emerald-50/50">
                                 <div class="text-center">

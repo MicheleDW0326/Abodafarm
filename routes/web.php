@@ -7,6 +7,7 @@ use App\Livewire\Admin\FinancialReport;
 use App\Livewire\Admin\Notifications as AdminNotifications;
 use App\Livewire\Admin\OrderManagement;
 use App\Livewire\Admin\ProductManagement;
+use App\Livewire\Admin\ImportProducts;
 use App\Livewire\Admin\StaffManagement;
 use App\Livewire\Admin\StoreSetting;
 use App\Livewire\Admin\AccountSettings as AdminAccountSettings;
@@ -40,6 +41,7 @@ use App\Livewire\Customer\SubmitFarmerReview;
 use App\Livewire\Admin\ReviewModeration;
 use App\Livewire\Admin\FarmerVerification;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Admin\TemplateController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -57,6 +59,62 @@ Route::get('/checkout', Checkout::class)->name('checkout');
 // Shop - Feed & Farm Supplies
 Route::get('/shop', Shop::class)->name('shop');
 Route::get('/shop/{slug}', ProductDetail::class)->name('shop.product');
+
+// Stock Check Routes (for cart validation)
+Route::get('/shop/check-stock/{productId}', function ($productId) {
+    $product = \App\Models\Product::find($productId);
+
+    if (!$product) {
+        return response()->json([
+            'available' => false,
+            'stock' => 0,
+            'message' => 'Produk tidak ditemukan',
+        ]);
+    }
+
+    return response()->json([
+        'available' => $product->stock > 0 && $product->status === 'available',
+        'stock' => $product->stock,
+        'status' => $product->stock_status,
+        'message' => $product->stock > 0
+            ? "Stok tersedia: {$product->stock} unit"
+            : 'Stok habis',
+    ]);
+})->name('shop.check-stock');
+
+Route::get('/shop/validate-cart/{productId}', function ($productId, \Illuminate\Http\Request $request) {
+    $product = \App\Models\Product::find($productId);
+    $requestedQty = (int) $request->query('qty', 1);
+
+    if (!$product) {
+        return response()->json([
+            'valid' => false,
+            'maxQty' => 0,
+            'currentStock' => 0,
+            'message' => 'Produk tidak ditemukan',
+        ]);
+    }
+
+    $maxQty = $product->stock;
+
+    if ($requestedQty > $maxQty) {
+        return response()->json([
+            'valid' => false,
+            'maxQty' => $maxQty,
+            'currentStock' => $product->stock,
+            'message' => $maxQty > 0
+                ? "Stok hanya {$maxQty} unit"
+                : 'Stok habis',
+        ]);
+    }
+
+    return response()->json([
+        'valid' => true,
+        'maxQty' => $maxQty,
+        'currentStock' => $product->stock,
+        'message' => 'OK',
+    ]);
+})->name('shop.validate-cart');
 
 // FCM Token Routes (web - session auth)
 Route::middleware(['auth'])->prefix('fcm-token')->group(function () {
@@ -87,6 +145,8 @@ Route::middleware(['auth', 'verified', 'check.admin'])
     ->group(function (): void {
         Route::get('/', AdminDashboard::class)->name('dashboard');
         Route::get('/produk', ProductManagement::class)->name('products');
+        Route::get('/produk/import', ImportProducts::class)->name('products.import');
+        Route::get('/templates/{type}', [TemplateController::class, 'download'])->name('templates.download');
         Route::get('/pemesanan', OrderManagement::class)->name('orders');
         Route::get('/pelanggan', CustomerManagement::class)->name('customers');
         Route::get('/staf', StaffManagement::class)->name('staff');

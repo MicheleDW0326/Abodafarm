@@ -6,9 +6,11 @@
     </div>
 
     <div class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        @foreach ($highlights as $item)
+        @foreach ($highlights as $index => $item)
             <article
-                class="rounded-2xl border border-emerald-100 bg-linear-to-br from-white to-emerald-50 p-5 shadow-sm">
+                class="rounded-2xl border border-emerald-100 bg-linear-to-br from-white to-emerald-50 p-5 shadow-sm"
+                data-aos="{{ $index % 2 === 0 ? 'fade-right' : 'fade-left' }}"
+                data-aos-delay="{{ ($index % 4) * 100 }}">
                 <p class="mb-2 text-sm font-semibold uppercase tracking-wider text-emerald-700">Standar AbodaFarm</p>
 
                 <h3 class="text-lg font-semibold">{{ $item['title'] }}</h3>

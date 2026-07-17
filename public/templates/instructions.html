@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Petunjuk Import Produk - AbodaFarm</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-emerald-50 min-h-screen">
+    <div class="max-w-5xl mx-auto px-6 py-12">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <div class="inline-flex items-center justify-center size-20 rounded-full bg-emerald-100 mb-6">
+                <i class="fa-solid fa-file-import text-4xl text-emerald-600"></i>
+            </div>
+            <h1 class="text-3xl font-bold text-slate-800 mb-3">Petunjuk Import Produk</h1>
+            <p class="text-slate-600 max-w-2xl mx-auto">Import produk secara massal menggunakan file CSV yang dapat dibuka di Microsoft Excel atau Google Sheets.</p>
+        </div>
+
+        <!-- Download Section -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+            <h2 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-download text-emerald-500"></i>
+                Download Template
+            </h2>
+            <div class="flex flex-wrap gap-4">
+                <a href="/templates/product-import-template.csv" download="product-import-template.csv"
+                   class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-medium transition">
+                    <i class="fa-solid fa-file-csv"></i>
+                    Download Template CSV
+                </a>
+                <a href="/templates/instructions.html" download="import-instructions.html"
+                   class="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-xl font-medium transition">
+                    <i class="fa-solid fa-file-lines"></i>
+                    Download Petunjuk Ini
+                </a>
+            </div>
+        </div>
+
+        <!-- Field Guide -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+            <h2 class="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-table-list text-emerald-500"></i>
+                Panduan Kolom
+            </h2>
+
+            <!-- Required Fields -->
+            <div class="mb-8">
+                <h3 class="text-base font-semibold text-red-600 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    Kolom Wajib Diisi
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-red-50">
+                                <th class="text-left px-4 py-3 font-semibold text-slate-700">Kolom</th>
+                                <th class="text-left px-4 py-3 font-semibold text-slate-700">Deskripsi</th>
+                                <th class="text-left px-4 py-3 font-semibold text-slate-700">Contoh</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Nama Produk</td>
+                                <td class="px-4 py-3 text-slate-600">Nama produk, maks 255 karakter</td>
+                                <td class="px-4 py-3 text-slate-600">Sapi Limousin Betina</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Kategori</td>
+                                <td class="px-4 py-3 text-slate-600">Nama kategori persis seperti daftar di bawah</td>
+                                <td class="px-4 py-3 text-slate-600">Sapi</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Tipe Produk</td>
+                                <td class="px-4 py-3 text-slate-600">Ketik salah satu: live, fresh, supply</td>
+                                <td class="px-4 py-3 text-slate-600">live</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Harga</td>
+                                <td class="px-4 py-3 text-slate-600">Harga dalam angka bulat (tanpa Rp atau titik)</td>
+                                <td class="px-4 py-3 text-slate-600">15000000</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Stok</td>
+                                <td class="px-4 py-3 text-slate-600">Jumlah stok (angka bulat)</td>
+                                <td class="px-4 py-3 text-slate-600">5</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Optional Fields -->
+            <div class="mb-8">
+                <h3 class="text-base font-semibold text-amber-600 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-info"></i>
+                    Kolom Opsional
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-amber-50">
+                                <th class="text-left px-4 py-3 font-semibold text-slate-700">Kolom</th>
+                                <th class="text-left px-4 py-3 font-semibold text-slate-700">Berlaku Untuk</th>
+                                <th class="text-left px-4 py-3 font-semibold text-slate-700">Deskripsi</th>
+                                <th class="text-left px-4 py-3 font-semibold text-slate-700">Contoh</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Deskripsi</td>
+                                <td class="px-4 py-3 text-slate-600">Semua tipe</td>
+                                <td class="px-4 py-3 text-slate-600">Deskripsi produk</td>
+                                <td class="px-4 py-3 text-slate-600">Sapi limousin sehat...</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Ras</td>
+                                <td class="px-4 py-3 text-amber-600">live</td>
+                                <td class="px-4 py-3 text-slate-600">Ras/bangsa ternak</td>
+                                <td class="px-4 py-3 text-slate-600">Limousin</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Berat (kg)</td>
+                                <td class="px-4 py-3 text-amber-600">live</td>
+                                <td class="px-4 py-3 text-slate-600">Berat dalam kilogram</td>
+                                <td class="px-4 py-3 text-slate-600">350.5</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Umur</td>
+                                <td class="px-4 py-3 text-amber-600">live</td>
+                                <td class="px-4 py-3 text-slate-600">Umur ternak</td>
+                                <td class="px-4 py-3 text-slate-600">2 Tahun</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Jenis Kelamin</td>
+                                <td class="px-4 py-3 text-amber-600">live</td>
+                                <td class="px-4 py-3 text-slate-600">male, female, mixed</td>
+                                <td class="px-4 py-3 text-slate-600">female</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Asal</td>
+                                <td class="px-4 py-3 text-amber-600">live</td>
+                                <td class="px-4 py-3 text-slate-600">Lokasi asal ternak</td>
+                                <td class="px-4 py-3 text-slate-600">Jawa Timur</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Kondisi</td>
+                                <td class="px-4 py-3 text-amber-600">live</td>
+                                <td class="px-4 py-3 text-slate-600">Kondisi kesehatan</td>
+                                <td class="px-4 py-3 text-slate-600">Sehat</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Lokasi Kandang</td>
+                                <td class="px-4 py-3 text-amber-600">live</td>
+                                <td class="px-4 py-3 text-slate-600">Lokasi kandangnya</td>
+                                <td class="px-4 py-3 text-slate-600">Kandang A</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Berat Per Unit (kg)</td>
+                                <td class="px-4 py-3 text-blue-600">fresh</td>
+                                <td class="px-4 py-3 text-slate-600">Berat per unit</td>
+                                <td class="px-4 py-3 text-slate-600">1.5</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Unit</td>
+                                <td class="px-4 py-3 text-green-600">supply</td>
+                                <td class="px-4 py-3 text-slate-600">Satuan produk (kg, pcs, sak)</td>
+                                <td class="px-4 py-3 text-slate-600">kg</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Harga Diskon</td>
+                                <td class="px-4 py-3 text-green-600">supply</td>
+                                <td class="px-4 py-3 text-slate-600">Harga setelah diskon</td>
+                                <td class="px-4 py-3 text-slate-600">450000</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Diskon (%)</td>
+                                <td class="px-4 py-3 text-green-600">supply</td>
+                                <td class="px-4 py-3 text-slate-600">Persentase diskon (0-100)</td>
+                                <td class="px-4 py-3 text-slate-600">10</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Spesifikasi</td>
+                                <td class="px-4 py-3 text-green-600">supply</td>
+                                <td class="px-4 py-3 text-slate-600">Spesifikasi teknis produk</td>
+                                <td class="px-4 py-3 text-slate-600">Komposisi:...</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Cara Penggunaan</td>
+                                <td class="px-4 py-3 text-green-600">supply</td>
+                                <td class="px-4 py-3 text-slate-600">Panduan penggunaan</td>
+                                <td class="px-4 py-3 text-slate-600">Campurkan 100g...</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Info Pengiriman</td>
+                                <td class="px-4 py-3 text-green-600">supply</td>
+                                <td class="px-4 py-3 text-slate-600">Informasi pengiriman</td>
+                                <td class="px-4 py-3 text-slate-600">Gratis ongkir...</td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 font-medium text-slate-800">Unggulan</td>
+                                <td class="px-4 py-3 text-slate-600">Semua</td>
+                                <td class="px-4 py-3 text-slate-600">Tandai sebagai produk unggulan (1=yes, 0=no)</td>
+                                <td class="px-4 py-3 text-slate-600">1</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Reference -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+            <h2 class="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-tags text-emerald-500"></i>
+                Daftar Kategori
+            </h2>
+
+            <div class="grid md:grid-cols-3 gap-6">
+                <!-- Livestock Categories -->
+                <div>
+                    <h3 class="text-sm font-semibold text-amber-600 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-cow"></i>
+                        Ternak (live)
+                    </h3>
+                    <ul class="space-y-2">
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs flex items-center justify-center font-medium">1</span>
+                            Sapi
+                        </li>
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs flex items-center justify-center font-medium">2</span>
+                            Kambing
+                        </li>
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs flex items-center justify-center font-medium">3</span>
+                            Ayam
+                        </li>
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-amber-100 text-amber-600 text-xs flex items-center justify-center font-medium">4</span>
+                            Bebek
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Fresh Categories -->
+                <div>
+                    <h3 class="text-sm font-semibold text-blue-600 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-drumstick-bite"></i>
+                        Daging Segar (fresh)
+                    </h3>
+                    <ul class="space-y-2">
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs flex items-center justify-center font-medium">5</span>
+                            Daging Segar
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Supply Categories -->
+                <div>
+                    <h3 class="text-sm font-semibold text-emerald-600 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-box-open"></i>
+                        Barang (supply)
+                    </h3>
+                    <ul class="space-y-2">
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 text-xs flex items-center justify-center font-medium">6</span>
+                            Pakan Ternak
+                        </li>
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 text-xs flex items-center justify-center font-medium">7</span>
+                            Vitamin & Suplemen
+                        </li>
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 text-xs flex items-center justify-center font-medium">8</span>
+                            Obat-Obatan
+                        </li>
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 text-xs flex items-center justify-center font-medium">9</span>
+                            Alat Minum
+                        </li>
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 text-xs flex items-center justify-center font-medium">10</span>
+                            Alat Makan
+                        </li>
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 text-xs flex items-center justify-center font-medium">11</span>
+                            Alat Kebersihan
+                        </li>
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 text-xs flex items-center justify-center font-medium">12</span>
+                            Perlengkapan Kandang
+                        </li>
+                        <li class="flex items-center gap-2 text-sm text-slate-700">
+                            <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 text-xs flex items-center justify-center font-medium">13</span>
+                            Lainnya
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Types -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+            <h2 class="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-layer-group text-emerald-500"></i>
+                Tipe Produk
+            </h2>
+
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="p-4 rounded-xl bg-amber-50 border border-amber-200">
+                    <h3 class="font-semibold text-amber-700 mb-2">live</h3>
+                    <p class="text-sm text-amber-600">Ternak hidup (sapi, kambing, ayam, bebek)</p>
+                    <p class="text-xs text-amber-500 mt-2">Kolom: Ras, Berat, Umur, Jenis Kelamin, Asal, Kondisi</p>
+                </div>
+                <div class="p-4 rounded-xl bg-blue-50 border border-blue-200">
+                    <h3 class="font-semibold text-blue-700 mb-2">fresh</h3>
+                    <p class="text-sm text-blue-600">Daging segar dan produk olahannya</p>
+                    <p class="text-xs text-blue-500 mt-2">Kolom: Berat Per Unit</p>
+                </div>
+                <div class="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+                    <h3 class="font-semibold text-emerald-700 mb-2">supply</h3>
+                    <p class="text-sm text-emerald-600">Pakan, vitamin, obat, peralatan</p>
+                    <p class="text-xs text-emerald-500 mt-2">Kolom: Unit, Harga Diskon, Diskon %, Spesifikasi, Cara Pakai, Info Kirim</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Common Mistakes -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+            <h2 class="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-red-500"></i>
+                Kesalahan Umum yang Harus Dihindari
+            </h2>
+
+            <div class="space-y-4">
+                <div class="flex gap-4 p-4 bg-red-50 rounded-xl border border-red-100">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-red-700">Nama Kategori Salah</h4>
+                        <p class="text-sm text-red-600">SALAH: "sapi", "SAPI", "Sapi " | BENAR: "Sapi"</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 p-4 bg-red-50 rounded-xl border border-red-100">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-red-700">Format Harga Salah</h4>
+                        <p class="text-sm text-red-600">SALAH: "Rp 15.000.000", "15,000,000", "15jt" | BENAR: 15000000</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 p-4 bg-red-50 rounded-xl border border-red-100">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-red-700">Tipe Produk Salah</h4>
+                        <p class="text-sm text-red-600">SALAH: "livestock", "meat", "product", "Ternak" | BENAR: "live", "fresh", "supply"</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 p-4 bg-red-50 rounded-xl border border-red-100">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-red-700">Baris Kosong</h4>
+                        <p class="text-sm text-red-600">Hapus semua baris kosong sebelum import</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 p-4 bg-red-50 rounded-xl border border-red-100">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-red-700">Format Desimal</h4>
+                        <p class="text-sm text-red-600">SALAH: "350,5", "350.5 kg" | BENAR: 350.5</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center text-sm text-slate-500">
+            <p>AbodaFarm - Sistem Manajemen Produk</p>
+            <p class="mt-1">Jika ada pertanyaan, hubungi administrator.</p>
+        </div>
+    </div>
+</body>
+</html>

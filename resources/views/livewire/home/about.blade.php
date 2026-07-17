@@ -7,13 +7,8 @@
             <div class="flex items-center justify-between h-16">
                 <!-- Logo -->
                 <a href="{{ route('home') }}" class="flex items-center gap-2.5 group">
-                    <span class="grid size-9 place-content-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-sm font-black text-white shadow-lg shadow-emerald-500/30 group-hover:shadow-emerald-500/50 transition-shadow">
-                        AF
-                    </span>
-                    <div>
-                        <span class="block text-lg font-black tracking-tight text-slate-900">Aboda<span class="text-emerald-600">Farm</span></span>
-                        <span class="block text-[10px] uppercase tracking-[0.2em] text-slate-400 -mt-0.5">Pasar Ternak Organik</span>
-                    </div>
+                    <img src="/icons/MainLogo.png" alt="AbodaFarm Logo" class="h-9 w-auto object-contain">
+                    <span class="block text-lg font-black tracking-tight text-slate-900">Aboda<span class="text-emerald-600">Farm</span></span>
                 </a>
 
                 <!-- Desktop Navigation -->
@@ -130,7 +125,8 @@
 
             <div class="grid md:grid-cols-2 gap-8">
                 <!-- Visi -->
-                <div class="bg-white rounded-2xl p-8 shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl transition-all">
+                <div class="bg-white rounded-2xl p-8 shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl transition-all"
+                    data-aos="fade-right">
                     <div class="size-14 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-xl flex items-center justify-center mb-6">
                         <svg class="size-7 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="10"/>
@@ -145,7 +141,8 @@
                 </div>
 
                 <!-- Misi -->
-                <div class="bg-white rounded-2xl p-8 shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl transition-all">
+                <div class="bg-white rounded-2xl p-8 shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl transition-all"
+                    data-aos="fade-left">
                     <div class="size-14 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-xl flex items-center justify-center mb-6">
                         <svg class="size-7 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M12 20V10"/>
@@ -195,7 +192,8 @@
             </div>
 
             <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div class="text-center p-6 rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                <div class="text-center p-6 rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
+                    data-aos="fade-up" data-aos-delay="0">
                     <div class="size-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                         <svg class="size-8 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -205,7 +203,8 @@
                     <p class="text-sm text-slate-600">Standar tertinggi untuk setiap produk yang kami hasilkan</p>
                 </div>
 
-                <div class="text-center p-6 rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                <div class="text-center p-6 rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
+                    data-aos="fade-up" data-aos-delay="100">
                     <div class="size-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                         <svg class="size-8 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
@@ -215,7 +214,8 @@
                     <p class="text-sm text-slate-600">Praktik pertanian yang menjaga lingkungan untuk generasi depan</p>
                 </div>
 
-                <div class="text-center p-6 rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                <div class="text-center p-6 rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
+                    data-aos="fade-up" data-aos-delay="200">
                     <div class="size-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                         <svg class="size-8 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -228,7 +228,8 @@
                     <p class="text-sm text-slate-600">Kolaborasi yang adil dengan peternak lokal</p>
                 </div>
 
-                <div class="text-center p-6 rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                <div class="text-center p-6 rounded-2xl bg-white shadow-lg shadow-slate-200/50 border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
+                    data-aos="fade-up" data-aos-delay="300">
                     <div class="size-16 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                         <svg class="size-8 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -252,7 +253,8 @@
             </div>
 
             <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                <div class="text-center group">
+                <div class="text-center group"
+                    data-aos="fade-up" data-aos-delay="0">
                     <div class="size-32 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full mx-auto mb-4 flex items-center justify-center text-4xl font-bold text-white shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
                         RK
                     </div>
@@ -261,7 +263,8 @@
                     <p class="text-slate-400 text-sm max-w-xs mx-auto">Visoner di balik AbodaFarm dengan pengalaman 15+ tahun di industri pertanian organik</p>
                 </div>
 
-                <div class="text-center group">
+                <div class="text-center group"
+                    data-aos="fade-up" data-aos-delay="100">
                     <div class="size-32 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full mx-auto mb-4 flex items-center justify-center text-4xl font-bold text-white shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
                         SM
                     </div>
@@ -270,7 +273,8 @@
                     <p class="text-slate-400 text-sm max-w-xs mx-auto">Memastikan setiap operasi berjalan lancar dan efisien dari peternakan hingga pengiriman</p>
                 </div>
 
-                <div class="text-center group">
+                <div class="text-center group"
+                    data-aos="fade-up" data-aos-delay="200">
                     <div class="size-32 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full mx-auto mb-4 flex items-center justify-center text-4xl font-bold text-white shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
                         DL
                     </div>
@@ -335,13 +339,8 @@
                 <!-- Brand -->
                 <div class="md:col-span-2">
                     <a href="{{ route('home') }}" class="flex items-center gap-2.5 mb-4">
-                        <span class="grid size-10 place-content-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-sm font-black text-white shadow-lg shadow-emerald-500/30">
-                            AF
-                        </span>
-                        <div>
-                            <span class="block text-xl font-black tracking-tight text-slate-900">Aboda<span class="text-emerald-600">Farm</span></span>
-                            <span class="block text-[10px] uppercase tracking-[0.2em] text-slate-400 -mt-0.5">Pasar Ternak Organik</span>
-                        </div>
+                        <img src="/icons/MainLogo.png" alt="AbodaFarm Logo" class="h-10 w-auto object-contain">
+                        <span class="block text-xl font-black tracking-tight text-slate-900">Aboda<span class="text-emerald-600">Farm</span></span>
                     </a>
                     <p class="text-slate-500 text-sm leading-relaxed max-w-sm">
                         Menyediakan produk peternakan organik berkualitas tinggi langsung dari peternak lokal Sulawesi Utara. 100% halal dan segar setiap hari.

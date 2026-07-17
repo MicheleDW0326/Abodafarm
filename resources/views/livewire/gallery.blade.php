@@ -214,13 +214,13 @@
     </div>
 
     {{-- Filter Section --}}
-    <div class="border-b border-slate-200/80 bg-white/80 backdrop-blur-xl sticky top-0 z-30 shadow-sm">
-        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div class="border-b border-slate-200/80 bg-white/95 backdrop-blur-xl sticky top-[64px] z-30 shadow-sm">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col gap-3 py-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
                 {{-- Type Filter Pills --}}
-                <div class="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
+                <div class="flex items-center gap-2">
                     <button @click="setType('all')"
-                            class="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-medium transition-all"
+                            class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all"
                             :class="$wire.typeFilter === 'all' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
                         <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
@@ -228,7 +228,7 @@
                         Semua
                     </button>
                     <button @click="setType('live')"
-                            class="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-medium transition-all"
+                            class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all"
                             :class="$wire.typeFilter === 'live' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
                         <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
@@ -236,7 +236,7 @@
                         Ternak Hidup
                     </button>
                     <button @click="setType('fresh')"
-                            class="inline-flex items-center gap-2 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-medium transition-all"
+                            class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all"
                             :class="$wire.typeFilter === 'fresh' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
                         <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/>
@@ -245,21 +245,40 @@
                     </button>
                 </div>
 
-                {{-- Category Filter --}}
-                <div class="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide">
-                    <button @click="setCategory(null)"
-                            class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all"
-                            :class="$wire.selectedCategory === null ? 'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-500' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-emerald-300'">
-                        Semua Kategori
+                {{-- Category Dropdown --}}
+                @php
+                    $selectedCat = collect($categories ?? [])->firstWhere('id', $selectedCategory ?? 0);
+                @endphp
+                <div x-data="{ open: false }" class="relative">
+                    <button @click="open = !open"
+                            class="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all"
+                            :class="$wire.selectedCategory !== null ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'">
+                        <span>{!! $selectedCat['icon'] ?? '' !!} {{ $selectedCat['name'] ?? 'Semua Kategori' }}</span>
+                        <svg class="size-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
                     </button>
-                    @foreach($categories as $category)
-                        <button @click="setCategory({{ $category['id'] }})"
-                                class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all"
-                                :class="$wire.selectedCategory === {{ $category['id'] }} ? 'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-500' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-emerald-300'">
-                            <span>{{ $category['icon'] }}</span>
-                            {{ $category['name'] }}
-                        </button>
-                    @endforeach
+                    <div x-show="open" @click.outside="open = false"
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 translate-y-1"
+                         x-transition:enter-end="opacity-100 translate-y-0"
+                         class="absolute right-0 top-full z-30 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                        <div class="p-2">
+                            <button @click="setCategory(null); open = false"
+                                    class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all"
+                                    :class="$wire.selectedCategory === null ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600 hover:bg-slate-50'">
+                                Semua Kategori
+                            </button>
+                            @foreach($categories as $category)
+                                <button @click="setCategory({{ $category['id'] }}); open = false"
+                                        class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all"
+                                        :class="$wire.selectedCategory === {{ $category['id'] }} ? 'bg-emerald-50 text-emerald-700 font-medium' : 'text-slate-600 hover:bg-slate-50'">
+                                    <span>{{ $category['icon'] }}</span>
+                                    {{ $category['name'] }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -305,6 +324,8 @@
                 @foreach($products as $index => $product)
                     <article class="product-card group relative overflow-hidden rounded-3xl bg-white shadow-lg shadow-slate-200/50 transition-all duration-500 hover:shadow-2xl hover:shadow-emerald-500/10"
                              data-delay="{{ $index * 80 }}"
+                             data-aos="{{ $index % 2 === 0 ? 'fade-right' : 'fade-left' }}"
+                             data-aos-delay="{{ ($index % 4) * 100 }}"
                              x-data="{ isHovered: false }"
                              @mouseenter="isHovered = true"
                              @mouseleave="isHovered = false">
@@ -598,7 +619,9 @@
 
                 @foreach($features as $index => $feature)
                     <div class="feature-card group relative rounded-3xl bg-white/5 p-8 backdrop-blur-sm transition-all duration-500 hover:bg-white/10"
-                         style="transition-delay: {{ $index * 100 }}ms">
+                         style="transition-delay: {{ $index * 100 }}ms"
+                         data-aos="fade-up"
+                         data-aos-delay="{{ $index * 100 }}">
                         <div class="absolute inset-0 rounded-3xl bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100"></div>
                         <div class="relative">
                             <div class="flex size-14 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-400 mb-6 group-hover:scale-110 transition-transform">

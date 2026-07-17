@@ -110,7 +110,9 @@
                 <div class="contents">
                     @foreach ($filteredLiveProducts as $index => $product)
                         <article
-                            class="overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-md shadow-emerald-50">
+                            class="overflow-hidden rounded-3xl border border-emerald-100 bg-white shadow-md shadow-emerald-50"
+                            data-aos="{{ $index % 2 === 0 ? 'fade-right' : 'fade-left' }}"
+                            data-aos-delay="{{ ($index % 3) * 100 }}">
                             <div class="relative">
                                 <img src="{{ $product['image'] }}" alt="{{ $product['name'] }}"
                                     class="h-56 w-full object-cover">
@@ -195,7 +197,9 @@
             <template x-if="activeTab === 'fresh'">
                 <div class="contents">
                     @foreach ($productsFresh as $index => $product)
-                        <article class="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-md">
+                        <article class="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-md"
+                            data-aos="{{ $index % 2 === 0 ? 'fade-right' : 'fade-left' }}"
+                            data-aos-delay="{{ ($index % 3) * 100 }}">
                             <img src="{{ $product['image'] }}" alt="{{ $product['name'] }}"
                                 class="h-56 w-full object-cover">
                             <div class="space-y-3 p-5">

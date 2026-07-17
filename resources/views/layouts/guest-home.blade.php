@@ -31,6 +31,9 @@
 
     {{ $slot }}
 
+    <!-- Help Center Modal -->
+    <x-help-center />
+
     @livewireScripts
 </body>
 

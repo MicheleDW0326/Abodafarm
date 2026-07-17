@@ -24,11 +24,9 @@
 
             <div class="relative z-10 flex items-center justify-between px-10 pt-10">
                 <a href="{{ route('home') }}" class="flex items-center gap-3">
-                    <span
-                        class="grid size-11 place-content-center rounded-2xl border border-white/20 bg-white/10 text-lg font-bold text-white backdrop-blur">AF</span>
+                    <img src="/icons/MainLogo.png" alt="AbodaFarm Logo" class="h-11 w-auto object-contain brightness-0 invert">
                     <div>
-                        <p class="text-xl font-black tracking-tight text-white">Aboda<span
-                                class="text-sky-200">Farm</span></p>
+                        <p class="text-xl font-black tracking-tight text-white">Aboda<span class="text-sky-200">Farm</span></p>
                         <p class="text-xs uppercase tracking-[0.24em] text-white/50">Pasar ternak organik</p>
                     </div>
                 </a>
@@ -65,13 +63,10 @@
             <div class="w-full max-w-md">
                 <div class="mb-8 flex items-center gap-3 lg:hidden">
                     <a href="{{ route('home') }}" class="flex items-center gap-3">
-                        <span
-                            class="grid size-10 place-content-center rounded-2xl bg-linear-to-br from-teal-500 to-sky-500 text-lg font-bold text-white">AF</span>
+                        <img src="/icons/MainLogo.png" alt="AbodaFarm Logo" class="h-10 w-auto object-contain">
                         <span>
-                            <span class="block text-xl font-black tracking-tight text-slate-900">Aboda<span
-                                    class="text-sky-600">Farm</span></span>
-                            <span class="block text-xs uppercase tracking-[0.24em] text-slate-400">Pasar ternak
-                                organik</span>
+                            <span class="block text-xl font-black tracking-tight text-slate-900">Aboda<span class="text-sky-600">Farm</span></span>
+                            <span class="block text-xs uppercase tracking-[0.24em] text-slate-400">Pasar ternak organik</span>
                         </span>
                     </a>
                 </div>

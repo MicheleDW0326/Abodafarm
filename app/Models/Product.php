@@ -202,7 +202,7 @@ class Product extends Model
         return 'Rp ' . number_format($this->current_price, 0, ',', '.');
     }
 
-    public function getFormattedDiscountPriceAttribute(): string
+    public function getFormattedDiscountPriceAttribute(): ?string
     {
         if (!$this->has_discount) {
             return null;

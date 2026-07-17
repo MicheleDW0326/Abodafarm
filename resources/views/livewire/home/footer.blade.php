@@ -4,7 +4,7 @@
             <!-- Brand -->
             <div class="md:col-span-2">
                 <div class="flex items-center gap-2 mb-4">
-                    <span class="grid size-10 shrink-0 place-content-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-sm font-black text-white shadow-lg shadow-emerald-500/30">AF</span>
+                    <img src="/icons/MainLogo.png" alt="AbodaFarm Logo" class="h-10 w-auto object-contain">
                     <span class="text-xl font-black tracking-tight">Aboda<span class="text-emerald-400">Farm</span></span>
                 </div>
                 <p class="text-gray-400 mb-6 max-w-md">

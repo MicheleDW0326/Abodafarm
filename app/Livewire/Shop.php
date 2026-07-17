@@ -5,7 +5,6 @@ namespace App\Livewire;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Support\Str;
-use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -16,8 +15,6 @@ use Livewire\WithPagination;
 class Shop extends Component
 {
     use WithPagination;
-
-    protected $paginationTheme = 'tailwind';
 
     public string $search = '';
 
@@ -32,6 +29,18 @@ class Shop extends Component
     public array $heroBanners = [];
 
     public array $promotionalBanner = [];
+
+    public array $categories = [];
+
+    public array $categoryCounts = [];
+
+    public array $featuredProducts = [];
+
+    public bool $showToast = false;
+
+    public string $toastMessage = '';
+
+    public string $toastType = 'success';
 
     public function mount(): void
     {
@@ -55,22 +64,32 @@ class Shop extends Component
             'subtitle' => 'Untuk pembelian di atas Rp 500.000',
             'icon' => 'fa-solid fa-truck-fast',
         ];
+
+        // Load categories
+        $this->loadCategories();
+
+        // Load category counts
+        $this->loadCategoryCounts();
+
+        // Load featured products
+        $this->loadFeaturedProducts();
     }
 
-    #[Computed]
-    public function categories(): array
+    protected function loadCategories(): void
     {
-        return Category::where('is_active', true)
-            ->whereIn('slug', [
-                'pakan-ternak',
-                'vitamin-suplemen',
-                'obat-obatan',
-                'alat-minum',
-                'alat-makan',
-                'alat-kebersihan',
-                'perlengkapan-kandang',
-                'lainnya',
-            ])
+        $supplySlugs = [
+            'pakan-ternak',
+            'vitamin-suplemen',
+            'obat-obatan',
+            'alat-minum',
+            'alat-makan',
+            'alat-kebersihan',
+            'perlengkapan-kandang',
+            'lainnya',
+        ];
+
+        $this->categories = Category::where('is_active', true)
+            ->whereIn('slug', $supplySlugs)
             ->orderBy('sort_order')
             ->get()
             ->map(fn($cat) => [
@@ -83,23 +102,48 @@ class Shop extends Component
             ->toArray();
     }
 
-    #[Computed]
-    public function allCategories(): array
+    protected function loadCategoryCounts(): void
     {
-        return Category::where('is_active', true)
-            ->orderBy('sort_order')
-            ->get()
-            ->map(fn($cat) => [
-                'id' => $cat->id,
-                'name' => $cat->name,
-                'slug' => $cat->slug,
-                'icon' => $cat->icon,
-            ])
-            ->toArray();
+        $counts = [];
+        $supplySlugs = [
+            'pakan-ternak',
+            'vitamin-suplemen',
+            'obat-obatan',
+            'alat-minum',
+            'alat-makan',
+            'alat-kebersihan',
+            'perlengkapan-kandang',
+            'lainnya',
+        ];
+
+        $supplyCategories = Category::whereIn('slug', $supplySlugs)->get();
+
+        foreach ($supplyCategories as $cat) {
+            $count = Product::supply()
+                ->where('category_id', $cat->id)
+                ->available()
+                ->inStock()
+                ->count();
+            $counts[$cat->id] = $count;
+        }
+
+        $this->categoryCounts = $counts;
     }
 
-    #[Computed]
-    public function products()
+    protected function loadFeaturedProducts(): void
+    {
+        $products = Product::supply()
+            ->available()
+            ->inStock()
+            ->featured()
+            ->with('category')
+            ->limit(6)
+            ->get();
+
+        $this->featuredProducts = $products->map(fn($p) => $this->formatProduct($p))->toArray();
+    }
+
+    protected function getProductsQuery()
     {
         $query = Product::supply()
             ->available()
@@ -153,48 +197,7 @@ class Shop extends Component
             default => $query->orderBy('created_at', 'desc'),
         };
 
-        return $query->paginate(12);
-    }
-
-    #[Computed]
-    public function featuredProducts(): array
-    {
-        return Product::supply()
-            ->available()
-            ->inStock()
-            ->featured()
-            ->with('category')
-            ->limit(6)
-            ->get()
-            ->map(fn($p) => $this->formatProduct($p))
-            ->toArray();
-    }
-
-    #[Computed]
-    public function categoryCounts(): array
-    {
-        $counts = [];
-        $supplyCategories = Category::whereIn('slug', [
-            'pakan-ternak',
-            'vitamin-suplemen',
-            'obat-obatan',
-            'alat-minum',
-            'alat-makan',
-            'alat-kebersihan',
-            'perlengkapan-kandang',
-            'lainnya',
-        ])->pluck('id');
-
-        foreach ($supplyCategories as $catId) {
-            $count = Product::supply()
-                ->where('category_id', $catId)
-                ->available()
-                ->inStock()
-                ->count();
-            $counts[$catId] = $count;
-        }
-
-        return $counts;
+        return $query;
     }
 
     public function selectCategory(?int $categoryId): void
@@ -239,12 +242,75 @@ class Shop extends Component
         return $count;
     }
 
+    /**
+     * Check stock availability for a product
+     */
+    public function checkStock(int $productId): array
+    {
+        $product = Product::find($productId);
+
+        if (!$product) {
+            return [
+                'available' => false,
+                'stock' => 0,
+                'message' => 'Produk tidak ditemukan',
+            ];
+        }
+
+        return [
+            'available' => $product->stock > 0 && $product->status === 'available',
+            'stock' => $product->stock,
+            'status' => $product->stock_status,
+            'message' => $product->stock > 0
+                ? "Stok tersedia: {$product->stock} unit"
+                : 'Stok habis',
+        ];
+    }
+
+    /**
+     * Validate cart item quantity against current stock
+     */
+    public function validateCartQuantity(int $productId, int $requestedQty): array
+    {
+        $product = Product::find($productId);
+
+        if (!$product) {
+            return [
+                'valid' => false,
+                'maxQty' => 0,
+                'currentStock' => 0,
+                'message' => 'Produk tidak ditemukan',
+            ];
+        }
+
+        $maxQty = $product->stock;
+
+        if ($requestedQty > $maxQty) {
+            return [
+                'valid' => false,
+                'maxQty' => $maxQty,
+                'currentStock' => $product->stock,
+                'message' => $maxQty > 0
+                    ? "Stok hanya {$maxQty} unit"
+                    : 'Stok habis',
+            ];
+        }
+
+        return [
+            'valid' => true,
+            'maxQty' => $maxQty,
+            'currentStock' => $product->stock,
+            'message' => 'OK',
+        ];
+    }
+
     protected function formatProduct(Product $product): array
     {
         return [
             'id' => $product->id,
             'name' => $product->name,
             'slug' => $product->slug,
+            'description' => $product->description ?? '',
             'price' => (int) $product->price,
             'current_price' => (int) $product->current_price,
             'formatted_price' => $product->formatted_price,
@@ -269,6 +335,10 @@ class Shop extends Component
 
     public function render()
     {
-        return view('livewire.shop');
+        $products = $this->getProductsQuery()->paginate(12);
+
+        return view('livewire.shop', [
+            'products' => $products,
+        ]);
     }
 }
