@@ -25,10 +25,21 @@ class MyBookings extends Component
     public array $statusOptions = [
         'all' => 'Semua',
         'pending' => 'Menunggu',
+        'survey_scheduled' => 'Survei Dijadwalkan',
         'approved' => 'Disetujui',
-        'rejected' => 'Ditolak',
+        'ready_for_delivery' => 'Siap Dikirim',
         'completed' => 'Selesai',
+        'rejected' => 'Ditolak',
         'cancelled' => 'Dibatalkan',
+    ];
+
+    // Booking progress steps
+    public array $bookingSteps = [
+        'pending' => ['label' => 'Menunggu', 'description' => 'Menunggu konfirmasi dari peternak'],
+        'survey_scheduled' => ['label' => 'Survei', 'description' => 'Survei lapangan telah dijadwalkan'],
+        'approved' => ['label' => 'Disetujui', 'description' => 'Booking disetujui, menunggu pengiriman'],
+        'ready_for_delivery' => ['label' => 'Siap Kirim', 'description' => 'Ternak siap diambil/dikirim'],
+        'completed' => ['label' => 'Selesai', 'description' => 'Booking telah selesai'],
     ];
 
     public function render()
@@ -55,7 +66,9 @@ class MyBookings extends Component
         $stats = [
             'total' => Order::booking()->where('user_id', $userId)->count(),
             'pending' => Order::booking()->where('user_id', $userId)->where('status', 'pending')->count(),
+            'survey_scheduled' => Order::booking()->where('user_id', $userId)->where('status', 'survey_scheduled')->count(),
             'approved' => Order::booking()->where('user_id', $userId)->where('status', 'approved')->count(),
+            'ready_for_delivery' => Order::booking()->where('user_id', $userId)->where('status', 'ready_for_delivery')->count(),
             'rejected' => Order::booking()->where('user_id', $userId)->where('status', 'rejected')->count(),
             'completed' => Order::booking()->where('user_id', $userId)->where('status', 'completed')->count(),
         ];
@@ -116,7 +129,7 @@ class MyBookings extends Component
             if ($result['success']) {
                 // Dispatch event
                 event(new OrderStatusChanged(
-                    $booking->fresh(['statusLogs']),
+                    $booking->fresh(['statusLogs.triggeredBy']),
                     $fromStatus,
                     Order::STATUS_CANCELLED,
                     OrderStatusLog::TRIGGER_CUSTOMER,
@@ -143,5 +156,106 @@ class MyBookings extends Component
         if ($this->selectedBookingId) {
             $this->selectBooking($this->selectedBookingId);
         }
+    }
+
+    /**
+     * Get booking progress for a booking.
+     */
+    public function getBookingProgress(Order $booking): array
+    {
+        $status = $booking->status;
+        $stepKeys = array_keys($this->bookingSteps);
+        $currentIndex = 0;
+
+        foreach ($stepKeys as $index => $key) {
+            if ($status === $key) {
+                $currentIndex = $index;
+                break;
+            }
+        }
+
+        // Handle terminal states
+        if (in_array($status, ['rejected', 'cancelled'])) {
+            return [
+                'steps' => $this->bookingSteps,
+                'currentStep' => -1,
+                'isRejected' => true,
+                'isCancelled' => $status === 'cancelled',
+                'isComplete' => false,
+            ];
+        }
+
+        return [
+            'steps' => $this->bookingSteps,
+            'currentStep' => $currentIndex,
+            'isRejected' => false,
+            'isCancelled' => false,
+            'isComplete' => $currentIndex >= 4,
+        ];
+    }
+
+    /**
+     * Get status explanation for customers.
+     */
+    public function getStatusExplanation(string $status): array
+    {
+        return match($status) {
+            'pending' => [
+                'title' => 'Menunggu Konfirmasi',
+                'description' => 'Pesanan Anda sedang ditinjau oleh peternak. Anda akan mendapat notifikasi setelah booking disetujui atau ditolak.',
+                'action' => 'Hubungi Peternak',
+                'icon' => 'clock',
+                'color' => 'amber',
+            ],
+            'survey_scheduled' => [
+                'title' => 'Survei Dijadwalkan',
+                'description' => 'Peternak telah menjadwalkan survei lapangan. Hubungi peternak untuk konfirmasi tanggal dan detail.',
+                'action' => 'Hubungi Peternak',
+                'icon' => 'calendar-check',
+                'color' => 'blue',
+            ],
+            'approved' => [
+                'title' => 'Booking Disetujui',
+                'description' => 'Selamat! Booking Anda disetujui. Hubungi peternak untuk koordinasi pembayaran dan pengiriman.',
+                'action' => 'Hubungi Peternak',
+                'icon' => 'check-circle',
+                'color' => 'green',
+            ],
+            'ready_for_delivery' => [
+                'title' => 'Siap Dikirim/Diambil',
+                'description' => 'Ternak siap untuk dikirim atau diambil. Hubungi peternak untuk info pengambilan.',
+                'action' => 'Hubungi Peternak',
+                'icon' => 'truck-fast',
+                'color' => 'violet',
+            ],
+            'completed' => [
+                'title' => 'Booking Selesai',
+                'description' => 'Booking telah selesai. Jangan lupa untuk memberikan review!',
+                'action' => 'Beri Review',
+                'icon' => 'check-double',
+                'color' => 'emerald',
+            ],
+            'rejected' => [
+                'title' => 'Booking Ditolak',
+                'description' => 'Mohon maaf, peternak tidak dapat memenuhi booking ini. Anda dapat mencoba booking ternak lain.',
+                'action' => null,
+                'icon' => 'xmark-circle',
+                'color' => 'red',
+            ],
+            'cancelled' => [
+                'title' => 'Dibatalkan',
+                'description' => 'Booking ini telah dibatalkan.',
+                'action' => null,
+                'icon' => 'xmark',
+                'color' => 'slate',
+            ],
+            default => [
+                'title' => 'Status Tidak Diketahui',
+                'description' => 'Hubungi kami untuk informasi lebih lanjut.',
+                'action' => 'Hubungi Kami',
+                'icon' => 'question',
+                'color' => 'slate',
+            ],
+        };
     }
 }

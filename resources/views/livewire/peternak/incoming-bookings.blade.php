@@ -6,23 +6,58 @@
     </div>
 
     {{-- Stats Cards --}}
-    <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <article class="rounded-xl border border-slate-100 bg-white p-4">
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <div class="rounded-xl border border-slate-100 bg-white p-4">
             <p class="text-sm text-slate-500">Total Booking</p>
             <p class="mt-1 text-2xl font-bold text-slate-900">{{ $stats['total'] }}</p>
-        </article>
-        <article class="rounded-xl border border-slate-100 bg-white p-4">
-            <p class="text-sm text-slate-500">Menunggu</p>
+        </div>
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <p class="text-sm text-amber-700">Menunggu</p>
             <p class="mt-1 text-2xl font-bold text-amber-600">{{ $stats['pending'] }}</p>
-        </article>
-        <article class="rounded-xl border border-slate-100 bg-white p-4">
-            <p class="text-sm text-slate-500">Disetujui</p>
-            <p class="mt-1 text-2xl font-bold text-emerald-600">{{ $stats['approved'] }}</p>
-        </article>
-        <article class="rounded-xl border border-slate-100 bg-white p-4">
-            <p class="text-sm text-slate-500">Ditolak</p>
-            <p class="mt-1 text-2xl font-bold text-red-600">{{ $stats['rejected'] }}</p>
-        </article>
+        </div>
+        <div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <p class="text-sm text-blue-700">Survei Dijadwalkan</p>
+            <p class="mt-1 text-2xl font-bold text-blue-600">{{ $stats['survey_scheduled'] ?? 0 }}</p>
+        </div>
+        <div class="rounded-xl border border-green-200 bg-green-50 p-4">
+            <p class="text-sm text-green-700">Disetujui</p>
+            <p class="mt-1 text-2xl font-bold text-green-600">{{ $stats['approved'] }}</p>
+        </div>
+        <div class="rounded-xl border border-violet-200 bg-violet-50 p-4">
+            <p class="text-sm text-violet-700">Siap Dikirim</p>
+            <p class="mt-1 text-2xl font-bold text-violet-600">{{ $stats['ready_for_delivery'] ?? 0 }}</p>
+        </div>
+    </div>
+
+    {{-- Workflow Guide --}}
+    <div class="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 p-4">
+        <p class="text-sm font-semibold text-slate-700 mb-3">Alur Kerja Booking:</p>
+        <div class="flex items-center gap-2 text-xs text-slate-600 overflow-x-auto pb-1">
+            <span class="flex items-center gap-1 shrink-0">
+                <span class="w-5 h-5 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold">1</span>
+                Review
+            </span>
+            <i class="fa-solid fa-arrow-right text-slate-400 shrink-0"></i>
+            <span class="flex items-center gap-1 shrink-0">
+                <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold">2</span>
+                Survei
+            </span>
+            <i class="fa-solid fa-arrow-right text-slate-400 shrink-0"></i>
+            <span class="flex items-center gap-1 shrink-0">
+                <span class="w-5 h-5 rounded-full bg-green-100 text-green-700 flex items-center justify-center font-bold">3</span>
+                Setuju
+            </span>
+            <i class="fa-solid fa-arrow-right text-slate-400 shrink-0"></i>
+            <span class="flex items-center gap-1 shrink-0">
+                <span class="w-5 h-5 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center font-bold">4</span>
+                Siap Kirim
+            </span>
+            <i class="fa-solid fa-arrow-right text-slate-400 shrink-0"></i>
+            <span class="flex items-center gap-1 shrink-0">
+                <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">5</span>
+                Selesai
+            </span>
+        </div>
     </div>
 
     {{-- Filters --}}
@@ -43,7 +78,9 @@
         >
             <option value="all">Semua Status</option>
             <option value="pending">Menunggu</option>
+            <option value="survey_scheduled">Survei Dijadwalkan</option>
             <option value="approved">Disetujui</option>
+            <option value="ready_for_delivery">Siap Dikirim</option>
             <option value="rejected">Ditolak</option>
         </select>
     </div>
@@ -89,7 +126,7 @@
                                 </span>
                             </td>
                             <td class="px-4 py-3">
-                                <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $booking->status_badge_class }}">
+                                <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $booking->booking_status_badge_class }}">
                                     {{ $booking->booking_status_label }}
                                 </span>
                             </td>
@@ -133,10 +170,45 @@
                 <div class="p-6">
                     {{-- Status --}}
                     <div class="mb-6">
-                        <span class="rounded-lg border px-4 py-2 text-sm font-semibold {{ $selectedBooking->status_badge_class }}">
+                        <span class="rounded-lg border px-4 py-2 text-sm font-semibold {{ $selectedBooking->booking_status_badge_class }}">
                             {{ $selectedBooking->booking_status_label }}
                         </span>
                     </div>
+
+                    {{-- Quick Actions based on status --}}
+                    @if($selectedBooking->status === 'pending')
+                        <div class="mb-6 grid grid-cols-2 gap-3">
+                            <button
+                                type="button"
+                                wire:click="openSurveyModal({{ $selectedBooking->id }})"
+                                class="flex items-center justify-center gap-2 rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                            >
+                                <i class="fa-solid fa-calendar-check"></i>
+                                Jadwalkan Survei
+                            </button>
+                            <button
+                                type="button"
+                                wire:click="approveBooking({{ $selectedBooking->id }})"
+                                class="flex items-center justify-center gap-2 rounded-lg bg-green-600 py-3 text-sm font-semibold text-white transition hover:bg-green-700"
+                            >
+                                <i class="fa-solid fa-check"></i>
+                                Setujui Langsung
+                            </button>
+                        </div>
+                    @endif
+
+                    @if(in_array($selectedBooking->status, ['approved', 'survey_scheduled']))
+                        <div class="mb-6">
+                            <button
+                                type="button"
+                                wire:click="markReadyForDelivery({{ $selectedBooking->id }})"
+                                class="flex w-full items-center justify-center gap-2 rounded-lg bg-violet-600 py-3 text-sm font-semibold text-white transition hover:bg-violet-700"
+                            >
+                                <i class="fa-solid fa-truck-fast"></i>
+                                Tandai Siap Kirim/Ambil
+                            </button>
+                        </div>
+                    @endif
 
                     {{-- Customer Info --}}
                     <div class="mb-6 rounded-xl border border-slate-100 bg-slate-50 p-4">
@@ -216,66 +288,21 @@
                         </div>
                     @endif
 
-                    {{-- Timeline --}}
-                    @if(count($selectedBookingTimeline) > 0)
-                        <div class="mb-6">
-                            <h4 class="mb-4 text-sm font-semibold text-slate-900">Riwayat Status</h4>
-                            <div class="relative">
-                                {{-- Vertical Line --}}
-                                <div class="absolute left-4 top-0 h-full w-0.5 bg-slate-200"></div>
-
-                                {{-- Timeline Items --}}
-                                <div class="space-y-4">
-                                    @foreach($selectedBookingTimeline as $index => $item)
-                                        <div class="relative flex gap-4">
-                                            {{-- Timeline Dot --}}
-                                            <div class="relative z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 border-white
-                                                @if($item['is_current'])
-                                                    bg-emerald-500 text-white shadow-lg
-                                                @elseif($item['is_terminal'] && !$item['is_current'])
-                                                    bg-red-100 text-red-500
-                                                @else
-                                                    bg-slate-200 text-slate-500
-                                                @endif
-                                            ">
-                                                @if($item['is_current'])
-                                                    <i class="fa-solid fa-circle text-xs"></i>
-                                                @else
-                                                    <i class="fa-solid fa-check text-xs"></i>
-                                                @endif
-                                            </div>
-
-                                            {{-- Content --}}
-                                            <div class="flex-1 pb-4">
-                                                <div class="rounded-lg border border-slate-100 bg-white p-4 shadow-sm">
-                                                    <div class="flex items-start justify-between">
-                                                        <div>
-                                                            <p class="font-semibold text-slate-900">
-                                                                {{ $item['status_label'] }}
-                                                            </p>
-                                                            <p class="mt-1 text-xs text-slate-500">
-                                                                {{ $item['formatted_date'] ?? '' }} · {{ $item['formatted_time'] ?? '' }}
-                                                            </p>
-                                                        </div>
-                                                        @if($item['triggered_by_name'])
-                                                            <span class="rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-600">
-                                                                {{ $item['triggered_by_name'] }}
-                                                            </span>
-                                                        @endif
-                                                    </div>
-                                                    @if($item['notes'])
-                                                        <p class="mt-2 text-sm text-slate-600">{{ $item['notes'] }}</p>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
+                    {{-- Survey Info --}}
+                    @if($selectedBooking->admin_notes && str_contains($selectedBooking->admin_notes, 'Survei'))
+                        <div class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                            <p class="text-xs text-blue-600 font-semibold"><i class="fa-solid fa-calendar-check mr-1"></i>Info Survei</p>
+                            <p class="mt-1 text-sm text-blue-800">{{ Str::of($selectedBooking->admin_notes)->explode("\n")->last() }}</p>
                         </div>
                     @endif
 
-                    {{-- Actions --}}
+                    {{-- Timeline --}}
+                    <div class="mb-6">
+                        <h4 class="mb-3 text-sm font-semibold text-slate-900">Riwayat Booking</h4>
+                        <x-order-timeline :order="$selectedBooking" title="" />
+                    </div>
+
+                    {{-- Action Buttons --}}
                     @if($selectedBooking->status === 'pending')
                         <div class="flex gap-3">
                             <button
@@ -287,10 +314,10 @@
                             </button>
                             <button
                                 type="button"
-                                wire:click="approveBooking({{ $selectedBooking->id }})"
-                                class="flex-1 rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                                wire:click="openSurveyModal({{ $selectedBooking->id }})"
+                                class="flex-1 rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
                             >
-                                <i class="fa-solid fa-check mr-2"></i>Setujui Booking
+                                <i class="fa-solid fa-calendar-check mr-2"></i>Jadwalkan Survei
                             </button>
                         </div>
                     @else
@@ -299,6 +326,10 @@
                             <span class="text-sm text-slate-600">
                                 @if($selectedBooking->status === 'approved')
                                     Booking ini telah disetujui. Hubungi pelanggan untuk langkah selanjutnya.
+                                @elseif($selectedBooking->status === 'survey_scheduled')
+                                    Survei telah dijadwalkan. Hubungi pelanggan untuk konfirmasi.
+                                @elseif($selectedBooking->status === 'ready_for_delivery')
+                                    Ternak siap untuk dikirim/diambil!
                                 @elseif($selectedBooking->status === 'rejected')
                                     Booking ini telah ditolak.
                                 @else
@@ -307,6 +338,66 @@
                             </span>
                         </div>
                     @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- Survey Scheduling Modal --}}
+    @if($showSurveyModal)
+        <div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 p-4" wire:click.self="closeSurveyModal">
+            <div class="w-full max-w-md rounded-2xl bg-white shadow-xl" wire:click.stop>
+                <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+                    <h3 class="text-lg font-bold text-slate-900">
+                        <i class="fa-solid fa-calendar-check text-blue-600 mr-2"></i>
+                        Jadwalkan Survei
+                    </h3>
+                    <button type="button" wire:click="closeSurveyModal" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="p-6 space-y-4">
+                    <p class="text-sm text-slate-600">
+                        Pilih tanggal untuk melakukan survei lapangan sebelum booking disetujui.
+                    </p>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Tanggal Survei</label>
+                        <input
+                            type="date"
+                            wire:model.live="surveyDate"
+                            min="{{ now()->tomorrow()->format('Y-m-d') }}"
+                            class="w-full rounded-lg border border-slate-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Catatan (opsional)</label>
+                        <textarea
+                            wire:model.live="surveyNotes"
+                            rows="3"
+                            placeholder="Catatan untuk survei, misalnya lokasi, akses jalan, dll..."
+                            class="w-full rounded-lg border border-slate-200 px-4 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        ></textarea>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 border-t border-slate-100 px-6 py-4">
+                    <button
+                        type="button"
+                        wire:click="closeSurveyModal"
+                        class="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                    >
+                        Batal
+                    </button>
+                    <button
+                        type="button"
+                        wire:click="scheduleSurvey"
+                        class="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700"
+                    >
+                        <i class="fa-solid fa-check mr-2"></i>Jadwalkan
+                    </button>
                 </div>
             </div>
         </div>

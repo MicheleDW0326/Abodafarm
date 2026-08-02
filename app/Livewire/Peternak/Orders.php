@@ -18,9 +18,11 @@ class Orders extends Component
     {
         $userId = auth()->id();
 
-        $ordersQuery = Order::whereHas('items.product', function ($query) use ($userId) {
-            $query->where('owner_id', $userId);
-        })
+        // Get only cart type orders (not bookings/inquiries)
+        $ordersQuery = Order::cart()
+            ->whereHas('items.product', function ($query) use ($userId) {
+                $query->where('owner_id', $userId);
+            })
             ->with(['items.product' => function ($q) use ($userId) {
                 $q->where('owner_id', $userId);
             }])
@@ -31,22 +33,24 @@ class Orders extends Component
                 });
             })
             ->when($this->statusFilter !== 'all', function ($q) {
+                // Use status column for backward compatibility
                 $q->where('status', $this->statusFilter);
             })
             ->orderBy('created_at', 'desc');
 
         $orders = $ordersQuery->get();
 
-        // Stats
+        // Stats - only for cart orders
+        $statsQuery = Order::cart()->whereHas('items.product', fn($q) => $q->where('owner_id', $userId));
         $stats = [
-            'total' => Order::whereHas('items.product', fn($q) => $q->where('owner_id', $userId))->count(),
-            'pending' => Order::whereHas('items.product', fn($q) => $q->where('owner_id', $userId))->where('status', 'pending')->count(),
-            'processing' => Order::whereHas('items.product', fn($q) => $q->where('owner_id', $userId))->where('status', 'processing')->count(),
-            'shipped' => Order::whereHas('items.product', fn($q) => $q->where('owner_id', $userId))->where('status', 'shipped')->count(),
+            'total' => (clone $statsQuery)->count(),
+            'pending' => (clone $statsQuery)->where('status', 'pending')->count(),
+            'processing' => (clone $statsQuery)->where('status', 'processing')->count(),
+            'shipped' => (clone $statsQuery)->where('status', 'shipped')->count(),
         ];
 
         $selectedOrder = $this->selectedOrderId
-            ? Order::with(['items.product' => fn($q) => $q->where('owner_id', $userId)])->find($this->selectedOrderId)
+            ? Order::with(['items.product' => fn($q) => $q->where('owner_id', $userId), 'statusLogs.triggeredBy'])->find($this->selectedOrderId)
             : null;
 
         return view('livewire.peternak.orders', [

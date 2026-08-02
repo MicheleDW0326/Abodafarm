@@ -2,53 +2,96 @@
 
 namespace App\Services;
 
+use App\Enums\BookingStatusEnum;
+use App\Enums\PaymentStatusEnum;
+use App\Enums\ShipmentStatusEnum;
+use App\Events\OrderStatusChanged;
+use App\Models\BookingStatus;
 use App\Models\Order;
+use App\Models\OrderStatus;
 use App\Models\OrderStatusLog;
+use App\Models\ShipmentStatus;
 use Illuminate\Support\Facades\DB;
 
 class OrderStateMachine
 {
-    /**
-     * Valid transitions for CART orders (Fresh Meat).
-     */
-    private const CART_TRANSITIONS = [
-        'pending' => ['paid', 'cancelled'],
-        'paid' => ['processing', 'cancelled'],
-        'processing' => ['shipped', 'cancelled'],
-        'shipped' => ['delivered'],
-        'delivered' => ['completed'],
-        'completed' => [],      // Terminal state
-        'cancelled' => [],      // Terminal state
-    ];
+    // =========================================================================
+    // CART ORDER TRANSITIONS (Fresh Meat / Pembelian)
+    // =========================================================================
+    // Payment flow: pending -> paid -> fulfillment: processing -> shipped -> delivered -> completed
+    // Cancelled: can happen from pending, paid, processing
 
     /**
-     * Valid transitions for INQUIRY orders (Booking).
+     * Get valid next statuses for CART orders.
      */
-    private const INQUIRY_TRANSITIONS = [
-        'pending' => ['approved', 'rejected', 'cancelled'],
-        'approved' => ['completed', 'cancelled'],
-        'completed' => [],       // Terminal state
-        'rejected' => [],       // Terminal state
-        'cancelled' => [],      // Terminal state
-        // Additional statuses for bookings
-        'paid' => ['processing', 'cancelled'],
-        'processing' => ['shipped', 'cancelled'],
-        'shipped' => ['delivered'],
-        'delivered' => ['completed'],
-    ];
+    public static function getCartValidNextStatuses(Order $order): array
+    {
+        $paymentStatus = $order->paymentStatusRelation?->code;
+        $shipmentStatus = $order->shipmentStatusRelation?->code;
+
+        // Determine current stage
+        if ($paymentStatus === 'paid') {
+            // Payment completed, check fulfillment status
+            return match($shipmentStatus) {
+                'processing' => ['shipped', 'cancelled'],
+                'shipped' => ['delivered'],
+                'delivered' => ['completed'],
+                'completed', 'cancelled' => [], // Terminal
+                default => ['processing'], // From paid to processing
+            };
+        }
+
+        // Payment not completed yet
+        if (in_array($shipmentStatus, ['completed', 'cancelled'])) {
+            return []; // Terminal
+        }
+
+        // Payment pending
+        return ['paid', 'cancelled'];
+    }
+
+    /**
+     * Get valid next statuses for INQUIRY orders (Bookings).
+     */
+    public static function getInquiryValidNextStatuses(Order $order): array
+    {
+        $bookingStatus = $order->bookingStatusRelation?->code;
+        $shipmentStatus = $order->shipmentStatusRelation?->code;
+
+        // Booking approval stage
+        if (in_array($bookingStatus, ['pending', null])) {
+            return ['approved', 'rejected', 'cancelled'];
+        }
+
+        // If approved, check fulfillment
+        if ($bookingStatus === 'approved') {
+            if (in_array($shipmentStatus, ['completed', 'cancelled'])) {
+                return [];
+            }
+
+            return match($shipmentStatus) {
+                'processing' => ['shipped', 'cancelled'],
+                'shipped' => ['delivered'],
+                'delivered' => ['completed'],
+                default => ['processing'], // Start fulfillment
+            };
+        }
+
+        // Rejected or other terminal
+        return [];
+    }
+
+    // =========================================================================
+    // CORE METHODS
+    // =========================================================================
 
     /**
      * Check if a transition is valid.
      */
     public static function canTransition(Order $order, string $toStatus): bool
     {
-        $transitions = $order->isCart()
-            ? self::CART_TRANSITIONS
-            : self::INQUIRY_TRANSITIONS;
-
-        $validTransitions = $transitions[$order->status] ?? [];
-
-        return in_array($toStatus, $validTransitions);
+        $validStatuses = self::getValidNextStatuses($order);
+        return in_array($toStatus, $validStatuses);
     }
 
     /**
@@ -56,11 +99,9 @@ class OrderStateMachine
      */
     public static function getValidNextStatuses(Order $order): array
     {
-        $transitions = $order->isCart()
-            ? self::CART_TRANSITIONS
-            : self::INQUIRY_TRANSITIONS;
-
-        return $transitions[$order->status] ?? [];
+        return $order->isCart()
+            ? self::getCartValidNextStatuses($order)
+            : self::getInquiryValidNextStatuses($order);
     }
 
     /**
@@ -68,11 +109,7 @@ class OrderStateMachine
      */
     public static function isTerminalStatus(Order $order): bool
     {
-        $transitions = $order->isCart()
-            ? self::CART_TRANSITIONS
-            : self::INQUIRY_TRANSITIONS;
-
-        return empty($transitions[$order->status] ?? []);
+        return empty(self::getValidNextStatuses($order));
     }
 
     /**
@@ -105,7 +142,10 @@ class OrderStateMachine
         // Perform transition in transaction
         try {
             $result = DB::transaction(function () use ($order, $fromStatus, $toStatus, $triggeredByType, $triggeredById, $notes) {
-                // Update order status
+                // Update order using new FK columns
+                self::updateStatusColumns($order, $toStatus);
+
+                // Also update legacy status for backward compatibility
                 $order->update(['status' => $toStatus]);
 
                 // Log the status change
@@ -121,10 +161,20 @@ class OrderStateMachine
                 return $order;
             });
 
+            // Dispatch event after successful transition
+            event(new OrderStatusChanged(
+                $result->fresh(),
+                $fromStatus,
+                $toStatus,
+                $triggeredByType,
+                $triggeredById,
+                $notes
+            ));
+
             return [
                 'success' => true,
                 'message' => "Status berhasil diubah ke '{$toStatus}'",
-                'order' => $result->fresh(['statusLogs']),
+                'order' => $result->fresh(['statusLogs.triggeredBy']),
             ];
         } catch (\Exception $e) {
             return [
@@ -133,6 +183,40 @@ class OrderStateMachine
             ];
         }
     }
+
+    /**
+     * Update the correct FK columns based on status type.
+     */
+    protected static function updateStatusColumns(Order $order, string $toStatus): void
+    {
+        // Determine which FK column to update
+        if (in_array($toStatus, ['pending', 'paid', 'payment_failed', 'payment_refunded'])) {
+            // Payment status
+            $statusId = OrderStatus::findIdByCode($toStatus);
+            if ($statusId) {
+                $order->payment_status_id = $statusId;
+                $order->saveQuietly(); // Save without events
+            }
+        } elseif (in_array($toStatus, ['pending', 'approved', 'rejected'])) {
+            // Booking status
+            $statusId = BookingStatus::findIdByCode($toStatus);
+            if ($statusId) {
+                $order->booking_status_id = $statusId;
+                $order->saveQuietly();
+            }
+        } elseif (in_array($toStatus, ['processing', 'shipped', 'delivered', 'completed', 'cancelled'])) {
+            // Shipment/Fulfillment status
+            $statusId = ShipmentStatus::findIdByCode($toStatus);
+            if ($statusId) {
+                $order->shipment_status_id = $statusId;
+                $order->saveQuietly();
+            }
+        }
+    }
+
+    // =========================================================================
+    // SPECIFIC TRANSITIONS
+    // =========================================================================
 
     /**
      * Transition to paid status (for Midtrans payment).
@@ -275,6 +359,188 @@ class OrderStateMachine
         );
     }
 
+    // =========================================================================
+    // NEW FK-BASED TRANSITION METHODS
+    // =========================================================================
+
+    /**
+     * Set payment status directly using FK.
+     */
+    public static function setPaymentStatus(
+        Order $order,
+        PaymentStatusEnum $status,
+        string $triggeredByType = OrderStatusLog::TRIGGER_WEBHOOK,
+        ?int $triggeredById = null,
+        ?string $notes = null
+    ): array {
+        $fromStatus = $order->status;
+        $statusId = OrderStatus::findIdByCode($status->value);
+
+        if (!$statusId) {
+            return [
+                'success' => false,
+                'message' => "Payment status '{$status->value}' not found in order_statuses table",
+            ];
+        }
+
+        try {
+            DB::transaction(function () use ($order, $statusId, $status, $fromStatus, $triggeredByType, $triggeredById, $notes) {
+                $order->update(['payment_status_id' => $statusId]);
+                $order->update(['status' => $status->value]); // Legacy
+
+                OrderStatusLog::log(
+                    $order,
+                    $fromStatus,
+                    $status->value,
+                    $triggeredByType,
+                    $triggeredById,
+                    $notes ?? $status->label()
+                );
+            });
+
+            // Dispatch event for notification
+            event(new OrderStatusChanged(
+                $order->fresh(),
+                $fromStatus,
+                $status->value,
+                $triggeredByType,
+                $triggeredById,
+                $notes ?? $status->label()
+            ));
+
+            return [
+                'success' => true,
+                'message' => "Payment status changed to '{$status->value}'",
+                'order' => $order->fresh(),
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to update payment status: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Set booking status directly using FK.
+     */
+    public static function setBookingStatus(
+        Order $order,
+        BookingStatusEnum $status,
+        string $triggeredByType = OrderStatusLog::TRIGGER_ADMIN,
+        int $triggeredById = 0,
+        ?string $notes = null
+    ): array {
+        $fromStatus = $order->status;
+        $statusId = BookingStatus::findIdByCode($status->value);
+
+        if (!$statusId) {
+            return [
+                'success' => false,
+                'message' => "Booking status '{$status->value}' not found in booking_statuses table",
+            ];
+        }
+
+        try {
+            DB::transaction(function () use ($order, $statusId, $status, $fromStatus, $triggeredByType, $triggeredById, $notes) {
+                $order->update(['booking_status_id' => $statusId]);
+                $order->update(['status' => $status->value]); // Legacy
+
+                OrderStatusLog::log(
+                    $order,
+                    $fromStatus,
+                    $status->value,
+                    $triggeredByType,
+                    $triggeredById ?: null,
+                    $notes ?? $status->label()
+                );
+            });
+
+            // Dispatch event for notification
+            event(new OrderStatusChanged(
+                $order->fresh(),
+                $fromStatus,
+                $status->value,
+                $triggeredByType,
+                $triggeredById ?: null,
+                $notes ?? $status->label()
+            ));
+
+            return [
+                'success' => true,
+                'message' => "Booking status changed to '{$status->value}'",
+                'order' => $order->fresh(),
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to update booking status: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Set shipment status directly using FK.
+     */
+    public static function setShipmentStatus(
+        Order $order,
+        ShipmentStatusEnum $status,
+        string $triggeredByType = OrderStatusLog::TRIGGER_ADMIN,
+        ?int $triggeredById = null,
+        ?string $notes = null
+    ): array {
+        $fromStatus = $order->status;
+        $statusId = ShipmentStatus::findIdByCode($status->value);
+
+        if (!$statusId) {
+            return [
+                'success' => false,
+                'message' => "Shipment status '{$status->value}' not found in shipment_statuses table",
+            ];
+        }
+
+        try {
+            DB::transaction(function () use ($order, $statusId, $status, $fromStatus, $triggeredByType, $triggeredById, $notes) {
+                $order->update(['shipment_status_id' => $statusId]);
+                $order->update(['status' => $status->value]); // Legacy
+
+                OrderStatusLog::log(
+                    $order,
+                    $fromStatus,
+                    $status->value,
+                    $triggeredByType,
+                    $triggeredById,
+                    $notes ?? $status->label()
+                );
+            });
+
+            // Dispatch event for notification
+            event(new OrderStatusChanged(
+                $order->fresh(),
+                $fromStatus,
+                $status->value,
+                $triggeredByType,
+                $triggeredById,
+                $notes ?? $status->label()
+            ));
+
+            return [
+                'success' => true,
+                'message' => "Shipment status changed to '{$status->value}'",
+                'order' => $order->fresh(),
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Failed to update shipment status: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    // =========================================================================
+    // DISPLAY METHODS
+    // =========================================================================
+
     /**
      * Get the status flow for display purposes.
      */
@@ -295,6 +561,9 @@ class OrderStateMachine
         return [
             ['status' => 'pending', 'label' => 'Menunggu Review', 'icon' => 'clock'],
             ['status' => 'approved', 'label' => 'Disetujui', 'icon' => 'check-circle'],
+            ['status' => 'processing', 'label' => 'Sedang Diproses', 'icon' => 'cog'],
+            ['status' => 'shipped', 'label' => 'Sedang Dikirim', 'icon' => 'truck'],
+            ['status' => 'delivered', 'label' => 'Sudah Diterima', 'icon' => 'package'],
             ['status' => 'completed', 'label' => 'Selesai', 'icon' => 'check-double'],
         ];
     }
@@ -305,12 +574,13 @@ class OrderStateMachine
     public static function getProgressPercentage(Order $order): int
     {
         $flow = self::getStatusFlow($order);
-        $currentIndex = array_search($order->status, array_column($flow, 'status'));
+        $currentStatus = $order->effective_status ?? $order->status;
+        $currentIndex = array_search($currentStatus, array_column($flow, 'status'));
 
         if ($currentIndex === false) {
             // Handle edge cases like cancelled, rejected
-            if (in_array($order->status, ['cancelled', 'rejected'])) {
-                return 50; // Stopped halfway
+            if (in_array($currentStatus, ['cancelled', 'rejected'])) {
+                return 50;
             }
             return 0;
         }

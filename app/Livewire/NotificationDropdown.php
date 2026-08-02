@@ -19,7 +19,7 @@ class NotificationDropdown extends Component
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()
-            ->map(fn ($n) => (object) [
+            ->map(fn ($n) => [
                 'id' => $n->id,
                 'type' => $n->type,
                 'title' => $n->title,
@@ -35,7 +35,7 @@ class NotificationDropdown extends Component
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()
-            ->map(fn ($n) => (object) [
+            ->map(fn ($n) => [
                 'id' => $n->id,
                 'type' => $n->type,
                 'title' => $n->title,
@@ -47,7 +47,7 @@ class NotificationDropdown extends Component
                 'icon' => $n->icon,
             ]);
 
-        return $peternak->merge($customer)
+        return $peternak->concat($customer)
             ->sortByDesc('created_at')
             ->take(5)
             ->values();

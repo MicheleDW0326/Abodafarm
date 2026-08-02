@@ -14,9 +14,6 @@ class PaymentController extends Controller
 {
     /**
      * Generate Snap Token for the order.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function snapToken(Request $request): JsonResponse
     {
@@ -35,7 +32,6 @@ class PaymentController extends Controller
         try {
             $order = Order::with('items.product')->findOrFail($request->order_id);
 
-            // Check if order already has a completed payment
             if ($order->payment && $order->payment->isCompleted()) {
                 return response()->json([
                     'success' => false,
@@ -44,14 +40,15 @@ class PaymentController extends Controller
             }
 
             // Check if order is in valid state for payment
-            if (!in_array($order->status, ['pending', 'processing'])) {
+            // Use effective_status for the new architecture
+            $currentStatus = $order->effective_status ?? $order->status;
+            if (!in_array($currentStatus, [Order::STATUS_PENDING, Order::STATUS_PROCESSING])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Order is not in a valid state for payment',
                 ], 400);
             }
 
-            // Create Snap Token
             $result = MidtransService::createSnapToken($order);
 
             return response()->json([
@@ -78,19 +75,14 @@ class PaymentController extends Controller
 
     /**
      * Handle Midtrans notification webhook.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function notification(Request $request): JsonResponse
     {
-        // Log the notification for debugging
         Log::info('Midtrans Notification Received', [
             'payload' => $request->all(),
             'ip' => $request->ip(),
         ]);
 
-        // Validate that we have the required fields
         $validator = Validator::make($request->all(), [
             'order_id' => 'required|string',
             'transaction_status' => 'required|string',
@@ -120,9 +112,6 @@ class PaymentController extends Controller
 
     /**
      * Get payment status for an order.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function status(Request $request): JsonResponse
     {
@@ -154,12 +143,10 @@ class PaymentController extends Controller
 
             $payment = $order->payment;
 
-            // Refresh status from Midtrans if payment is pending
             if ($payment->isPending()) {
                 $midtransStatus = MidtransService::checkTransactionStatus($order->order_number);
 
                 if ($midtransStatus) {
-                    // Update local payment record
                     $payment->update([
                         'transaction_id' => $midtransStatus->transaction_id ?? $payment->transaction_id,
                         'payment_type' => $midtransStatus->payment_type ?? $payment->payment_type,
@@ -167,7 +154,6 @@ class PaymentController extends Controller
                         'fraud_status' => $midtransStatus->fraud_status ?? $payment->fraud_status,
                     ]);
 
-                    // Re-process to handle status updates
                     MidtransService::handleNotification([
                         'order_id' => $order->order_number,
                     ]);
@@ -186,12 +172,17 @@ class PaymentController extends Controller
                     'gross_amount' => $payment->gross_amount,
                     'formatted_amount' => $payment->formatted_amount,
                     'status' => $payment->transaction_status,
+                    'status_label' => $payment->status_label,
+                    'badge_class' => $payment->status_badge_class,
                     'is_completed' => $payment->isCompleted(),
                     'is_pending' => $payment->isPending(),
                     'is_failed' => $payment->isFailed(),
+                    'is_refunded' => $payment->isRefunded(),
+                    'has_chargeback' => $payment->hasChargeback(),
                     'paid_at' => $payment->paid_at?->toIso8601String(),
                     'snap_token' => $payment->snap_token,
-                    'order_status' => $order->status,
+                    'order_status' => $order->effective_status ?? $order->status,
+                    'order_status_label' => $order->status_label,
                 ],
             ]);
         } catch (\Exception $e) {

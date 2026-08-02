@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\BookingStatusEnum;
+use App\Enums\PaymentStatusEnum;
+use App\Enums\ShipmentStatusEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -25,6 +28,10 @@ class OrderStatusLog extends Model
         'notes',
         'ip_address',
         'created_at',
+        // New FK columns for status architecture
+        'order_status_id',
+        'booking_status_id',
+        'shipment_status_id',
     ];
 
     /**
@@ -35,19 +42,31 @@ class OrderStatusLog extends Model
         return [
             'triggered_by_id' => 'integer',
             'created_at' => 'datetime',
+            // New FK columns
+            'order_status_id' => 'integer',
+            'booking_status_id' => 'integer',
+            'shipment_status_id' => 'integer',
         ];
     }
+
+    // =========================================================================
+    // CONSTANTS
+    // =========================================================================
 
     // Trigger type constants
     public const TRIGGER_CUSTOMER = 'customer';
     public const TRIGGER_ADMIN = 'admin';
+    public const TRIGGER_STAFF = 'staff';
+    public const TRIGGER_FARMER = 'farmer';
     public const TRIGGER_SYSTEM = 'system';
     public const TRIGGER_WEBHOOK = 'webhook';
 
-    // Status label mapping (Indonesian)
+    // Status label mapping (Indonesian) - Legacy
     public const STATUS_LABELS = [
         'pending' => 'Menunggu',
         'paid' => 'Dibayar',
+        'payment_failed' => 'Pembayaran Gagal',
+        'payment_refunded' => 'Dana Dikembalikan',
         'processing' => 'Diproses',
         'approved' => 'Disetujui',
         'rejected' => 'Ditolak',
@@ -57,9 +76,7 @@ class OrderStatusLog extends Model
         'completed' => 'Selesai',
     ];
 
-    /**
-     * Status transition labels (Indonesian).
-     */
+    // Status transition labels (Indonesian).
     public const TRANSITION_LABELS = [
         // From pending
         'pending_to_paid' => 'Pembayaran berhasil',
@@ -67,10 +84,14 @@ class OrderStatusLog extends Model
         'pending_to_approved' => 'Booking disetujui',
         'pending_to_rejected' => 'Booking ditolak',
         'pending_to_cancelled' => 'Dibatalkan',
+        'pending_to_payment_failed' => 'Pembayaran gagal',
 
         // From paid
         'paid_to_processing' => 'Pesanan mulai diproses',
         'paid_to_cancelled' => 'Pembayaran dibatalkan',
+
+        // From payment_failed
+        'payment_failed_to_pending' => 'Pembayaran dicoba ulang',
 
         // From processing
         'processing_to_shipped' => 'Pesanan dikirim',
@@ -85,6 +106,9 @@ class OrderStatusLog extends Model
         // From approved
         'approved_to_completed' => 'Booking selesai',
         'approved_to_cancelled' => 'Booking dibatalkan',
+        'approved_to_processing' => 'Booking masuk tahap produksi',
+        'approved_to_shipped' => 'Booking dikirim',
+        'approved_to_delivered' => 'Booking diterima',
 
         // From rejected
         // No transitions from rejected (terminal)
@@ -96,21 +120,97 @@ class OrderStatusLog extends Model
         // No transitions from completed (terminal)
     ];
 
-    /**
-     * Get the order that owns this log.
-     */
+    // =========================================================================
+    // RELATIONSHIPS
+    // =========================================================================
+
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
-    /**
-     * Get the user who triggered this status change.
-     */
     public function triggeredBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'triggered_by_id');
     }
+
+    // New FK-based relationships
+    public function orderStatus(): BelongsTo
+    {
+        return $this->belongsTo(OrderStatus::class, 'order_status_id');
+    }
+
+    public function bookingStatus(): BelongsTo
+    {
+        return $this->belongsTo(BookingStatus::class, 'booking_status_id');
+    }
+
+    public function shipmentStatus(): BelongsTo
+    {
+        return $this->belongsTo(ShipmentStatus::class, 'shipment_status_id');
+    }
+
+    // =========================================================================
+    // COMPUTED PROPERTIES - NEW STATUS ACCESSORS
+    // =========================================================================
+
+    /**
+     * Get payment status enum value.
+     */
+    public function getPaymentStatusEnumAttribute(): ?PaymentStatusEnum
+    {
+        $code = $this->orderStatus?->code;
+        return $code ? PaymentStatusEnum::tryFrom($code) : null;
+    }
+
+    /**
+     * Get booking status enum value.
+     */
+    public function getBookingStatusEnumAttribute(): ?BookingStatusEnum
+    {
+        $code = $this->bookingStatus?->code;
+        return $code ? BookingStatusEnum::tryFrom($code) : null;
+    }
+
+    /**
+     * Get shipment status enum value.
+     */
+    public function getShipmentStatusEnumAttribute(): ?ShipmentStatusEnum
+    {
+        $code = $this->shipmentStatus?->code;
+        return $code ? ShipmentStatusEnum::tryFrom($code) : null;
+    }
+
+    /**
+     * Get status label from FK relationship.
+     */
+    public function getStatusLabelAttribute(): string
+    {
+        return $this->shipmentStatus?->label
+            ?? $this->bookingStatus?->label
+            ?? $this->orderStatus?->label
+            ?? $this->toStatusLabel;
+    }
+
+    /**
+     * Get badge class from FK relationship.
+     */
+    public function getStatusBadgeClassAttribute(): string
+    {
+        $color = $this->shipmentStatus?->color
+            ?? $this->bookingStatus?->color
+            ?? $this->orderStatus?->color;
+
+        if ($color) {
+            return "bg-{$color}-100 text-{$color}-700";
+        }
+
+        return 'bg-slate-100 text-slate-700';
+    }
+
+    // =========================================================================
+    // COMPUTED PROPERTIES - LEGACY
+    // =========================================================================
 
     /**
      * Get the status change label for display.
@@ -118,7 +218,6 @@ class OrderStatusLog extends Model
     public function getStatusChangeLabelAttribute(): string
     {
         if ($this->from_status === null) {
-            // Initial creation
             return 'Pesanan dibuat';
         }
 
@@ -132,7 +231,7 @@ class OrderStatusLog extends Model
      */
     public function getToStatusLabelAttribute(): string
     {
-        return self::STATUS_LABELS[$this->to_status] ?? ucfirst($this->to_status);
+        return self::STATUS_LABELS[$this->to_status] ?? ucfirst($this->to_status ?? 'Unknown');
     }
 
     /**
@@ -155,6 +254,8 @@ class OrderStatusLog extends Model
         return match ($this->triggered_by_type) {
             self::TRIGGER_CUSTOMER => 'Pelanggan',
             self::TRIGGER_ADMIN => 'Admin',
+            self::TRIGGER_STAFF => 'Staff',
+            self::TRIGGER_FARMER => 'Peternak',
             default => null,
         };
     }
@@ -167,11 +268,17 @@ class OrderStatusLog extends Model
         return match ($this->triggered_by_type) {
             self::TRIGGER_CUSTOMER => 'Pelanggan',
             self::TRIGGER_ADMIN => 'Admin',
+            self::TRIGGER_STAFF => 'Staff',
+            self::TRIGGER_FARMER => 'Peternak',
             self::TRIGGER_SYSTEM => 'Sistem',
             self::TRIGGER_WEBHOOK => 'Midtrans',
             default => 'Tidak diketahui',
         };
     }
+
+    // =========================================================================
+    // BOOLEAN HELPERS
+    // =========================================================================
 
     /**
      * Check if this is the initial status (order creation).
@@ -186,8 +293,19 @@ class OrderStatusLog extends Model
      */
     public function isTerminalStatus(): bool
     {
-        return in_array($this->to_status, ['completed', 'rejected', 'cancelled']);
+        // Check new FK columns first
+        if ($this->shipmentStatus?->code === 'completed') return true;
+        if ($this->shipmentStatus?->code === 'cancelled') return true;
+        if ($this->bookingStatus?->is_cancelled) return true;
+        if ($this->orderStatus?->is_terminal) return true;
+
+        // Fallback to legacy check
+        return in_array($this->to_status, ['completed', 'rejected', 'cancelled', 'payment_failed', 'payment_refunded']);
     }
+
+    // =========================================================================
+    // STATIC METHODS
+    // =========================================================================
 
     /**
      * Create a log entry for an order.

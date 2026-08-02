@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use App\Models\Category;
 use App\Models\Faq;
 use App\Models\HeroSlide;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\Testimonial;
 use Illuminate\Support\Facades\DB;
@@ -141,6 +142,151 @@ class Dashboard extends Component
                 'positive' => $averageChange['positive'],
                 'icon' => 'fa-solid fa-chart-line',
                 'color' => 'amber',
+            ],
+        ];
+
+        // ========================================================================
+        // PAYMENT OVERVIEW (New Status Architecture)
+        // ========================================================================
+        $pendingPaymentCount = Order::cart()
+            ->where(function ($q) {
+                $q->whereHas('paymentStatusRelation', fn($q2) => $q2->where('code', 'pending'))
+                    ->orWhere(fn($q2) => $q2->whereNull('payment_status_id')->where('status', 'pending'));
+            })
+            ->count();
+
+        $paidCount = Order::cart()
+            ->where(function ($q) {
+                $q->whereHas('paymentStatusRelation', fn($q2) => $q2->where('code', 'paid'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['paid', 'processing', 'shipped', 'delivered', 'completed']));
+            })
+            ->count();
+
+        $failedPaymentCount = Order::cart()
+            ->where(function ($q) {
+                $q->whereHas('paymentStatusRelation', fn($q2) => $q2->where('code', 'payment_failed'))
+                    ->orWhere(fn($q2) => $q2->where('status', 'cancelled'));
+            })
+            ->count();
+
+        $refundedCount = Order::cart()
+            ->whereHas('paymentStatusRelation', fn($q) => $q->where('code', 'payment_refunded'))
+            ->count();
+
+        $paymentOverview = [
+            [
+                'label' => 'Menunggu Pembayaran',
+                'value' => $pendingPaymentCount,
+                'icon' => 'fa-solid fa-clock',
+                'color' => 'amber',
+            ],
+            [
+                'label' => 'Sudah Bayar',
+                'value' => $paidCount,
+                'icon' => 'fa-solid fa-check-circle',
+                'color' => 'green',
+            ],
+            [
+                'label' => 'Pembayaran Gagal',
+                'value' => $failedPaymentCount,
+                'icon' => 'fa-solid fa-times-circle',
+                'color' => 'red',
+            ],
+            [
+                'label' => 'Sudah Direfund',
+                'value' => $refundedCount,
+                'icon' => 'fa-solid fa-undo',
+                'color' => 'purple',
+            ],
+        ];
+
+        // ========================================================================
+        // OPERATIONAL OVERVIEW (Shipment Status)
+        // ========================================================================
+        $processingCount = Order::cart()
+            ->where(function ($q) {
+                $q->whereHas('shipmentStatusRelation', fn($q2) => $q2->where('code', 'processing'))
+                    ->orWhere(fn($q2) => $q2->where('status', 'processing'));
+            })
+            ->count();
+
+        $shippedCount = Order::cart()
+            ->where(function ($q) {
+                $q->whereHas('shipmentStatusRelation', fn($q2) => $q2->where('code', 'shipped'))
+                    ->orWhere(fn($q2) => $q2->where('status', 'shipped'));
+            })
+            ->count();
+
+        $deliveredCount = Order::cart()
+            ->where(function ($q) {
+                $q->whereHas('shipmentStatusRelation', fn($q2) => $q2->whereIn('code', ['delivered', 'completed']))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['delivered', 'completed']));
+            })
+            ->count();
+
+        $operationalOverview = [
+            [
+                'label' => 'Sedang Diproses',
+                'value' => $processingCount,
+                'icon' => 'fa-solid fa-cog',
+                'color' => 'blue',
+            ],
+            [
+                'label' => 'Sedang Dikirim',
+                'value' => $shippedCount,
+                'icon' => 'fa-solid fa-truck',
+                'color' => 'violet',
+            ],
+            [
+                'label' => 'Selesai Dikirim',
+                'value' => $deliveredCount,
+                'icon' => 'fa-solid fa-box-open',
+                'color' => 'emerald',
+            ],
+        ];
+
+        // ========================================================================
+        // BOOKING OVERVIEW (Booking Status)
+        // ========================================================================
+        $pendingBookingCount = Order::booking()
+            ->where(function ($q) {
+                $q->whereHas('bookingStatusRelation', fn($q2) => $q2->where('code', 'pending'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['pending']));
+            })
+            ->count();
+
+        $approvedBookingCount = Order::booking()
+            ->where(function ($q) {
+                $q->whereHas('bookingStatusRelation', fn($q2) => $q2->where('code', 'approved'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['approved', 'processing']));
+            })
+            ->count();
+
+        $rejectedBookingCount = Order::booking()
+            ->where(function ($q) {
+                $q->whereHas('bookingStatusRelation', fn($q2) => $q2->where('code', 'rejected'))
+                    ->orWhere(fn($q2) => $q2->where('status', 'rejected'));
+            })
+            ->count();
+
+        $bookingOverview = [
+            [
+                'label' => 'Booking Menunggu',
+                'value' => $pendingBookingCount,
+                'icon' => 'fa-solid fa-hourglass-half',
+                'color' => 'amber',
+            ],
+            [
+                'label' => 'Booking Disetujui',
+                'value' => $approvedBookingCount,
+                'icon' => 'fa-solid fa-thumbs-up',
+                'color' => 'green',
+            ],
+            [
+                'label' => 'Booking Ditolak',
+                'value' => $rejectedBookingCount,
+                'icon' => 'fa-solid fa-thumbs-down',
+                'color' => 'red',
             ],
         ];
 
@@ -290,6 +436,9 @@ class Dashboard extends Component
             'farmCards' => $farmCards,
             'sales' => $sales,
             'months' => $months,
+            'paymentOverview' => $paymentOverview,
+            'operationalOverview' => $operationalOverview,
+            'bookingOverview' => $bookingOverview,
             'orderStatuses' => $orderStatuses,
             'orderTypes' => $orderTypes,
             'todayOrders' => (int) DB::table('orders')->whereDate('placed_at', $now->toDateString())->count(),

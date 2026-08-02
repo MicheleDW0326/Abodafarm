@@ -16,9 +16,11 @@ class Shipments extends Component
     {
         $userId = auth()->id();
 
-        $shipmentsQuery = Order::whereHas('items.product', function ($query) use ($userId) {
-            $query->where('owner_id', $userId);
-        })
+        // Get cart orders with shipment statuses (shipped or processing)
+        $shipmentsQuery = Order::cart()
+            ->whereHas('items.product', function ($query) use ($userId) {
+                $query->where('owner_id', $userId);
+            })
             ->whereIn('status', ['shipped', 'processing'])
             ->with(['items.product' => function ($q) use ($userId) {
                 $q->where('owner_id', $userId);
@@ -30,9 +32,10 @@ class Shipments extends Component
 
         $shipments = $shipmentsQuery->get();
 
+        $statsQuery = Order::cart()->whereHas('items.product', fn($q) => $q->where('owner_id', $userId));
         $stats = [
-            'in_transit' => Order::whereHas('items.product', fn($q) => $q->where('owner_id', $userId))->where('status', 'shipped')->count(),
-            'processing' => Order::whereHas('items.product', fn($q) => $q->where('owner_id', $userId))->where('status', 'processing')->count(),
+            'in_transit' => (clone $statsQuery)->where('status', 'shipped')->count(),
+            'processing' => (clone $statsQuery)->where('status', 'processing')->count(),
         ];
 
         return view('livewire.peternak.shipments', [

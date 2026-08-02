@@ -162,6 +162,7 @@ Route::middleware(['auth', 'verified', 'check.staff'])
     ->name('staff.')
     ->group(function (): void {
         Route::view('/', 'dashboard')->name('dashboard');
+        Route::get('/operasi', \App\Livewire\Staff\Operations::class)->name('operations');
     });
 
 Route::middleware(['auth', 'verified', 'check.peternak'])

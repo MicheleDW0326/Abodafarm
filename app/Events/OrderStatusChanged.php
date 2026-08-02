@@ -58,7 +58,7 @@ class OrderStatusChanged implements ShouldBroadcast
             'triggered_by_type' => $this->triggeredByType,
             'notes' => $this->notes,
             'timestamp' => now()->toIso8601String(),
-            'timeline' => $this->order->fresh(['statusLogs'])->timeline_data,
+            'timeline' => $this->order->fresh(['statusLogs.triggeredBy'])->timeline_data,
         ];
     }
 

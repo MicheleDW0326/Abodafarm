@@ -16,13 +16,111 @@ class Dashboard extends Component
     {
         $userId = auth()->id();
 
+        // ========================================================================
+        // BOOKING PROGRESS (New Workflow)
+        // ========================================================================
+        $pendingBookings = Order::booking()
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereHas('bookingStatusRelation', fn($q2) => $q2->where('code', 'pending'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['pending']));
+            })
+            ->count();
+
+        $approvedBookings = Order::booking()
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereHas('bookingStatusRelation', fn($q2) => $q2->where('code', 'approved'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['approved', 'processing']));
+            })
+            ->count();
+
+        $completedBookings = Order::booking()
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereHas('bookingStatusRelation', fn($q2) => $q2->whereIn('code', ['completed']))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['completed']));
+            })
+            ->count();
+
+        $rejectedBookings = Order::booking()
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereHas('bookingStatusRelation', fn($q2) => $q2->where('code', 'rejected'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['rejected', 'cancelled']));
+            })
+            ->count();
+
+        // ========================================================================
+        // ORDER PROGRESS (New Workflow)
+        // ========================================================================
+        $pendingPayments = Order::cart()
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereHas('paymentStatusRelation', fn($q2) => $q2->where('code', 'pending'))
+                    ->orWhere(fn($q2) => $q2->whereNull('payment_status_id')->whereIn('status', ['pending']));
+            })
+            ->count();
+
+        $processingOrders = Order::cart()
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereHas('shipmentStatusRelation', fn($q2) => $q2->where('code', 'processing'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['processing']));
+            })
+            ->count();
+
+        $shippedOrders = Order::cart()
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereHas('shipmentStatusRelation', fn($q2) => $q2->where('code', 'shipped'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['shipped']));
+            })
+            ->count();
+
+        $deliveredOrders = Order::cart()
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereHas('shipmentStatusRelation', fn($q2) => $q2->whereIn('code', ['delivered', 'completed']))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['delivered', 'completed']));
+            })
+            ->count();
+
+        $activeOrders = $pendingPayments + $processingOrders + $shippedOrders;
+
+        // ========================================================================
+        // PAYMENT STATUS (New Workflow)
+        // ========================================================================
+        $paidOrders = Order::cart()
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereHas('paymentStatusRelation', fn($q2) => $q2->where('code', 'paid'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['paid', 'processing', 'shipped', 'delivered', 'completed']));
+            })
+            ->count();
+
+        $failedPayments = Order::cart()
+            ->where('user_id', $userId)
+            ->where(function ($q) {
+                $q->whereHas('paymentStatusRelation', fn($q2) => $q2->where('code', 'payment_failed'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['cancelled']));
+            })
+            ->count();
+
         // Stats
         $stats = [
             'totalBookings' => Order::booking()->where('user_id', $userId)->count(),
-            'pendingBookings' => Order::booking()->where('user_id', $userId)->where('status', 'pending')->count(),
-            'approvedBookings' => Order::booking()->where('user_id', $userId)->where('status', 'approved')->count(),
-            'activeOrders' => Order::cart()->where('user_id', $userId)->active()->count(),
-            'completedOrders' => Order::cart()->where('user_id', $userId)->whereIn('status', ['delivered', 'completed'])->count(),
+            'pendingBookings' => $pendingBookings,
+            'approvedBookings' => $approvedBookings,
+            'completedBookings' => $completedBookings,
+            'rejectedBookings' => $rejectedBookings,
+            'activeOrders' => $activeOrders,
+            'pendingPayments' => $pendingPayments,
+            'processingOrders' => $processingOrders,
+            'shippedOrders' => $shippedOrders,
+            'deliveredOrders' => $deliveredOrders,
+            'paidOrders' => $paidOrders,
+            'failedPayments' => $failedPayments,
             'totalSpent' => Order::cart()->where('user_id', $userId)->where('status', '!=', 'cancelled')->sum('total_amount'),
             'unreadNotifications' => CustomerNotification::where('user_id', $userId)->unread()->count(),
         ];

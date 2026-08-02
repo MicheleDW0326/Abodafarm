@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\ReviewStatusEnum;
 use App\Models\Order;
 use App\Models\Review;
 use App\Models\User;
@@ -21,30 +22,33 @@ class ReviewPolicy
      */
     public function view(?User $user, Review $review): bool
     {
-        // Approved reviews are public
+        // Approved reviews are public - use new enum
+        if ($review->statusEnum === ReviewStatusEnum::APPROVED) {
+            return true;
+        }
+
+        // Also check using legacy constant for backward compatibility
         if ($review->status === Review::STATUS_APPROVED) {
             return true;
         }
 
-        // Review owner can view their own
-        if ($user && $review->user_id === $user->id) {
+        if (!$user) {
+            return false;
+        }
+
+        if ($review->user_id === $user->id) {
             return true;
         }
 
-        // Admin/staff can view all
-        if ($user && $user->hasRole(['admin', 'staf'])) {
-            return true;
-        }
-
-        return false;
+        return $user->can('reviews.view');
     }
 
     /**
-     * User can create a review if they are a customer.
+     * User can create a review if they have permission.
      */
     public function create(?User $user): bool
     {
-        return $user && $user->hasRole('pelanggan');
+        return $user && $user->can('reviews.create');
     }
 
     /**
@@ -52,22 +56,24 @@ class ReviewPolicy
      */
     public function createForProduct(User $user, Order $order, int $productId): bool
     {
-        // Must be a completed order
-        if (!in_array($order->status, [Order::STATUS_DELIVERED, Order::STATUS_COMPLETED])) {
+        if (!$user->can('reviews.create')) {
             return false;
         }
 
-        // Must own the order
+        // Must be a completed order - use new effective_status
+        $currentStatus = $order->effective_status ?? $order->status;
+        if (!in_array($currentStatus, [Order::STATUS_DELIVERED, Order::STATUS_COMPLETED])) {
+            return false;
+        }
+
         if ($order->user_id !== $user->id) {
             return false;
         }
 
-        // Must have purchased this product
         if (!$order->hasCompletedPurchaseForProduct($productId)) {
             return false;
         }
 
-        // Must not have already reviewed
         if ($order->hasExistingReviewForProduct($productId)) {
             return false;
         }
@@ -80,22 +86,24 @@ class ReviewPolicy
      */
     public function createForFarmer(User $user, Order $booking, int $farmerId): bool
     {
-        // Must be a completed booking
-        if ($booking->status !== Order::STATUS_COMPLETED) {
+        if (!$user->can('reviews.create')) {
             return false;
         }
 
-        // Must be an inquiry/booking
+        // Must be a completed booking - use new effective_status
+        $currentStatus = $booking->effective_status ?? $booking->status;
+        if ($currentStatus !== Order::STATUS_COMPLETED) {
+            return false;
+        }
+
         if (!$booking->isInquiry()) {
             return false;
         }
 
-        // Must own the booking
         if ($booking->user_id !== $user->id) {
             return false;
         }
 
-        // Must have booked from this farmer
         $hasFarmerProduct = $booking->items()
             ->whereHas('product', fn($q) => $q->where('owner_id', $farmerId))
             ->exists();
@@ -104,7 +112,6 @@ class ReviewPolicy
             return false;
         }
 
-        // Must not have already reviewed this farmer
         if ($booking->hasExistingReviewForFarmer($farmerId)) {
             return false;
         }
@@ -117,17 +124,17 @@ class ReviewPolicy
      */
     public function update(User $user, Review $review): bool
     {
-        // Must own the review
-        if ($review->user_id !== $user->id) {
-            return false;
+        // Admin/Staff can update any review
+        if ($user->can('reviews.update')) {
+            return true;
         }
 
-        // Can only edit within 30 days
-        if ($review->created_at->diffInDays(now()) > 30) {
-            return false;
+        // Users can update their own reviews within 30 days
+        if ($user->can('reviews.update-own') && $review->user_id === $user->id) {
+            return $review->created_at->diffInDays(now()) <= 30;
         }
 
-        return true;
+        return false;
     }
 
     /**
@@ -135,32 +142,64 @@ class ReviewPolicy
      */
     public function delete(User $user, Review $review): bool
     {
-        return $review->user_id === $user->id;
+        // Admin/Staff can delete any review
+        if ($user->can('reviews.delete')) {
+            return true;
+        }
+
+        // Users can delete their own reviews
+        return $user->can('reviews.delete-own') && $review->user_id === $user->id;
     }
 
     /**
-     * Admin can moderate reviews.
+     * Admin/Staff can moderate reviews.
      */
     public function moderate(User $user, Review $review): bool
     {
-        return $user->hasRole(['admin', 'staf']);
+        return $user->can('reviews.moderate');
     }
 
     /**
-     * Admin or farmer can hide/inappropriate flag a review.
+     * Admin/Staff or farmer can flag a review.
      */
     public function flag(User $user, Review $review): bool
     {
-        // Admin can flag any review
-        if ($user->hasRole(['admin', 'staf'])) {
+        if ($user->can('reviews.flag')) {
             return true;
         }
 
         // Farmer can flag reviews on their products
-        if ($review->review_type === Review::TYPE_PRODUCT && $review->product) {
+        if ($user->hasRole('peternak') && $review->review_type === Review::TYPE_PRODUCT && $review->product) {
             return $review->product->owner_id === $user->id;
         }
 
         return false;
+    }
+
+    /**
+     * Check if review is pending moderation.
+     */
+    public function isPending(Review $review): bool
+    {
+        return $review->statusEnum === ReviewStatusEnum::PENDING
+            || $review->status === Review::STATUS_PENDING;
+    }
+
+    /**
+     * Check if review is approved.
+     */
+    public function isApproved(Review $review): bool
+    {
+        return $review->statusEnum === ReviewStatusEnum::APPROVED
+            || $review->status === Review::STATUS_APPROVED;
+    }
+
+    /**
+     * Check if review is rejected.
+     */
+    public function isRejected(Review $review): bool
+    {
+        return $review->statusEnum === ReviewStatusEnum::REJECTED
+            || $review->status === Review::STATUS_REJECTED;
     }
 }

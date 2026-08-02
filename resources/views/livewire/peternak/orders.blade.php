@@ -234,6 +234,12 @@
                         </div>
                     @endif
 
+                    {{-- Timeline --}}
+                    <div class="mt-6">
+                        <h4 class="mb-3 text-sm font-semibold text-slate-900">Riwayat Pesanan</h4>
+                        <x-order-timeline :order="$selectedOrder" />
+                    </div>
+
                     {{-- Info Note --}}
                     <div class="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-4">
                         <div class="flex items-start gap-3">

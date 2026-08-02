@@ -12,18 +12,17 @@ class OrderPolicy
      */
     public function view(User $user, Order $order): bool
     {
-        // Admin or staff can view all orders
-        if ($user->hasRole(['admin', 'staf'])) {
+        if ($user->can('orders.view')) {
             return true;
         }
 
-        // Customer can view their own order
-        if ($order->user_id === $user->id) {
+        // Customer can view their own orders
+        if ($user->can('orders.view-own') && $order->user_id === $user->id) {
             return true;
         }
 
-        // Farmer can view orders related to their products
-        if ($user->hasRole('peternak')) {
+        // Farmer can view orders containing their products
+        if ($user->hasRole('peternak') && $user->can('orders.view')) {
             return $order->items()
                 ->whereHas('product', fn($q) => $q->where('owner_id', $user->id))
                 ->exists();
@@ -37,13 +36,17 @@ class OrderPolicy
      */
     public function update(User $user, Order $order): bool
     {
-        // Admin or staff can update all orders
-        if ($user->hasRole(['admin', 'staf'])) {
+        if ($user->can('orders.update')) {
             return true;
         }
 
-        // Farmer can update orders related to their products
-        if ($user->hasRole('peternak')) {
+        // Customer can update their own orders
+        if ($user->can('orders.update-own') && $order->user_id === $user->id) {
+            return true;
+        }
+
+        // Farmer can update orders containing their products
+        if ($user->hasRole('peternak') && $user->can('orders.update')) {
             return $order->items()
                 ->whereHas('product', fn($q) => $q->where('owner_id', $user->id))
                 ->exists();
@@ -57,102 +60,94 @@ class OrderPolicy
      */
     public function updateStatus(User $user, Order $order): bool
     {
-        // Admin or staff can update status of all orders
-        if ($user->hasRole(['admin', 'staf'])) {
-            return true;
-        }
-
-        // Farmer can update status of orders related to their products
-        if ($user->hasRole('peternak')) {
-            return $order->items()
-                ->whereHas('product', fn($q) => $q->where('owner_id', $user->id))
-                ->exists();
-        }
-
-        return false;
+        return $user->can('orders.update');
     }
 
     /**
      * Determine whether the user can approve a booking.
+     * Uses the new booking_status_id FK relationship.
      */
     public function approve(User $user, Order $order): bool
     {
-        // Must be a booking (inquiry type)
+        if (!$user->can('orders.approve')) {
+            return false;
+        }
+
         if (!$order->isInquiry()) {
             return false;
         }
 
-        // Must be in pending status
-        if ($order->status !== Order::STATUS_PENDING) {
+        // Check using new FK relationship
+        $currentStatus = $order->bookingStatusRelation?->code ?? $order->status;
+        if ($currentStatus !== Order::STATUS_PENDING) {
             return false;
         }
 
-        // Admin or staff can approve any booking
-        if ($user->hasRole(['admin', 'staf'])) {
-            return true;
-        }
-
-        // Farmer can approve bookings related to their products
+        // Farmer can only approve orders containing their products
         if ($user->hasRole('peternak')) {
             return $order->items()
                 ->whereHas('product', fn($q) => $q->where('owner_id', $user->id))
                 ->exists();
         }
 
-        return false;
+        return true;
     }
 
     /**
      * Determine whether the user can reject a booking.
+     * Uses the new booking_status_id FK relationship.
      */
     public function reject(User $user, Order $order): bool
     {
-        // Must be a booking (inquiry type)
+        if (!$user->can('orders.reject')) {
+            return false;
+        }
+
         if (!$order->isInquiry()) {
             return false;
         }
 
-        // Must be in pending status
-        if ($order->status !== Order::STATUS_PENDING) {
+        // Check using new FK relationship
+        $currentStatus = $order->bookingStatusRelation?->code ?? $order->status;
+        if ($currentStatus !== Order::STATUS_PENDING) {
             return false;
         }
 
-        // Admin or staff can reject any booking
-        if ($user->hasRole(['admin', 'staf'])) {
-            return true;
-        }
-
-        // Farmer can reject bookings related to their products
+        // Farmer can only reject orders containing their products
         if ($user->hasRole('peternak')) {
             return $order->items()
                 ->whereHas('product', fn($q) => $q->where('owner_id', $user->id))
                 ->exists();
         }
 
-        return false;
+        return true;
     }
 
     /**
      * Determine whether the user can cancel the order.
+     * Uses the new FK relationships for proper status checking.
      */
     public function cancel(User $user, Order $order): bool
     {
-        // Must be in pending status
-        if ($order->status !== Order::STATUS_PENDING) {
+        if (!$user->can('orders.cancel')) {
             return false;
         }
 
-        // Customer can cancel their own order
-        if ($order->user_id === $user->id) {
+        // Check current status using new architecture
+        $currentStatus = $order->effective_status ?? $order->status;
+
+        // Can only cancel if in pending state
+        if ($currentStatus !== Order::STATUS_PENDING) {
+            return false;
+        }
+
+        // Customer can only cancel their own orders
+        if ($order->user_id === $user->id && $user->can('orders.cancel')) {
             return true;
         }
 
-        // Admin or staff can cancel any order
-        if ($user->hasRole(['admin', 'staf'])) {
-            return true;
-        }
-
-        return false;
+        // Admin/Staff can cancel any order
+        return true;
     }
 
     /**
@@ -160,8 +155,7 @@ class OrderPolicy
      */
     public function delete(User $user, Order $order): bool
     {
-        // Only admin can delete orders
-        return $user->hasRole('admin');
+        return $user->can('orders.delete');
     }
 
     /**
@@ -170,5 +164,90 @@ class OrderPolicy
     public function viewTimeline(User $user, Order $order): bool
     {
         return $this->view($user, $order);
+    }
+
+    /**
+     * Determine whether the user can process (start fulfillment) the order.
+     */
+    public function process(User $user, Order $order): bool
+    {
+        if (!$user->can('orders.process')) {
+            return false;
+        }
+
+        // Farmer can only process approved orders containing their products
+        if ($user->hasRole('peternak')) {
+            $bookingStatus = $order->bookingStatusRelation?->code;
+            if ($bookingStatus === 'approved') {
+                return $order->items()
+                    ->whereHas('product', fn($q) => $q->where('owner_id', $user->id))
+                    ->exists();
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Determine whether the user can ship the order.
+     */
+    public function ship(User $user, Order $order): bool
+    {
+        if (!$user->can('orders.ship')) {
+            return false;
+        }
+
+        // Farmer can only ship orders containing their products
+        if ($user->hasRole('peternak')) {
+            $shipmentStatus = $order->shipmentStatusRelation?->code;
+            if ($shipmentStatus === 'processing') {
+                return $order->items()
+                    ->whereHas('product', fn($q) => $q->where('owner_id', $user->id))
+                    ->exists();
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Determine whether the user can mark the order as delivered.
+     */
+    public function deliver(User $user, Order $order): bool
+    {
+        if (!$user->can('orders.deliver')) {
+            return false;
+        }
+
+        // Farmer can only mark orders containing their products as delivered
+        if ($user->hasRole('peternak')) {
+            $shipmentStatus = $order->shipmentStatusRelation?->code;
+            if ($shipmentStatus === 'shipped') {
+                return $order->items()
+                    ->whereHas('product', fn($q) => $q->where('owner_id', $user->id))
+                    ->exists();
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Determine whether the user can mark the order as completed.
+     */
+    public function complete(User $user, Order $order): bool
+    {
+        if (!$user->can('orders.complete')) {
+            return false;
+        }
+
+        // Customer can only confirm delivery completion for their own orders
+        if ($order->user_id === $user->id) {
+            $shipmentStatus = $order->shipmentStatusRelation?->code;
+            return $shipmentStatus === 'delivered';
+        }
+
+        // Admin/Staff can complete any order
+        return true;
     }
 }

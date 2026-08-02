@@ -4,6 +4,7 @@ namespace App\Livewire\Customer;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\Review as ReviewModel;
 use App\Services\ReviewService;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -41,11 +42,11 @@ class SubmitProductReview extends Component
 
     public function submit()
     {
-        $this->authorize('createForProduct', [Review::class, $this->order, $this->product->id]);
+        $this->authorize('createForProduct', [ReviewModel::class, $this->order, $this->product->id]);
 
         $this->validate();
 
-        $review = ReviewService::createProductReview(
+        ReviewService::createProductReview(
             user: auth()->user(),
             order: $this->order,
             product: $this->product,

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin;
 
+use App\Enums\ReviewStatusEnum;
 use App\Models\Review;
 use App\Services\ReviewService;
 use Livewire\Attributes\Layout;
@@ -41,9 +42,9 @@ class ReviewModeration extends Component
     {
         return [
             'total' => Review::count(),
-            'pending' => Review::where('status', 'pending')->count(),
-            'approved' => Review::where('status', 'approved')->count(),
-            'rejected' => Review::where('status', 'rejected')->count(),
+            'pending' => Review::where('status', ReviewStatusEnum::PENDING->value)->count(),
+            'approved' => Review::where('status', ReviewStatusEnum::APPROVED->value)->count(),
+            'rejected' => Review::where('status', ReviewStatusEnum::REJECTED->value)->count(),
         ];
     }
 

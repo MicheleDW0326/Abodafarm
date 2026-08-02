@@ -23,6 +23,12 @@ class OrderManagement extends Component
     public string $activeTab = 'all';
     public string $searchQuery = '';
     public string $statusFilter = 'all';
+    public string $sortField = 'created_at';
+    public string $sortDirection = 'desc';
+
+    // Bulk selection
+    public array $selectedOrders = [];
+    public bool $selectAll = false;
 
     // Order Details
     public ?Order $selectedOrder = null;
@@ -37,8 +43,33 @@ class OrderManagement extends Component
     public bool $showStatusModal = false;
     public string $newStatus = '';
 
+    // Status options
+    public array $statusOptions = [
+        'all' => 'Semua Status',
+        'pending' => 'Menunggu',
+        'paid' => 'Sudah Bayar',
+        'processing' => 'Diproses',
+        'shipped' => 'Dikirim',
+        'delivered' => 'Diterima',
+        'completed' => 'Selesai',
+        'cancelled' => 'Dibatalkan',
+        'approved' => 'Disetujui',
+        'rejected' => 'Ditolak',
+    ];
+
+    // Sortable columns
+    public array $sortableColumns = [
+        'order_number' => 'Kode Pesanan',
+        'customer_name' => 'Pelanggan',
+        'total_amount' => 'Total',
+        'created_at' => 'Tanggal',
+        'status' => 'Status',
+    ];
+
     protected $queryString = [
         'tab' => ['except' => 'all'],
+        'status' => ['except' => 'all'],
+        'search' => ['except' => ''],
     ];
 
     public function mount()
@@ -46,12 +77,106 @@ class OrderManagement extends Component
         if (request()->has('tab')) {
             $this->activeTab = request()->query('tab');
         }
+        if (request()->has('status')) {
+            $this->statusFilter = request()->query('status');
+        }
+        if (request()->has('search')) {
+            $this->searchQuery = request()->query('search');
+        }
     }
 
     public function setTab(string $tab)
     {
         $this->activeTab = $tab;
         $this->resetPage();
+        $this->clearSelection();
+    }
+
+    public function setStatusFilter(string $status)
+    {
+        $this->statusFilter = $status;
+        $this->resetPage();
+        $this->clearSelection();
+    }
+
+    public function sortBy(string $field)
+    {
+        if ($this->sortField === $field) {
+            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sortField = $field;
+            $this->sortDirection = 'asc';
+        }
+        $this->resetPage();
+    }
+
+    public function updatedSelectAll($value)
+    {
+        if ($value) {
+            $this->selectedOrders = $this->getOrdersQuery()->pluck('id')->map(fn($id) => (string) $id)->toArray();
+        } else {
+            $this->selectedOrders = [];
+        }
+    }
+
+    public function toggleSelection(string $orderId)
+    {
+        $index = array_search($orderId, $this->selectedOrders);
+        if ($index !== false) {
+            unset($this->selectedOrders[$index]);
+            $this->selectedOrders = array_values($this->selectedOrders);
+        } else {
+            $this->selectedOrders[] = $orderId;
+        }
+    }
+
+    public function clearSelection()
+    {
+        $this->selectedOrders = [];
+        $this->selectAll = false;
+    }
+
+    public function bulkUpdateStatus(string $status)
+    {
+        if (empty($this->selectedOrders)) {
+            return;
+        }
+
+        $count = 0;
+        foreach ($this->selectedOrders as $orderId) {
+            $order = Order::find($orderId);
+            if ($order) {
+                $fromStatus = $order->effective_status ?? $order->status;
+
+                $result = OrderStateMachine::transition(
+                    $order,
+                    $status,
+                    OrderStatusLog::TRIGGER_ADMIN,
+                    auth()->id(),
+                    'Bulk update status oleh admin'
+                );
+
+                if ($result['success']) {
+                    event(new OrderStatusChanged(
+                        $order->fresh(['statusLogs.triggeredBy']),
+                        $fromStatus,
+                        $status,
+                        OrderStatusLog::TRIGGER_ADMIN,
+                        auth()->id(),
+                        'Bulk update status oleh admin'
+                    ));
+                    $count++;
+                }
+            }
+        }
+
+        $this->clearSelection();
+
+        $this->dispatch('showAlert', [
+            'type' => 'success',
+            'title' => 'Berhasil!',
+            'message' => "{$count} pesanan berhasil diupdate ke status '{$this->statusOptions[$status]}'"
+        ]);
     }
 
     public function viewOrder(Order $order)
@@ -84,9 +209,8 @@ class OrderManagement extends Component
 
     public function updateStatus(Order $order, string $status)
     {
-        $fromStatus = $order->status;
+        $fromStatus = $order->effective_status ?? $order->status;
 
-        // Use state machine for transition
         $result = OrderStateMachine::transition(
             $order,
             $status,
@@ -96,9 +220,8 @@ class OrderManagement extends Component
         );
 
         if ($result['success']) {
-            // Dispatch event
             event(new OrderStatusChanged(
-                $order->fresh(['statusLogs']),
+                $order->fresh(['statusLogs.triggeredBy']),
                 $fromStatus,
                 $status,
                 OrderStatusLog::TRIGGER_ADMIN,
@@ -106,7 +229,6 @@ class OrderManagement extends Component
                 'Status diupdate oleh admin'
             ));
 
-            // Refresh selected order
             if ($this->selectedOrder && $this->selectedOrder->id === $order->id) {
                 $this->selectedOrder = $order->fresh(['items', 'user', 'statusLogs.triggeredBy']);
                 $this->selectedOrderTimeline = $this->selectedOrder->timeline_data;
@@ -133,7 +255,7 @@ class OrderManagement extends Component
         return OrderStateMachine::getValidNextStatuses($order);
     }
 
-    public function getOrderStats()
+    public function getOrderStats(): array
     {
         $stats = Order::selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
@@ -151,13 +273,16 @@ class OrderManagement extends Component
             'processing' => (int) ($stats['processing'] ?? 0),
             'shipped' => (int) ($stats['shipped'] ?? 0),
             'delivered' => (int) ($stats['delivered'] ?? 0),
+            'completed' => (int) ($stats['completed'] ?? 0),
             'cancelled' => (int) ($stats['cancelled'] ?? 0),
+            'approved' => (int) ($stats['approved'] ?? 0),
+            'rejected' => (int) ($stats['rejected'] ?? 0),
         ];
     }
 
-    public function render()
+    protected function getOrdersQuery()
     {
-        $ordersQuery = Order::query()
+        return Order::query()
             ->with(['user', 'statusLogs'])
             ->when($this->searchQuery, function ($query) {
                 $query->where(function ($q) {
@@ -166,16 +291,15 @@ class OrderManagement extends Component
                         ->orWhere('customer_phone', 'like', '%' . $this->searchQuery . '%');
                 });
             })
-            ->when($this->activeTab === 'cart', function ($query) {
-                $query->where('order_type', 'cart');
-            })
-            ->when($this->activeTab === 'inquiry', function ($query) {
-                $query->where('order_type', 'inquiry');
-            })
-            ->when($this->statusFilter !== 'all', function ($query) {
-                $query->where('status', $this->statusFilter);
-            })
-            ->orderBy('created_at', 'desc');
+            ->when($this->activeTab === 'cart', fn($q) => $q->where('order_type', 'cart'))
+            ->when($this->activeTab === 'inquiry', fn($q) => $q->where('order_type', 'inquiry'))
+            ->when($this->statusFilter !== 'all', fn($q) => $q->where('status', $this->statusFilter));
+    }
+
+    public function render()
+    {
+        $ordersQuery = $this->getOrdersQuery()
+            ->orderBy($this->sortField, $this->sortDirection);
 
         $orders = $ordersQuery->paginate(15);
         $stats = $this->getOrderStats();

@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Enums\PaymentStatusEnum;
 use App\Models\Address;
 use App\Models\CustomerNotification;
 use App\Models\Order;
@@ -9,7 +10,9 @@ use App\Models\OrderStatusLog;
 use App\Models\Payment;
 use App\Services\FcmService;
 use App\Services\MidtransService;
+use App\Services\OrderStateMachine;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -492,23 +495,57 @@ class Checkout extends Component
                     // If payment is completed
                     if (in_array($midtransStatus->transaction_status, ['capture', 'settlement'])) {
                         $order->payment->update(['paid_at' => now()]);
-                        $order->update(['status' => 'paid']);
-                        $order->refresh();
-                        $order->payment->refresh();
+
+                        // Use new FK-based state machine for payment status
+                        OrderStateMachine::setPaymentStatus(
+                            $order,
+                            PaymentStatusEnum::PAID,
+                            OrderStatusLog::TRIGGER_WEBHOOK,
+                            auth()->id(),
+                            'Pembayaran berhasil via Midtrans'
+                        );
 
                         // Decrement stock for all items
                         $this->decrementOrderStock($order);
 
                         // Send payment success notification
                         $this->sendPaymentSuccessNotification($order);
+
+                        $order->refresh();
+                        $order->payment->refresh();
                     }
+
+                    // Handle expired/cancelled transactions
+                    if (in_array($midtransStatus->transaction_status, ['expire', 'cancel', 'deny'])) {
+                        // Mark the existing Snap token as invalid so a new one can be created
+                        $order->payment->update(['snap_token' => null]);
+                    }
+                } else {
+                    // Transaction not found in Midtrans - clear old Snap token
+                    // This allows creating a new payment session
+                    $order->payment->update(['snap_token' => null]);
+                    $this->errorMessage = 'Sesi pembayaran sebelumnya tidak valid. Silakan coba bayar lagi.';
                 }
             }
         } catch (\Exception $e) {
-            \Log::error('Refresh Payment Status Error', [
-                'order_id' => $this->currentOrderId,
-                'error' => $e->getMessage(),
-            ]);
+            // Check if it's a "Transaction not found" error
+            $errorMessage = $e->getMessage();
+            if (str_contains($errorMessage, 'Transaction doesn\'t exist') ||
+                str_contains($errorMessage, '404')) {
+                // Clear the old Snap token to allow creating a new one
+                if ($order && $order->payment) {
+                    $order->payment->update(['snap_token' => null]);
+                }
+                $this->errorMessage = 'Sesi pembayaran sebelumnya tidak valid. Silakan coba bayar lagi.';
+                \Log::info('Cleared invalid Snap token, user can retry payment', [
+                    'order_id' => $this->currentOrderId,
+                ]);
+            } else {
+                \Log::error('Refresh Payment Status Error', [
+                    'order_id' => $this->currentOrderId,
+                    'error' => $errorMessage,
+                ]);
+            }
         }
     }
 

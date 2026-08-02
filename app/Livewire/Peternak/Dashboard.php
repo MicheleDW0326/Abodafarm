@@ -25,17 +25,57 @@ class Dashboard extends Component
         $activeLivestock = Product::ownedBy($userId)->live()->whereIn('status', ['available', 'pre_order'])->count();
         $soldLivestock = Product::ownedBy($userId)->live()->where('status', 'sold')->count();
         $totalRevenue = $this->getTotalRevenue($userId);
-        $activeOrders = $this->getActiveOrders($userId);
         $unreadNotifications = PeternakNotification::where('user_id', $userId)->unread()->count();
-
-        // Recent orders for owned products
-        $recentOrders = $this->getRecentOrders($userId);
 
         // Low stock warning (for fresh meat products)
         $lowStockProducts = Product::ownedBy($userId)
             ->freshType()
             ->where('stock', '<', 5)
             ->count();
+
+        // ========================================================================
+        // BOOKING STATS (New Workflow)
+        // ========================================================================
+        $newBookingsCount = Order::booking()
+            ->whereHas('items.product', fn($q) => $q->where('owner_id', $userId))
+            ->where(function ($q) {
+                $q->whereHas('bookingStatusRelation', fn($q2) => $q2->where('code', 'pending'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['pending']));
+            })
+            ->count();
+
+        $approvedBookingsCount = Order::booking()
+            ->whereHas('items.product', fn($q) => $q->where('owner_id', $userId))
+            ->where(function ($q) {
+                $q->whereHas('bookingStatusRelation', fn($q2) => $q2->where('code', 'approved'))
+                    ->orWhere(fn($q2) => $q2->whereIn('status', ['approved']));
+            })
+            ->count();
+
+        // ========================================================================
+        // ORDER/SHIPMENT STATS (New Workflow)
+        // ========================================================================
+        $surveysCount = Order::cart()
+            ->whereHas('items.product', fn($q) => $q->where('owner_id', $userId))
+            ->where(function ($q) {
+                $q->whereHas('shipmentStatusRelation', fn($q2) => $q2->where('code', 'processing'))
+                    ->orWhere(fn($q2) => $q2->where('status', 'processing'));
+            })
+            ->count();
+
+        $readyForDeliveryCount = Order::cart()
+            ->whereHas('items.product', fn($q) => $q->where('owner_id', $userId))
+            ->where(function ($q) {
+                $q->whereHas('shipmentStatusRelation', fn($q2) => $q2->where('code', 'shipped'))
+                    ->orWhere(fn($q2) => $q2->where('status', 'shipped'));
+            })
+            ->count();
+
+        // Active orders (bookings + shipments in progress)
+        $activeOrders = $newBookingsCount + $approvedBookingsCount + $surveysCount + $readyForDeliveryCount;
+
+        // Recent orders for owned products
+        $recentOrders = $this->getRecentOrders($userId);
 
         // Monthly revenue
         $monthlyRevenue = $this->getMonthlyRevenue($userId);
@@ -49,6 +89,11 @@ class Dashboard extends Component
                 'activeOrders' => $activeOrders,
                 'unreadNotifications' => $unreadNotifications,
                 'lowStockProducts' => $lowStockProducts,
+                // New workflow stats
+                'newBookings' => $newBookingsCount,
+                'approvedBookings' => $approvedBookingsCount,
+                'surveys' => $surveysCount,
+                'readyForDelivery' => $readyForDeliveryCount,
             ],
             'recentOrders' => $recentOrders,
             'monthlyRevenue' => $monthlyRevenue,
@@ -64,15 +109,6 @@ class Dashboard extends Component
             ->where('products.owner_id', $userId)
             ->where('orders.status', '!=', 'cancelled')
             ->sum('order_items.subtotal');
-    }
-
-    private function getActiveOrders(int $userId): int
-    {
-        return Order::whereHas('items.product', function ($query) use ($userId) {
-            $query->where('owner_id', $userId);
-        })
-            ->whereIn('status', ['pending', 'processing', 'shipped'])
-            ->count();
     }
 
     private function getRecentOrders(int $userId)

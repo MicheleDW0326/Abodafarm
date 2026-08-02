@@ -2,10 +2,11 @@
 
 namespace App\Services;
 
+use App\Enums\ReviewStatusEnum;
+use App\Models\FarmProfile;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\ReviewPhoto;
-use App\Models\FarmProfile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 
@@ -13,8 +14,81 @@ class ReviewService
 {
     /**
      * Create a product review with photos.
+     * Reviews are auto-approved for better UX.
+     * Use approveReview() if you want moderation.
      */
     public static function createProductReview(
+        $user,
+        $order,
+        Product $product,
+        int $rating,
+        ?string $content = null,
+        ?string $title = null,
+        array $photos = []
+    ): Review {
+        return DB::transaction(function () use ($user, $order, $product, $rating, $content, $title, $photos) {
+            // Auto-approve product reviews for better UX
+            $review = Review::create([
+                'user_id' => $user->id,
+                'order_id' => $order->id,
+                'review_type' => Review::TYPE_PRODUCT,
+                'product_id' => $product->id,
+                'farmer_id' => null,
+                'rating' => $rating,
+                'content' => $content,
+                'title' => $title,
+                'status' => ReviewStatusEnum::APPROVED->value,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+
+            self::uploadPhotos($review, $photos);
+            self::recalculateProductRating($product);
+
+            return $review->load('photos');
+        });
+    }
+
+    /**
+     * Create a farmer/booking review with photos.
+     * Reviews are auto-approved for better UX.
+     */
+    public static function createFarmerReview(
+        $user,
+        $order,
+        int $farmerId,
+        int $rating,
+        ?string $content = null,
+        ?string $title = null,
+        array $photos = []
+    ): Review {
+        return DB::transaction(function () use ($user, $order, $farmerId, $rating, $content, $title, $photos) {
+            // Auto-approve farmer reviews for better UX
+            $review = Review::create([
+                'user_id' => $user->id,
+                'order_id' => $order->id,
+                'review_type' => Review::TYPE_FARMER,
+                'product_id' => null,
+                'farmer_id' => $farmerId,
+                'rating' => $rating,
+                'content' => $content,
+                'title' => $title,
+                'status' => ReviewStatusEnum::APPROVED->value,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+            ]);
+
+            self::uploadPhotos($review, $photos);
+            self::recalculateFarmProfileRating($farmerId);
+
+            return $review->load('photos');
+        });
+    }
+
+    /**
+     * Create a product review that requires moderation.
+     */
+    public static function createProductReviewPending(
         $user,
         $order,
         Product $product,
@@ -33,53 +107,12 @@ class ReviewService
                 'rating' => $rating,
                 'content' => $content,
                 'title' => $title,
-                'status' => Review::STATUS_APPROVED,
+                'status' => ReviewStatusEnum::PENDING->value,
                 'ip_address' => request()->ip(),
                 'user_agent' => request()->userAgent(),
             ]);
 
-            // Handle photo uploads
             self::uploadPhotos($review, $photos);
-
-            // Update product rating
-            self::recalculateProductRating($product);
-
-            return $review->load('photos');
-        });
-    }
-
-    /**
-     * Create a farmer/booking review with photos.
-     */
-    public static function createFarmerReview(
-        $user,
-        $order,
-        int $farmerId,
-        int $rating,
-        ?string $content = null,
-        ?string $title = null,
-        array $photos = []
-    ): Review {
-        return DB::transaction(function () use ($user, $order, $farmerId, $rating, $content, $title, $photos) {
-            $review = Review::create([
-                'user_id' => $user->id,
-                'order_id' => $order->id,
-                'review_type' => Review::TYPE_FARMER,
-                'product_id' => null,
-                'farmer_id' => $farmerId,
-                'rating' => $rating,
-                'content' => $content,
-                'title' => $title,
-                'status' => Review::STATUS_APPROVED,
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-            ]);
-
-            // Handle photo uploads
-            self::uploadPhotos($review, $photos);
-
-            // Update farm profile rating
-            self::recalculateFarmProfileRating($farmerId);
 
             return $review->load('photos');
         });
@@ -102,12 +135,10 @@ class ReviewService
                 'title' => $title,
             ]);
 
-            // Handle new photo uploads
             if (!empty($photos)) {
                 self::uploadPhotos($review, $photos);
             }
 
-            // Recalculate ratings
             self::recalculateRating($review);
 
             return $review->load('photos');
@@ -119,7 +150,6 @@ class ReviewService
      */
     public static function deletePhoto(ReviewPhoto $photo): void
     {
-        // Delete file from storage
         if ($photo->path) {
             Storage::disk('public')->delete($photo->path);
         }
@@ -127,7 +157,6 @@ class ReviewService
         $review = $photo->review;
         $photo->delete();
 
-        // Recalculate ratings
         if ($review) {
             self::recalculateRating($review);
         }
@@ -160,7 +189,7 @@ class ReviewService
     public static function recalculateProductRating(Product $product): void
     {
         $reviews = Review::where('product_id', $product->id)
-            ->where('status', Review::STATUS_APPROVED)
+            ->where('status', ReviewStatusEnum::APPROVED->value)
             ->selectRaw('rating, COUNT(*) as count')
             ->groupBy('rating')
             ->pluck('count', 'rating');
@@ -168,7 +197,7 @@ class ReviewService
         $total = $reviews->sum();
         $average = $total > 0
             ? Review::where('product_id', $product->id)
-                ->where('status', Review::STATUS_APPROVED)
+                ->where('status', ReviewStatusEnum::APPROVED->value)
                 ->avg('rating')
             : 0;
 
@@ -194,10 +223,9 @@ class ReviewService
             return;
         }
 
-        // Calculate from direct farmer reviews
         $farmerReviews = Review::where('review_type', Review::TYPE_FARMER)
             ->where('farmer_id', $farmerId)
-            ->where('status', Review::STATUS_APPROVED)
+            ->where('status', ReviewStatusEnum::APPROVED->value)
             ->selectRaw('COUNT(*) as total, AVG(rating) as average')
             ->first();
 
@@ -232,7 +260,6 @@ class ReviewService
         $productId = $review->product_id;
         $farmerId = $review->farmer_id;
 
-        // Delete photos from storage
         foreach ($review->photos as $photo) {
             if ($photo->path) {
                 Storage::disk('public')->delete($photo->path);
@@ -241,7 +268,6 @@ class ReviewService
 
         $review->delete();
 
-        // Recalculate ratings
         if ($productId) {
             $product = Product::find($productId);
             if ($product) {
@@ -259,7 +285,7 @@ class ReviewService
      */
     public static function approveReview(Review $review): void
     {
-        $review->update(['status' => Review::STATUS_APPROVED]);
+        $review->update(['status' => ReviewStatusEnum::APPROVED->value]);
         self::recalculateRating($review);
     }
 
@@ -269,10 +295,11 @@ class ReviewService
     public static function rejectReview(Review $review, ?string $reason = null): void
     {
         $review->update([
-            'status' => Review::STATUS_REJECTED,
+            'status' => ReviewStatusEnum::REJECTED->value,
             'admin_notes' => $reason,
         ]);
-        self::recalculateRating($review);
+        // Note: Rejected reviews don't count toward ratings
+        // So we don't recalculate rating for rejection
     }
 
     /**

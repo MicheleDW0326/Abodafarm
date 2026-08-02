@@ -39,18 +39,28 @@
     },
 
     showPaymentSuccessAlert() {
-        Swal.fire({
-            icon: 'success',
-            title: 'Pembayaran Berhasil!',
-            html: 'Pesanan Anda sedang diproses. Anda akan diarahkan ke halaman utama.',
-            timer: 3000,
-            timerProgressBar: true,
-            showConfirmButton: false,
-            didClose: () => {
-                localStorage.removeItem('abodafarm_cart');
+        // Use SweetAlert2 if available, otherwise use native alert
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'Pembayaran Berhasil!',
+                html: 'Pesanan Anda sedang diproses. Anda akan diarahkan ke halaman utama.',
+                timer: 3000,
+                timerProgressBar: true,
+                showConfirmButton: false,
+                didClose: () => {
+                    localStorage.removeItem('abodafarm_cart');
+                    window.location.href = '{{ route('pelanggan.dashboard') }}';
+                }
+            });
+        } else {
+            // Fallback for when SweetAlert2 is not loaded
+            alert('Pembayaran Berhasil! Pesanan Anda sedang diproses.');
+            localStorage.removeItem('abodafarm_cart');
+            setTimeout(() => {
                 window.location.href = '{{ route('pelanggan.dashboard') }}';
-            }
-        });
+            }, 2000);
+        }
     },
 
     checkSnapToken() {

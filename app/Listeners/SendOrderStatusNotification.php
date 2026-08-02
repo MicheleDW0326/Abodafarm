@@ -7,6 +7,7 @@ use App\Models\CustomerNotification;
 use App\Models\Order;
 use App\Models\PeternakNotification;
 use App\Services\FcmService;
+use App\Services\NotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
 
@@ -16,7 +17,8 @@ class SendOrderStatusNotification implements ShouldQueue
      * Create the event listener.
      */
     public function __construct(
-        protected FcmService $fcmService
+        protected FcmService $fcmService,
+        protected NotificationService $notificationService
     ) {}
 
     /**
@@ -32,156 +34,133 @@ class SendOrderStatusNotification implements ShouldQueue
             return;
         }
 
-        // Create in-app notification
-        $this->createInAppNotification($order);
+        // Use NotificationService for customer notifications
+        $this->notificationService->notifyOrderStatusChange($order, $event->notes);
 
-        // Send FCM push notification
-        $this->sendPushNotification($order);
+        // Also notify farmer if this is a booking status change
+        $this->notifyFarmerIfNeeded($order, $event->toStatus);
     }
 
     /**
-     * Create in-app notification based on status.
+     * Notify farmer about booking status changes.
      */
-    protected function createInAppNotification(Order $order): void
+    protected function notifyFarmerIfNeeded(Order $order, string $toStatus): void
     {
-        $status = $order->status;
-        $orderNumber = $order->order_number;
-        $isBooking = $order->isInquiry();
+        // Only notify farmers for booking-related status changes
+        $bookingStatuses = ['approved', 'rejected', 'processing', 'cancelled'];
 
-        $notificationConfig = match ($status) {
-            'pending' => [
-                'type' => CustomerNotification::TYPE_ORDER_STATUS,
-                'title' => $isBooking ? 'Booking Baru' : 'Pesanan Baru',
-                'message' => $isBooking
-                    ? "Booking {$orderNumber} sedang menunggu review."
-                    : "Pesanan {$orderNumber} sedang menunggu pembayaran.",
-            ],
+        if (!in_array($toStatus, $bookingStatuses)) {
+            return;
+        }
+
+        // Get the farmers who own products in this order
+        $farmers = $order->items()
+            ->with('product.owner')
+            ->get()
+            ->pluck('product.owner')
+            ->filter()
+            ->unique('id');
+
+        $customerName = $order->customer_name ?? $order->user?->name ?? 'Pelanggan';
+        $productName = $order->items->first()?->product_name ?? 'Produk';
+
+        foreach ($farmers as $farmer) {
+            $this->notifyFarmerAboutBookingChange($farmer, $order, $toStatus, $customerName, $productName);
+        }
+    }
+
+    /**
+     * Notify a specific farmer about booking status change.
+     */
+    protected function notifyFarmerAboutBookingChange($farmer, Order $order, string $status, string $customerName, string $productName): void
+    {
+        // Check for duplicate
+        if ($this->isFarmerDuplicate($farmer->id, $order->id)) {
+            return;
+        }
+
+        $config = match ($status) {
             'approved' => [
-                'type' => CustomerNotification::TYPE_BOOKING_APPROVED,
-                'title' => 'Booking Disetujui!',
-                'message' => "Booking {$orderNumber} telah disetujui. Silakan lakukan pembayaran.",
+                'type' => 'booking_approved',
+                'title' => 'Booking Disetujui',
+                'message' => "Booking dari {$customerName} untuk {$productName} telah disetujui.",
+                'icon' => 'fa-solid fa-circle-check text-green-500',
             ],
             'rejected' => [
-                'type' => CustomerNotification::TYPE_BOOKING_REJECTED,
+                'type' => 'booking_rejected',
                 'title' => 'Booking Ditolak',
-                'message' => "Maaf, booking {$orderNumber} telah ditolak.",
-            ],
-            'paid' => [
-                'type' => CustomerNotification::TYPE_PAYMENT_SUCCESS,
-                'title' => 'Pembayaran Berhasil',
-                'message' => "Pembayaran untuk {$orderNumber} telah berhasil.",
+                'message' => "Booking dari {$customerName} untuk {$productName} telah ditolak.",
+                'icon' => 'fa-solid fa-circle-xmark text-red-500',
             ],
             'processing' => [
-                'type' => CustomerNotification::TYPE_ORDER_STATUS,
+                'type' => 'order_processing',
                 'title' => 'Pesanan Diproses',
-                'message' => "Pesanan {$orderNumber} sedang diproses.",
-            ],
-            'shipped' => [
-                'type' => CustomerNotification::TYPE_ORDER_SHIPPED,
-                'title' => 'Pesanan Dikirim',
-                'message' => "Pesanan {$orderNumber} sedang dalam perjalanan.",
-            ],
-            'delivered' => [
-                'type' => CustomerNotification::TYPE_ORDER_DELIVERED,
-                'title' => 'Pesanan Diterima',
-                'message' => "Pesanan {$orderNumber} telah diterima.",
-            ],
-            'completed' => [
-                'type' => CustomerNotification::TYPE_ORDER_STATUS,
-                'title' => 'Pesanan Selesai',
-                'message' => "Terima kasih! Pesanan {$orderNumber} telah selesai.",
+                'message' => "Pesanan dari {$customerName} untuk {$productName} sedang diproses.",
+                'icon' => 'fa-solid fa-cog text-blue-500',
             ],
             'cancelled' => [
-                'type' => CustomerNotification::TYPE_ORDER_STATUS,
-                'title' => 'Pesanan Dibatalkan',
-                'message' => "Pesanan {$orderNumber} telah dibatalkan.",
+                'type' => 'booking_cancelled',
+                'title' => 'Booking Dibatalkan',
+                'message' => "Booking dari {$customerName} untuk {$productName} telah dibatalkan.",
+                'icon' => 'fa-solid fa-ban text-red-500',
             ],
             default => null,
         };
 
-        if (!$notificationConfig) {
+        if (!$config) {
             return;
         }
 
         try {
-            CustomerNotification::create([
-                'user_id' => $order->user_id,
-                'type' => $notificationConfig['type'],
-                'title' => $notificationConfig['title'],
-                'message' => $notificationConfig['message'],
-                'data' => json_encode([
+            // Create database notification
+            PeternakNotification::create([
+                'user_id' => $farmer->id,
+                'type' => $config['type'],
+                'title' => $config['title'],
+                'message' => $config['message'],
+                'data' => [
                     'order_id' => $order->id,
-                    'order_number' => $orderNumber,
-                    'status' => $status,
-                ]),
+                    'order_number' => $order->order_number,
+                    'reference_id' => (string) $order->id,
+                    'customer_name' => $customerName,
+                    'product_name' => $productName,
+                ],
                 'is_read' => false,
             ]);
+
+            // Send FCM
+            $this->fcmService->sendToUser(
+                $farmer,
+                $config['title'],
+                $config['message'],
+                [
+                    'type' => $config['type'],
+                    'order_id' => (string) $order->id,
+                    'order_number' => $order->order_number,
+                    'action' => 'view_booking',
+                ]
+            );
         } catch (\Exception $e) {
-            Log::error('Failed to create order status notification', [
+            Log::error('Failed to notify farmer about booking change', [
+                'farmer_id' => $farmer->id,
                 'order_id' => $order->id,
+                'status' => $status,
                 'error' => $e->getMessage(),
             ]);
         }
     }
 
     /**
-     * Send FCM push notification.
+     * Check for duplicate farmer notification.
      */
-    protected function sendPushNotification(Order $order): void
+    protected function isFarmerDuplicate(int $farmerId, int $orderId): bool
     {
-        $status = $order->status;
-        $user = $order->user;
+        $cutoff = now()->subMinutes(NotificationService::DUPLICATE_COOLDOWN);
 
-        if (!$user) {
-            return;
-        }
-
-        $notificationTitle = match ($status) {
-            'pending' => $order->isInquiry() ? 'Booking Baru' : 'Pesanan Baru Diterima',
-            'approved' => '🎉 Booking Disetujui!',
-            'rejected' => '📋 Booking Ditolak',
-            'paid' => '✅ Pembayaran Berhasil',
-            'processing' => '🔄 Pesanan Diproses',
-            'shipped' => '📦 Pesanan Dikirim',
-            'delivered' => '🎊 Pesanan Diterima',
-            'completed' => '✨ Pesanan Selesai',
-            'cancelled' => '❌ Pesanan Dibatalkan',
-            default => "Update Pesanan {$order->order_number}",
-        };
-
-        $notificationBody = match ($status) {
-            'pending' => $order->isInquiry()
-                ? "Booking {$order->order_number} sedang menunggu review."
-                : "Pesanan {$order->order_number} sedang menunggu pembayaran.",
-            'approved' => "Booking {$order->order_number} telah disetujui. Silakan lakukan pembayaran.",
-            'rejected' => "Maaf, booking {$order->order_number} telah ditolak.",
-            'paid' => "Pembayaran untuk {$order->order_number} telah berhasil.",
-            'processing' => "Pesanan {$order->order_number} sedang diproses oleh peternak.",
-            'shipped' => "Pesanan {$order->order_number} sedang dalam perjalanan ke alamat Anda.",
-            'delivered' => "Pesanan {$order->order_number} telah diterima. Jangan lupa konfirmasi ya!",
-            'completed' => "Terima kasih! Pesanan {$order->order_number} telah selesai. Semoga puas dengan layanannya!",
-            'cancelled' => "Pesanan {$order->order_number} telah dibatalkan.",
-            default => "Status pesanan {$order->order_number} telah diperbarui.",
-        };
-
-        try {
-            $this->fcmService->sendNotification(
-                $user,
-                $notificationTitle,
-                $notificationBody,
-                [
-                    'order_id' => (string) $order->id,
-                    'order_number' => $order->order_number,
-                    'status' => $status,
-                    'type' => $order->isInquiry() ? 'booking' : 'order',
-                ]
-            );
-        } catch (\Exception $e) {
-            Log::error('Failed to send FCM notification for order status', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        return PeternakNotification::where('user_id', $farmerId)
+            ->whereJsonContains('data', ['order_id' => $orderId])
+            ->where('created_at', '>=', $cutoff)
+            ->exists();
     }
 
     /**

@@ -260,11 +260,16 @@
                     });
                 },
                 placeMarker(location) {
+                    // Handle both LatLng object and plain object {lat, lng}
+                    const lat = typeof location.lat === 'function' ? location.lat() : location.lat;
+                    const lng = typeof location.lng === 'function' ? location.lng() : location.lng;
+                    const position = { lat, lng };
+
                     if (this.marker) {
-                        this.marker.setPosition(location);
+                        this.marker.setPosition(position);
                     } else {
                         this.marker = new google.maps.Marker({
-                            position: location,
+                            position: position,
                             map: this.map,
                             draggable: true,
                             animation: google.maps.Animation.DROP,
@@ -278,8 +283,8 @@
                     }
 
                     // Update Livewire
-                    this.$wire.latitude = location.lat();
-                    this.$wire.longitude = location.lng();
+                    this.$wire.latitude = lat;
+                    this.$wire.longitude = lng;
                 },
                 reverseGeocode(location) {
                     const geocoder = new google.maps.Geocoder();
@@ -289,9 +294,11 @@
                             this.$wire.google_place_id = place.place_id;
                             this.fillAddressFields({ address_components: place.address_components, name: place.formatted_address });
 
-                            // Update Livewire coordinates
-                            this.$wire.latitude = location.lat();
-                            this.$wire.longitude = location.lng();
+                            // Update Livewire coordinates - handle both LatLng and plain object
+                            const lat = typeof location.lat === 'function' ? location.lat() : location.lat;
+                            const lng = typeof location.lng === 'function' ? location.lng() : location.lng;
+                            this.$wire.latitude = lat;
+                            this.$wire.longitude = lng;
                         }
                     });
                 },

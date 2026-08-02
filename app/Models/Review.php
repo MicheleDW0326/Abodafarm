@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ReviewStatusEnum;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,6 +10,19 @@ use Illuminate\Support\Collection;
 
 class Review extends Model
 {
+    // =========================================================================
+    // BACKWARD COMPATIBLE CONSTANTS (Legacy - use Enums instead)
+    // =========================================================================
+    public const TYPE_PRODUCT = 'product';
+    public const TYPE_FARMER = 'farmer';
+
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_REJECTED = 'rejected';
+
+    // =========================================================================
+    // FILLABLE
+    // =========================================================================
     protected $fillable = [
         'user_id',
         'order_id',
@@ -24,92 +38,95 @@ class Review extends Model
         'user_agent',
     ];
 
+    // =========================================================================
+    // CASTS
+    // =========================================================================
     protected function casts(): array
     {
         return [
             'rating' => 'integer',
-        'created_at' => 'datetime',
+            'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
     }
 
-    // Type constants
-    public const TYPE_PRODUCT = 'product';
-    public const TYPE_FARMER = 'farmer';
-
-    // Status constants
-    public const STATUS_PENDING = 'pending';
-    public const STATUS_APPROVED = 'approved';
-    public const STATUS_REJECTED = 'rejected';
-
-    /**
-     * Get the user (reviewer).
-     */
+    // =========================================================================
+    // RELATIONSHIPS
+    // =========================================================================
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the order (verified purchase).
-     */
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }
 
-    /**
-     * Get the product (for product reviews).
-     */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 
-    /**
-     * Get the farmer (for booking reviews).
-     */
     public function farmer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'farmer_id');
     }
 
-    /**
-     * Get the photos.
-     */
     public function photos(): HasMany
     {
         return $this->hasMany(ReviewPhoto::class)->orderBy('sort_order');
     }
 
+    // =========================================================================
+    // COMPUTED PROPERTIES
+    // =========================================================================
+
     /**
-     * Scope: approved reviews only.
+     * Get status enum.
      */
-    public function scopeApproved($query)
+    public function getStatusEnumAttribute(): ?ReviewStatusEnum
     {
-        return $query->where('status', self::STATUS_APPROVED);
+        return $this->status ? ReviewStatusEnum::tryFrom($this->status) : null;
     }
 
     /**
-     * Scope: product reviews only.
+     * Get status label.
      */
-    public function scopeForProduct($query, int $productId)
+    public function getStatusLabelAttribute(): string
     {
-        return $query->where('review_type', self::TYPE_PRODUCT)
-            ->where('product_id', $productId);
+        return $this->statusEnum?->label()
+            ?? match($this->status) {
+                self::STATUS_PENDING => 'Menunggu',
+                self::STATUS_APPROVED => 'Disetujui',
+                self::STATUS_REJECTED => 'Ditolak',
+                default => ucfirst($this->status ?? ''),
+            };
     }
 
     /**
-     * Scope: farmer reviews only.
+     * Get status badge class.
      */
-    public function scopeForFarmer($query, int $farmerId)
+    public function getStatusBadgeClassAttribute(): string
     {
-        return $query->where('review_type', self::TYPE_FARMER)
-            ->where('farmer_id', $farmerId);
+        return $this->statusEnum?->badgeClass()
+            ?? 'bg-slate-100 text-slate-700';
     }
 
     /**
-     * Get photo URLs accessor.
+     * Get type label.
+     */
+    public function getTypeLabelAttribute(): string
+    {
+        return match($this->review_type) {
+            self::TYPE_PRODUCT => 'Produk',
+            self::TYPE_FARMER => 'Peternak',
+            default => ucfirst($this->review_type ?? ''),
+        };
+    }
+
+    /**
+     * Get photo URLs.
      */
     public function getPhotoUrlsAttribute(): array
     {
@@ -117,7 +134,7 @@ class Review extends Model
     }
 
     /**
-     * Check if this is a verified purchase review.
+     * Check if verified purchase.
      */
     public function getIsVerifiedPurchaseAttribute(): bool
     {
@@ -125,7 +142,7 @@ class Review extends Model
     }
 
     /**
-     * Get reviewer name accessor.
+     * Get reviewer name.
      */
     public function getReviewerNameAttribute(): string
     {
@@ -133,7 +150,7 @@ class Review extends Model
     }
 
     /**
-     * Get reviewer avatar accessor.
+     * Get reviewer avatar.
      */
     public function getReviewerAvatarAttribute(): ?string
     {
@@ -143,52 +160,63 @@ class Review extends Model
         return null;
     }
 
-    /**
-     * Get status label accessor.
-     */
-    public function getStatusLabelAttribute(): string
-    {
-        return match ($this->status) {
-            self::STATUS_PENDING => 'Menunggu',
-            self::STATUS_APPROVED => 'Disetujui',
-            self::STATUS_REJECTED => 'Ditolak',
-            default => ucfirst($this->status),
-        };
-    }
+    // =========================================================================
+    // BOOLEAN HELPERS
+    // =========================================================================
 
-    /**
-     * Get type label accessor.
-     */
-    public function getTypeLabelAttribute(): string
-    {
-        return match ($this->review_type) {
-            self::TYPE_PRODUCT => 'Produk',
-            self::TYPE_FARMER => 'Peternak',
-            default => ucfirst($this->review_type),
-        };
-    }
-
-    /**
-     * Check if this review can be edited by user.
-     */
-    public function canBeEdited(): bool
-    {
-        return $this->created_at->diffInDays(now()) <= 30;
-    }
-
-    /**
-     * Check if this is a product review.
-     */
     public function isProductReview(): bool
     {
         return $this->review_type === self::TYPE_PRODUCT;
     }
 
-    /**
-     * Check if this is a farmer review.
-     */
     public function isFarmerReview(): bool
     {
         return $this->review_type === self::TYPE_FARMER;
+    }
+
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->status === self::STATUS_APPROVED;
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->status === self::STATUS_REJECTED;
+    }
+
+    public function canBeEdited(): bool
+    {
+        return $this->created_at->diffInDays(now()) <= 30;
+    }
+
+    // =========================================================================
+    // SCOPES
+    // =========================================================================
+
+    public function scopeApproved($query)
+    {
+        return $query->where('status', self::STATUS_APPROVED);
+    }
+
+    public function scopePending($query)
+    {
+        return $query->where('status', self::STATUS_PENDING);
+    }
+
+    public function scopeForProduct($query, int $productId)
+    {
+        return $query->where('review_type', self::TYPE_PRODUCT)
+            ->where('product_id', $productId);
+    }
+
+    public function scopeForFarmer($query, int $farmerId)
+    {
+        return $query->where('review_type', self::TYPE_FARMER)
+            ->where('farmer_id', $farmerId);
     }
 }

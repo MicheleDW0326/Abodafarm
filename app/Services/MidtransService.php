@@ -2,12 +2,13 @@
 
 namespace App\Services;
 
+use App\Enums\PaymentStatusEnum;
 use App\Events\OrderStatusChanged;
 use App\Events\PaymentReceived;
 use App\Models\Order;
+use App\Models\OrderStatus;
 use App\Models\OrderStatusLog;
 use App\Models\Payment;
-use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Midtrans\Config;
 use Midtrans\Snap;
@@ -27,19 +28,40 @@ class MidtransService
 
     /**
      * Create Snap token for the given order.
-     *
-     * @param Order $order
-     * @return array{snap_token: string, redirect_url: string}
-     * @throws Exception
      */
     public static function createSnapToken(Order $order): array
     {
         self::init();
 
-        // Get order items
-        $items = $order->items()->with('product')->get();
+        $existingPayment = Payment::where('order_id', $order->id)
+            ->whereIn('transaction_status', [Payment::STATUS_PENDING, 'pending'])
+            ->first();
 
-        // Build item details for Midtrans
+        if ($existingPayment && $existingPayment->snap_token) {
+            try {
+                $status = Transaction::status($order->order_number);
+                if ($status && !in_array($status->transaction_status, ['expire', 'cancel', 'deny'])) {
+                    Log::info('Midtrans: Reusing existing Snap Token', [
+                        'order_id' => $order->id,
+                        'order_number' => $order->order_number,
+                    ]);
+
+                    return [
+                        'snap_token' => $existingPayment->snap_token,
+                        'redirect_url' => config('services.midtrans.is_production')
+                            ? "https://app.midtrans.com/snap/v2/vtweb/{$existingPayment->snap_token}"
+                            : "https://app.sandbox.midtrans.com/snap/v2/vtweb/{$existingPayment->snap_token}",
+                    ];
+                }
+            } catch (Exception $e) {
+                Log::info('Midtrans: Existing token invalid, creating new one', [
+                    'order_id' => $order->id,
+                    'reason' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $items = $order->items()->with('product')->get();
         $itemDetails = [];
         foreach ($items as $item) {
             $itemDetails[] = [
@@ -50,24 +72,11 @@ class MidtransService
             ];
         }
 
-        // Note: Shipping cost is included in total_amount if applicable
-        // If you have a separate shipping_cost field, uncomment and modify the code below:
-        // if ($order->shipping_cost > 0) {
-        //     $itemDetails[] = [
-        //         'id' => 'SHIPPING',
-        //         'price' => (int) $order->shipping_cost,
-        //         'quantity' => 1,
-        //         'name' => 'Shipping Cost',
-        //     ];
-        // }
-
-        // Build transaction details
         $transactionDetails = [
             'order_id' => $order->order_number,
             'gross_amount' => (int) $order->total_amount,
         ];
 
-        // Build customer details
         $customerDetails = [
             'first_name' => $order->customer_name,
             'phone' => $order->customer_phone,
@@ -76,28 +85,15 @@ class MidtransService
             ],
         ];
 
-        // Build Snap parameters
         $params = [
             'transaction_details' => $transactionDetails,
             'item_details' => $itemDetails,
             'customer_details' => $customerDetails,
             'enabled_payments' => [
-                'gopay',
-                'bank_transfer',
-                'mandiri_clickpay',
-                'cimb_clicks',
-                'bca_klikbca',
-                'bca_klikpay',
-                'bri_epay',
-                'echannel',
-                'permata_va',
-                'bca_va',
-                'bni_va',
-                'bri_va',
-                'other_va',
-                'akulaku',
-                'indomaret',
-                'alfamart',
+                'gopay', 'bank_transfer', 'mandiri_clickpay', 'cimb_clicks',
+                'bca_klikbca', 'bca_klikpay', 'bri_epay', 'echannel',
+                'permata_va', 'bca_va', 'bni_va', 'bri_va', 'other_va',
+                'akulaku', 'indomaret', 'alfamart',
             ],
             'callbacks' => [
                 'finish' => route('checkout.success', ['order_id' => $order->id]),
@@ -105,11 +101,9 @@ class MidtransService
         ];
 
         try {
-            // Get Snap Token
             $snapToken = Snap::getSnapToken($params);
 
-            // Create or update payment record
-            $payment = Payment::updateOrCreate(
+            Payment::updateOrCreate(
                 ['order_id' => $order->id],
                 [
                     'transaction_id' => null,
@@ -124,7 +118,6 @@ class MidtransService
             Log::info('Midtrans Snap Token created', [
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
-                'snap_token' => $snapToken,
             ]);
 
             return [
@@ -144,19 +137,13 @@ class MidtransService
 
     /**
      * Handle Midtrans notification/webhook.
-     *
-     * @param array $notificationPayload
-     * @return bool
      */
     public static function handleNotification(array $notificationPayload): bool
     {
         self::init();
 
         try {
-            // Get transaction status from Midtrans
             $transactionStatusData = Transaction::status($notificationPayload['order_id']);
-
-            // Convert to object if it's an array
             $transactionStatus = is_array($transactionStatusData)
                 ? (object) $transactionStatusData
                 : $transactionStatusData;
@@ -166,7 +153,6 @@ class MidtransService
                 'transaction_status' => $transactionStatus->transaction_status ?? 'unknown',
             ]);
 
-            // Find the order
             $order = Order::where('order_number', $notificationPayload['order_id'])->first();
 
             if (!$order) {
@@ -176,7 +162,6 @@ class MidtransService
                 return false;
             }
 
-            // Find or create payment record
             $payment = Payment::firstOrCreate(
                 ['order_id' => $order->id],
                 [
@@ -185,7 +170,6 @@ class MidtransService
                 ]
             );
 
-            // Update payment with transaction details
             $payment->update([
                 'transaction_id' => $transactionStatus->transaction_id ?? null,
                 'payment_type' => $transactionStatus->payment_type ?? null,
@@ -193,7 +177,6 @@ class MidtransService
                 'fraud_status' => $transactionStatus->fraud_status ?? null,
             ]);
 
-            // Handle based on transaction status
             $statusUpdated = self::handleTransactionStatus($order, $payment, $transactionStatus);
 
             Log::info('Midtrans Notification Processed', [
@@ -221,66 +204,114 @@ class MidtransService
     ): bool {
         $status = $transactionStatus->transaction_status ?? 'pending';
 
-        // Update paid_at if transaction is successful
-        if (in_array($status, ['capture', 'settlement'])) {
+        // Successful payment statuses
+        $successStatuses = ['capture', 'settlement'];
+
+        if (in_array($status, $successStatuses)) {
             if ($transactionStatus->fraud_status === 'accept' || $transactionStatus->fraud_status === null) {
-                $fromStatus = $order->status;
-
-                // Update payment
-                $payment->paid_at = now();
-                $payment->transaction_status = Payment::STATUS_SETTLEMENT;
-                $payment->save();
-
-                // Use state machine for order status
-                $notes = "Pembayaran berhasil via Midtrans. Transaction ID: {$transactionStatus->transaction_id}";
-                $result = OrderStateMachine::transition(
-                    $order,
-                    Order::STATUS_PAID,
-                    OrderStatusLog::TRIGGER_WEBHOOK,
-                    null,
-                    $notes
-                );
-
-                if ($result['success']) {
-                    // Dispatch events
-                    event(new PaymentReceived($order, $payment, $transactionStatus->transaction_id));
-                    event(new OrderStatusChanged(
-                        $order->fresh(),
-                        $fromStatus,
-                        Order::STATUS_PAID,
-                        OrderStatusLog::TRIGGER_WEBHOOK,
-                        null,
-                        $notes
-                    ));
-                }
-
-                Log::info('Order marked as paid', [
-                    'order_id' => $order->id,
-                    'transaction_id' => $transactionStatus->transaction_id,
-                ]);
-
-                return true;
+                return self::handleSuccessfulPayment($order, $payment, $transactionStatus);
             }
         }
 
-        // Handle other statuses - payment failed/cancelled/expired
+        // Failed/cancelled/expired payment
+        return self::handleFailedPayment($order, $payment, $transactionStatus);
+    }
+
+    /**
+     * Handle successful payment.
+     */
+    protected static function handleSuccessfulPayment(
+        Order $order,
+        Payment $payment,
+        $transactionStatus
+    ): bool {
+        $fromStatus = $order->status;
+
+        // Update payment
+        $payment->paid_at = now();
+        $payment->transaction_status = Payment::STATUS_SETTLEMENT;
+        $payment->save();
+
+        // Use NEW FK-based state machine transition
+        $notes = "Pembayaran berhasil via Midtrans. Transaction ID: {$transactionStatus->transaction_id}";
+
+        // First, set payment status to PAID using FK
+        $paymentResult = OrderStateMachine::setPaymentStatus(
+            $order,
+            PaymentStatusEnum::PAID,
+            OrderStatusLog::TRIGGER_WEBHOOK,
+            null,
+            $notes
+        );
+
+        if ($paymentResult['success']) {
+            // Dispatch events
+            event(new PaymentReceived($order, $payment, $transactionStatus->transaction_id));
+            event(new OrderStatusChanged(
+                $order->fresh(),
+                $fromStatus,
+                Order::STATUS_PAID,
+                OrderStatusLog::TRIGGER_WEBHOOK,
+                null,
+                $notes
+            ));
+        }
+
+        Log::info('Order marked as paid via FK transition', [
+            'order_id' => $order->id,
+            'transaction_id' => $transactionStatus->transaction_id,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Handle failed/cancelled/expired payment.
+     */
+    protected static function handleFailedPayment(
+        Order $order,
+        Payment $payment,
+        $transactionStatus
+    ): bool {
+        $status = $transactionStatus->transaction_status ?? 'pending';
+        $fromStatus = $order->status;
+
+        // Determine which payment status to use
+        $paymentEnum = match($status) {
+            'deny' => PaymentStatusEnum::PAYMENT_FAILED,
+            'cancel' => PaymentStatusEnum::PAYMENT_FAILED,
+            'expire' => PaymentStatusEnum::PAYMENT_FAILED,
+            default => PaymentStatusEnum::PENDING,
+        };
+
+        // Update payment record
         $payment->transaction_status = $status;
         $payment->save();
 
-        // Use state machine for cancellation
+        // If payment is truly failed (not just pending), cancel the order
         $failedStatuses = ['deny', 'cancel', 'expire'];
         if (in_array($status, $failedStatuses)) {
-            $fromStatus = $order->status;
+            // Set payment status to failed using FK
             $notes = "Pembayaran {$status}: " . ($transactionStatus->status_message ?? '');
-            $result = OrderStateMachine::transition(
+
+            $paymentResult = OrderStateMachine::setPaymentStatus(
                 $order,
-                Order::STATUS_CANCELLED,
+                PaymentStatusEnum::PAYMENT_FAILED,
                 OrderStatusLog::TRIGGER_WEBHOOK,
                 null,
                 $notes
             );
 
-            if ($result['success']) {
+            if ($paymentResult['success']) {
+                // Also set shipment status to cancelled
+                OrderStateMachine::setShipmentStatus(
+                    $order,
+                    \App\Enums\ShipmentStatusEnum::CANCELLED,
+                    OrderStatusLog::TRIGGER_WEBHOOK,
+                    null,
+                    $notes
+                );
+
                 event(new OrderStatusChanged(
                     $order->fresh(),
                     $fromStatus,
@@ -297,9 +328,6 @@ class MidtransService
 
     /**
      * Check transaction status directly from Midtrans.
-     *
-     * @param string $orderId
-     * @return object|null
      */
     public static function checkTransactionStatus(string $orderId): ?object
     {
@@ -307,12 +335,9 @@ class MidtransService
 
         try {
             $response = Transaction::status($orderId);
-
-            // Convert array to object if needed
             if (is_array($response)) {
                 return (object) $response;
             }
-
             return $response;
         } catch (Exception $e) {
             Log::error('Midtrans Status Check Failed', [
@@ -324,44 +349,11 @@ class MidtransService
     }
 
     /**
-     * Send payment success notification via FCM and in-app notification.
+     * Get the OrderStatus ID for a given code.
+     * Helper method for backward compatibility.
      */
-    protected static function sendPaymentSuccessNotification(Order $order, ?string $transactionId = null): void
+    public static function getOrderStatusId(string $code): ?int
     {
-        // Get the user
-        $user = $order->user;
-
-        if (!$user) {
-            Log::warning('Cannot send payment notification: User not found', [
-                'order_id' => $order->id,
-            ]);
-            return;
-        }
-
-        $orderNumber = $order->order_number;
-        $totalAmount = 'Rp ' . number_format($order->total_amount, 0, ',', '.');
-        $itemCount = $order->total_items;
-
-        // Use NotificationService for unified notification
-        try {
-            $notificationService = app(NotificationService::class);
-            $notificationService->paymentSuccess(
-                $user,
-                $orderNumber,
-                $totalAmount,
-                $itemCount
-            );
-
-            Log::info('Payment success notification sent via NotificationService', [
-                'order_id' => $order->id,
-                'user_id' => $user->id,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to send payment success notification', [
-                'order_id' => $order->id,
-                'user_id' => $user->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
+        return OrderStatus::findIdByCode($code);
     }
 }

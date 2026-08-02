@@ -2,36 +2,40 @@
 
 namespace App\Models;
 
+use App\Enums\BookingStatusEnum;
+use App\Enums\OrderTypeEnum;
+use App\Enums\PaymentStatusEnum;
+use App\Enums\ShipmentStatusEnum;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
     use HasFactory;
 
-    // Order type constants
-    const TYPE_CART = 'cart';
-    const TYPE_INQUIRY = 'inquiry';
+    // =========================================================================
+    // BACKWARD COMPATIBLE CONSTANTS (Legacy - use Enums instead)
+    // =========================================================================
+    public const TYPE_CART = 'cart';
+    public const TYPE_INQUIRY = 'inquiry';
 
-    // Order status constants
-    const STATUS_PENDING = 'pending';
-    const STATUS_PROCESSING = 'processing';
-    const STATUS_SHIPPED = 'shipped';
-    const STATUS_DELIVERED = 'delivered';
-    const STATUS_PAID = 'paid';
-    const STATUS_CANCELLED = 'cancelled';
-    const STATUS_APPROVED = 'approved';
-    const STATUS_REJECTED = 'rejected';
-    const STATUS_COMPLETED = 'completed';
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_PAID = 'paid';
+    public const STATUS_PROCESSING = 'processing';
+    public const STATUS_SHIPPED = 'shipped';
+    public const STATUS_DELIVERED = 'delivered';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_REJECTED = 'rejected';
 
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
+    // =========================================================================
+    // FILLABLE ATTRIBUTES
+    // =========================================================================
     protected $fillable = [
         'order_number',
         'user_id',
@@ -43,17 +47,23 @@ class Order extends Model
         'total_amount',
         'status',
         'placed_at',
-        'order_type', // 'cart' or 'inquiry'
+        'order_type',
         'preferred_delivery_date',
         'pickup_location',
         'admin_notes',
-        // Shipping tracking
         'tracking_number',
         'shipping_carrier',
         'shipped_at',
         'delivered_at',
+        // New FK columns
+        'payment_status_id',
+        'booking_status_id',
+        'shipment_status_id',
     ];
 
+    // =========================================================================
+    // CASTS
+    // =========================================================================
     protected function casts(): array
     {
         return [
@@ -63,7 +73,19 @@ class Order extends Model
             'delivered_at' => 'datetime',
             'total_amount' => 'decimal:0',
             'total_items' => 'integer',
+            // Enum casts for new FK columns
+            'payment_status_id' => 'integer',
+            'booking_status_id' => 'integer',
+            'shipment_status_id' => 'integer',
         ];
+    }
+
+    // =========================================================================
+    // RELATIONSHIPS
+    // =========================================================================
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function items(): HasMany
@@ -71,20 +93,173 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    /**
-     * Get the payment for the order.
-     */
     public function payment(): HasOne
     {
         return $this->hasOne(Payment::class);
     }
 
-    /**
-     * Get the status logs for the order.
-     */
     public function statusLogs(): HasMany
     {
         return $this->hasMany(OrderStatusLog::class)->orderBy('created_at', 'asc');
+    }
+
+    // New FK-based relationships
+    public function paymentStatusRelation(): BelongsTo
+    {
+        return $this->belongsTo(OrderStatus::class, 'payment_status_id');
+    }
+
+    public function bookingStatusRelation(): BelongsTo
+    {
+        return $this->belongsTo(BookingStatus::class, 'booking_status_id');
+    }
+
+    public function shipmentStatusRelation(): BelongsTo
+    {
+        return $this->belongsTo(ShipmentStatus::class, 'shipment_status_id');
+    }
+
+    // =========================================================================
+    // COMPUTED PROPERTIES - NEW STATUS ACCESSORS
+    // =========================================================================
+
+    /**
+     * Get payment status enum value.
+     */
+    public function getPaymentStatusEnumAttribute(): ?PaymentStatusEnum
+    {
+        $code = $this->paymentStatusRelation?->code;
+        return $code ? PaymentStatusEnum::tryFrom($code) : null;
+    }
+
+    /**
+     * Get booking status enum value.
+     */
+    public function getBookingStatusEnumAttribute(): ?BookingStatusEnum
+    {
+        $code = $this->bookingStatusRelation?->code;
+        return $code ? BookingStatusEnum::tryFrom($code) : null;
+    }
+
+    /**
+     * Get shipment status enum value.
+     */
+    public function getShipmentStatusEnumAttribute(): ?ShipmentStatusEnum
+    {
+        $code = $this->shipmentStatusRelation?->code;
+        return $code ? ShipmentStatusEnum::tryFrom($code) : null;
+    }
+
+    /**
+     * Get effective payment status label.
+     */
+    public function getPaymentStatusLabelAttribute(): ?string
+    {
+        return $this->paymentStatusEnum?->label();
+    }
+
+    /**
+     * Get effective booking status label.
+     */
+    public function getBookingStatusLabelAttribute(): ?string
+    {
+        return $this->bookingStatusEnum?->label();
+    }
+
+    /**
+     * Get effective shipment status label.
+     */
+    public function getShipmentStatusLabelAttribute(): ?string
+    {
+        return $this->shipmentStatusEnum?->label();
+    }
+
+    /**
+     * Get payment status badge class.
+     */
+    public function getPaymentStatusBadgeClassAttribute(): string
+    {
+        return $this->paymentStatusEnum?->badgeClass() ?? 'bg-slate-100 text-slate-700';
+    }
+
+    /**
+     * Get shipment status badge class.
+     */
+    public function getShipmentStatusBadgeClassAttribute(): string
+    {
+        return $this->shipmentStatusEnum?->badgeClass() ?? 'bg-slate-100 text-slate-700';
+    }
+
+    // =========================================================================
+    // COMPUTED PROPERTIES - LEGACY BACKWARD COMPATIBILITY
+    // =========================================================================
+
+    /**
+     * Get effective status (derived from new FK columns).
+     * Used for backward compatibility.
+     */
+    public function getEffectiveStatusAttribute(): ?string
+    {
+        // For backward compatibility - derive from new FK columns
+        if ($this->order_type === self::TYPE_CART) {
+            return $this->shipmentStatusRelation?->code
+                ?? $this->paymentStatusRelation?->code
+                ?? self::STATUS_PENDING;
+        }
+
+        // For bookings
+        return $this->shipmentStatusRelation?->code
+            ?? $this->bookingStatusRelation?->code
+            ?? self::STATUS_PENDING;
+    }
+
+    /**
+     * Get the primary status label for display.
+     * Prioritizes: shipment > booking > payment
+     */
+    public function getStatusLabelAttribute(): string
+    {
+        return $this->shipmentStatusLabel
+            ?? $this->bookingStatusLabel
+            ?? $this->paymentStatusLabel
+            ?? $this->getStatusLabelFromCode($this->status);
+    }
+
+    /**
+     * Get status badge class (legacy accessor).
+     */
+    public function getStatusBadgeClassAttribute(): string
+    {
+        return $this->booking_status_badge_class;
+    }
+
+    /**
+     * Get booking status badge class.
+     */
+    public function getBookingStatusBadgeClassAttribute(): string
+    {
+        return $this->bookingStatusEnum?->badgeClass() ?? 'bg-amber-100 text-amber-700';
+    }
+
+    /**
+     * Get order type label.
+     */
+    public function getOrderTypeLabelAttribute(): string
+    {
+        return OrderTypeEnum::tryFrom($this->order_type)?->label()
+            ?? match($this->order_type) {
+                'cart' => 'Pembelian',
+                'inquiry' => 'Booking/Inquiry',
+                default => $this->order_type,
+            };
+    }
+
+    /**
+     * Get formatted total amount.
+     */
+    public function getFormattedTotalAttribute(): string
+    {
+        return 'Rp ' . number_format($this->total_amount, 0, ',', '.');
     }
 
     /**
@@ -104,10 +279,97 @@ class Order extends Model
                 'timestamp' => $log->created_at?->toIso8601String(),
                 'formatted_date' => $log->created_at?->format('d M Y'),
                 'formatted_time' => $log->created_at?->format('H:i'),
-                'is_current' => $log->to_status === $this->status,
+                'is_current' => $log->to_status === ($this->effective_status ?? $this->status),
                 'is_terminal' => $log->isTerminalStatus(),
             ];
         })->toArray();
+    }
+
+    // =========================================================================
+    // BOOLEAN HELPERS
+    // =========================================================================
+
+    public function isCart(): bool
+    {
+        return $this->order_type === self::TYPE_CART;
+    }
+
+    public function isInquiry(): bool
+    {
+        return $this->order_type === self::TYPE_INQUIRY;
+    }
+
+    public function isBooking(): bool
+    {
+        return $this->isInquiry();
+    }
+
+    public function isCompleted(): bool
+    {
+        $status = $this->effective_status ?? $this->status;
+        return in_array($status, [self::STATUS_DELIVERED, self::STATUS_COMPLETED]);
+    }
+
+    public function isTerminalStatus(): bool
+    {
+        $status = $this->effective_status ?? $this->status;
+        return in_array($status, [self::STATUS_COMPLETED, self::STATUS_REJECTED, self::STATUS_CANCELLED]);
+    }
+
+    public function canBeCancelledByUser(): bool
+    {
+        $status = $this->effective_status ?? $this->status;
+        return $status === self::STATUS_PENDING;
+    }
+
+    // =========================================================================
+    // SCOPES
+    // =========================================================================
+
+    public function scopeCart($query)
+    {
+        return $query->where('order_type', self::TYPE_CART);
+    }
+
+    public function scopeInquiry($query)
+    {
+        return $query->where('order_type', self::TYPE_INQUIRY);
+    }
+
+    public function scopeBooking($query)
+    {
+        return $query->where('order_type', self::TYPE_INQUIRY);
+    }
+
+    public function scopeFreshOrders($query)
+    {
+        return $query->where('order_type', self::TYPE_CART);
+    }
+
+    public function scopePendingBooking($query)
+    {
+        return $query->where('order_type', self::TYPE_INQUIRY)
+                     ->where('status', self::STATUS_PENDING);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereNotIn('status', [self::STATUS_CANCELLED, self::STATUS_COMPLETED, self::STATUS_REJECTED]);
+    }
+
+    public function scopeCompleted($query)
+    {
+        return $query->whereIn('status', [self::STATUS_DELIVERED, self::STATUS_COMPLETED]);
+    }
+
+    public function scopeUserBookings($query, int $userId)
+    {
+        return $query->where('user_id', $userId)->where('order_type', self::TYPE_INQUIRY);
+    }
+
+    public function scopeUserOrders($query, int $userId)
+    {
+        return $query->where('user_id', $userId)->where('order_type', self::TYPE_CART);
     }
 
     public function scopeWithOwnedProducts($query, int $userId)
@@ -115,98 +377,57 @@ class Order extends Model
         return $query->whereHas('items.product', fn($q) => $q->where('owner_id', $userId));
     }
 
-    public function scopeCart($query)
+    // New FK-based scopes
+    public function scopeByPaymentStatus($query, string $statusCode)
     {
-        return $query->where('order_type', 'cart');
+        return $query->whereHas('paymentStatusRelation', fn($q) => $q->where('code', $statusCode));
     }
 
-    public function scopeInquiry($query)
+    public function scopeByBookingStatus($query, string $statusCode)
     {
-        return $query->where('order_type', 'inquiry');
+        return $query->whereHas('bookingStatusRelation', fn($q) => $q->where('code', $statusCode));
     }
 
-    public function isCart(): bool
+    public function scopeByShipmentStatus($query, string $statusCode)
     {
-        return $this->order_type === 'cart';
+        return $query->whereHas('shipmentStatusRelation', fn($q) => $q->where('code', $statusCode));
     }
 
-    public function isInquiry(): bool
-    {
-        return $this->order_type === 'inquiry';
-    }
+    // =========================================================================
+    // STATIC HELPERS
+    // =========================================================================
 
-    public function getOrderTypeLabelAttribute(): string
+    public static function generateBookingCode(): string
     {
-        return match($this->order_type) {
-            'cart' => 'Pembelian',
-            'inquiry' => 'Inquiry/Booking',
-            default => $this->order_type,
-        };
-    }
-
-    public function getFormattedTotalAttribute(): string
-    {
-        return 'Rp ' . number_format($this->total_amount, 0, ',', '.');
-    }
-
-    // Booking status label
-    public function getBookingStatusLabelAttribute(): string
-    {
-        return match($this->status) {
-            'pending' => 'Menunggu',
-            'processing' => 'Diproses',
-            'approved' => 'Disetujui',
-            'rejected' => 'Ditolak',
-            'completed' => 'Selesai',
-            'cancelled' => 'Dibatalkan',
-            'shipped' => 'Dikirim',
-            'delivered' => 'Diterima',
-            'paid' => 'Lunas',
-            default => ucfirst($this->status),
-        };
-    }
-
-    // Status badge color
-    public function getStatusBadgeClassAttribute(): string
-    {
-        return match($this->status) {
-            'pending' => 'bg-amber-100 text-amber-700',
-            'processing' => 'bg-blue-100 text-blue-700',
-            'approved' => 'bg-green-100 text-green-700',
-            'rejected' => 'bg-red-100 text-red-700',
-            'completed' => 'bg-emerald-100 text-emerald-700',
-            'cancelled' => 'bg-slate-100 text-slate-600',
-            'shipped' => 'bg-purple-100 text-purple-700',
-            'delivered' => 'bg-emerald-100 text-emerald-700',
-            'paid' => 'bg-green-100 text-green-700',
-            default => 'bg-slate-100 text-slate-700',
-        };
-    }
-
-    // Check if order is a booking
-    public function isBooking(): bool
-    {
-        return $this->order_type === self::TYPE_INQUIRY;
-    }
-
-    // Booking actions
-    public function approve(): bool
-    {
-        return $this->update(['status' => self::STATUS_APPROVED]);
-    }
-
-    public function reject(): bool
-    {
-        return $this->update(['status' => self::STATUS_REJECTED]);
-    }
-
-    public function complete(): bool
-    {
-        return $this->update(['status' => self::STATUS_COMPLETED]);
+        return 'BK-' . strtoupper(uniqid()) . '-' . date('Ymd');
     }
 
     /**
-     * Get all valid statuses.
+     * Get status label from status code (for backward compatibility).
+     */
+    public static function getStatusLabel(string $status): string
+    {
+        return self::getStatusLabelFromCode($status);
+    }
+
+    protected static function getStatusLabelFromCode(?string $status): string
+    {
+        return match($status) {
+            self::STATUS_PENDING => 'Menunggu',
+            self::STATUS_PAID => 'Lunas',
+            self::STATUS_PROCESSING => 'Diproses',
+            self::STATUS_SHIPPED => 'Dikirim',
+            self::STATUS_DELIVERED => 'Diterima',
+            self::STATUS_COMPLETED => 'Selesai',
+            self::STATUS_CANCELLED => 'Dibatalkan',
+            self::STATUS_APPROVED => 'Disetujui',
+            self::STATUS_REJECTED => 'Ditolak',
+            default => $status ? ucfirst($status) : 'Unknown',
+        };
+    }
+
+    /**
+     * Get all valid statuses (legacy).
      */
     public static function getAllStatuses(): array
     {
@@ -214,152 +435,19 @@ class Order extends Model
             self::STATUS_PENDING,
             self::STATUS_PAID,
             self::STATUS_PROCESSING,
-            self::STATUS_APPROVED,
-            self::STATUS_REJECTED,
-            self::STATUS_CANCELLED,
             self::STATUS_SHIPPED,
             self::STATUS_DELIVERED,
             self::STATUS_COMPLETED,
+            self::STATUS_CANCELLED,
+            self::STATUS_APPROVED,
+            self::STATUS_REJECTED,
         ];
     }
 
-    /**
-     * Get status label.
-     */
-    public static function getStatusLabel(string $status): string
-    {
-        return match($status) {
-            self::STATUS_PENDING => 'Menunggu',
-            self::STATUS_PROCESSING => 'Diproses',
-            self::STATUS_APPROVED => 'Disetujui',
-            self::STATUS_REJECTED => 'Ditolak',
-            self::STATUS_COMPLETED => 'Selesai',
-            self::STATUS_CANCELLED => 'Dibatalkan',
-            self::STATUS_SHIPPED => 'Dikirim',
-            self::STATUS_DELIVERED => 'Diterima',
-            self::STATUS_PAID => 'Lunas',
-            default => ucfirst($status),
-        };
-    }
+    // =========================================================================
+    // REVIEW HELPER METHODS
+    // =========================================================================
 
-    /**
-     * Get status badge class.
-     */
-    public static function getStatusBadgeClass(string $status): string
-    {
-        return match($status) {
-            self::STATUS_PENDING => 'bg-amber-100 text-amber-700',
-            self::STATUS_PROCESSING => 'bg-blue-100 text-blue-700',
-            self::STATUS_APPROVED => 'bg-green-100 text-green-700',
-            self::STATUS_REJECTED => 'bg-red-100 text-red-700',
-            self::STATUS_COMPLETED => 'bg-emerald-100 text-emerald-700',
-            self::STATUS_CANCELLED => 'bg-slate-100 text-slate-600',
-            self::STATUS_SHIPPED => 'bg-purple-100 text-purple-700',
-            self::STATUS_DELIVERED => 'bg-emerald-100 text-emerald-700',
-            self::STATUS_PAID => 'bg-green-100 text-green-700',
-            default => 'bg-slate-100 text-slate-700',
-        };
-    }
-
-    /**
-     * Check if order has any status logs.
-     */
-    public function hasStatusLogs(): bool
-    {
-        return $this->statusLogs()->exists();
-    }
-
-    /**
-     * Get the last status log.
-     */
-    public function getLastStatusLog(): ?OrderStatusLog
-    {
-        return $this->statusLogs()->latest('created_at')->first();
-    }
-
-    /**
-     * Check if current status is terminal.
-     */
-    public function isTerminalStatus(): bool
-    {
-        return in_array($this->status, [self::STATUS_COMPLETED, self::STATUS_REJECTED, self::STATUS_CANCELLED]);
-    }
-
-    /**
-     * Check if user can cancel this order.
-     */
-    public function canBeCancelledByUser(): bool
-    {
-        // User can cancel if:
-        // 1. Order is pending (not paid yet)
-        // 2. Not already cancelled/completed/rejected
-        return $this->status === self::STATUS_PENDING;
-    }
-
-    // Scope for booking orders
-    public function scopeBooking($query)
-    {
-        return $query->where('order_type', self::TYPE_INQUIRY);
-    }
-
-    // Scope for pending booking
-    public function scopePendingBooking($query)
-    {
-        return $query->where('order_type', self::TYPE_INQUIRY)
-                     ->where('status', self::STATUS_PENDING);
-    }
-
-    // Generate booking code
-    public static function generateBookingCode(): string
-    {
-        return 'BK-' . strtoupper(uniqid()) . '-' . date('Ymd');
-    }
-
-    // Scope for cart-type orders (fresh meat)
-    public function scopeFreshOrders($query)
-    {
-        return $query->where('order_type', self::TYPE_CART);
-    }
-
-    // Scope for active orders (not cancelled, not completed)
-    public function scopeActive($query)
-    {
-        return $query->whereNotIn('status', ['cancelled', 'completed', 'rejected']);
-    }
-
-    // Scope for completed orders
-    public function scopeCompleted($query)
-    {
-        return $query->whereIn('status', ['delivered', 'completed']);
-    }
-
-    // Scope for user's bookings
-    public function scopeUserBookings($query, int $userId)
-    {
-        return $query->where('user_id', $userId)
-            ->where('order_type', self::TYPE_INQUIRY);
-    }
-
-    // Scope for user's orders
-    public function scopeUserOrders($query, int $userId)
-    {
-        return $query->where('user_id', $userId)
-            ->where('order_type', self::TYPE_CART);
-    }
-
-    // Review Helper Methods
-
-    /**
-     * Check if order is completed and can be reviewed.
-     */
-    public function isCompleted(): bool
-    {
-        return in_array($this->status, [self::STATUS_DELIVERED, self::STATUS_COMPLETED]);
-    }
-
-    /**
-     * Check if user has completed purchase for a specific product.
-     */
     public function hasCompletedPurchaseForProduct(int $productId): bool
     {
         return self::where('id', $this->id)
@@ -368,9 +456,6 @@ class Order extends Model
             ->exists();
     }
 
-    /**
-     * Check if user already has a review for this product in this order.
-     */
     public function hasExistingReviewForProduct(int $productId): bool
     {
         return Review::where('order_id', $this->id)
@@ -378,9 +463,6 @@ class Order extends Model
             ->exists();
     }
 
-    /**
-     * Check if user already has a review for this farmer in this booking.
-     */
     public function hasExistingReviewForFarmer(int $farmerId): bool
     {
         return Review::where('order_id', $this->id)
@@ -388,74 +470,32 @@ class Order extends Model
             ->exists();
     }
 
-    /**
-     * Check if user can review a specific product in this order.
-     */
     public function canReviewProduct(int $userId, int $productId): bool
     {
-        // Must be completed
-        if (!$this->isCompleted()) {
-            return false;
-        }
-
-        // Must own the order
-        if ($this->user_id !== $userId) {
-            return false;
-        }
-
-        // Must have purchased this product
-        if (!$this->hasCompletedPurchaseForProduct($productId)) {
-            return false;
-        }
-
-        // Must not have already reviewed
-        if ($this->hasExistingReviewForProduct($productId)) {
-            return false;
-        }
+        if (!$this->isCompleted()) return false;
+        if ($this->user_id !== $userId) return false;
+        if (!$this->hasCompletedPurchaseForProduct($productId)) return false;
+        if ($this->hasExistingReviewForProduct($productId)) return false;
 
         return true;
     }
 
-    /**
-     * Check if user can review a specific farmer for this booking.
-     */
     public function canReviewFarmer(int $userId, int $farmerId): bool
     {
-        // Must be completed booking
-        if ($this->status !== self::STATUS_COMPLETED) {
-            return false;
-        }
+        if ($this->status !== self::STATUS_COMPLETED) return false;
+        if (!$this->isInquiry()) return false;
+        if ($this->user_id !== $userId) return false;
 
-        // Must be an inquiry/booking
-        if (!$this->isInquiry()) {
-            return false;
-        }
-
-        // Must own the booking
-        if ($this->user_id !== $userId) {
-            return false;
-        }
-
-        // Must have booked from this farmer
         $hasFarmerProduct = $this->items()
             ->whereHas('product', fn($q) => $q->where('owner_id', $farmerId))
             ->exists();
 
-        if (!$hasFarmerProduct) {
-            return false;
-        }
-
-        // Must not have already reviewed this farmer
-        if ($this->hasExistingReviewForFarmer($farmerId)) {
-            return false;
-        }
+        if (!$hasFarmerProduct) return false;
+        if ($this->hasExistingReviewForFarmer($farmerId)) return false;
 
         return true;
     }
 
-    /**
-     * Get the farmer IDs associated with this order's products.
-     */
     public function getFarmerIds(): array
     {
         return $this->items()
@@ -468,9 +508,6 @@ class Order extends Model
             ->toArray();
     }
 
-    /**
-     * Get products that can be reviewed in this order.
-     */
     public function getReviewableProducts(): Collection
     {
         if (!$this->isCompleted()) {
@@ -478,10 +515,22 @@ class Order extends Model
         }
 
         return $this->items
-            ->filter(function ($item) {
-                return $item->product_id && !$this->hasExistingReviewForProduct($item->product_id);
-            })
+            ->filter(fn($item) => $item->product_id && !$this->hasExistingReviewForProduct($item->product_id))
             ->map(fn($item) => $item->product)
             ->filter();
+    }
+
+    // =========================================================================
+    // STATUS LOG METHODS
+    // =========================================================================
+
+    public function hasStatusLogs(): bool
+    {
+        return $this->statusLogs()->exists();
+    }
+
+    public function getLastStatusLog(): ?OrderStatusLog
+    {
+        return $this->statusLogs()->latest('created_at')->first();
     }
 }

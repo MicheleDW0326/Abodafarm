@@ -15,7 +15,8 @@ class AddressPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        // Anyone with addresses.view permission can list addresses
+        return $user->can('addresses.view');
     }
 
     /**
@@ -23,7 +24,13 @@ class AddressPolicy
      */
     public function view(User $user, Address $address): bool
     {
-        return $user->id === $address->user_id;
+        // Admin/Staff can view any address
+        if ($user->can('addresses.view')) {
+            return true;
+        }
+
+        // Users can only view their own addresses
+        return $user->can('addresses.view-own') && $user->id === $address->user_id;
     }
 
     /**
@@ -31,7 +38,7 @@ class AddressPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->can('addresses.create');
     }
 
     /**
@@ -39,7 +46,13 @@ class AddressPolicy
      */
     public function update(User $user, Address $address): bool
     {
-        return $user->id === $address->user_id;
+        // Admin/Staff can update any address
+        if ($user->can('addresses.update')) {
+            return true;
+        }
+
+        // Users can only update their own addresses
+        return $user->can('addresses.update-own') && $user->id === $address->user_id;
     }
 
     /**
@@ -49,7 +62,8 @@ class AddressPolicy
     {
         // Cannot delete default address if it's the only one
         if ($address->is_default) {
-            $activeCount = Address::where('user_id', $user->id)
+            $activeCount = Address::query()
+                ->where('user_id', $user->id)
                 ->where('is_active', true)
                 ->count();
 
@@ -58,7 +72,13 @@ class AddressPolicy
             }
         }
 
-        return $user->id === $address->user_id;
+        // Admin/Staff can delete any address
+        if ($user->can('addresses.delete')) {
+            return true;
+        }
+
+        // Users can only delete their own addresses
+        return $user->can('addresses.delete-own') && $user->id === $address->user_id;
     }
 
     /**
@@ -66,7 +86,13 @@ class AddressPolicy
      */
     public function setDefault(User $user, Address $address): bool
     {
-        return $user->id === $address->user_id;
+        // Admin/Staff can set any address as default
+        if ($user->can('addresses.update')) {
+            return true;
+        }
+
+        // Users can only set their own addresses as default
+        return $user->can('addresses.update-own') && $user->id === $address->user_id;
     }
 
     /**
@@ -79,7 +105,13 @@ class AddressPolicy
             return false;
         }
 
-        return $user->id === $address->user_id;
+        // Admin/Staff can toggle any address
+        if ($user->can('addresses.update')) {
+            return true;
+        }
+
+        // Users can only toggle their own addresses
+        return $user->can('addresses.update-own') && $user->id === $address->user_id;
     }
 
     /**
@@ -87,7 +119,13 @@ class AddressPolicy
      */
     public function restore(User $user, Address $address): bool
     {
-        return $user->id === $address->user_id;
+        // Admin/Staff can restore any address
+        if ($user->can('addresses.update')) {
+            return true;
+        }
+
+        // Users can only restore their own addresses
+        return $user->can('addresses.update-own') && $user->id === $address->user_id;
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Livewire\Customer;
 
 use App\Models\Order;
+use App\Models\Review as ReviewModel;
 use App\Models\User;
 use App\Services\ReviewService;
 use Livewire\Component;
@@ -43,11 +44,11 @@ class SubmitFarmerReview extends Component
 
     public function submit()
     {
-        $this->authorize('createForFarmer', [Review::class, $this->booking, $this->farmerId]);
+        $this->authorize('createForFarmer', [ReviewModel::class, $this->booking, $this->farmerId]);
 
         $this->validate();
 
-        $review = ReviewService::createFarmerReview(
+        ReviewService::createFarmerReview(
             user: auth()->user(),
             order: $this->booking,
             farmerId: $this->farmerId,

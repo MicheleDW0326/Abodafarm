@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Customer;
 
+use App\Enums\ReviewStatusEnum;
 use App\Models\Review;
 use App\Services\ReviewService;
 use Illuminate\Database\Eloquent\Collection;
@@ -43,7 +44,8 @@ class MyReviews extends Component
 
     public function startEdit(Review $review): void
     {
-        if (!$review->canBeEdited()) {
+        // Check using enum for better type safety
+        if ($review->statusEnum === ReviewStatusEnum::PENDING && $review->created_at->diffInDays(now()) > 30) {
             $this->dispatch('notify', [
                 'type' => 'error',
                 'title' => 'Gagal',
