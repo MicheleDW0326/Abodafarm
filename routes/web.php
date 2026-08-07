@@ -44,6 +44,9 @@ use App\Livewire\Pelanggan\MyOrders;
 use App\Livewire\Pelanggan\MyFavorites;
 use App\Livewire\Pelanggan\MyAddresses;
 use App\Livewire\Pelanggan\MyNotifications;
+use App\Livewire\Pelanggan\VoucherWallet;
+use App\Livewire\Admin\CampaignManagement;
+use App\Livewire\Admin\CampaignAnalytics;
 use App\Livewire\Customer\MyReviews;
 use App\Livewire\Customer\SubmitProductReview;
 use App\Livewire\Customer\SubmitFarmerReview;
@@ -232,6 +235,8 @@ Route::middleware(['auth', 'verified', 'check.admin'])
         Route::get('/pengaturan-akun', AdminAccountSettings::class)->name('account-settings');
         Route::get('/verifikasi-peternak', FarmerVerification::class)->name('farmer-verification');
         Route::get('/promo', \App\Livewire\Admin\PromotionManagement::class)->name('promotions');
+        Route::get('/kampanye', CampaignManagement::class)->name('campaigns');
+        Route::get('/kampanye/analisis', CampaignAnalytics::class)->name('campaigns.analytics');
     });
 
 Route::middleware(['auth', 'verified', 'check.staff'])
@@ -290,6 +295,7 @@ Route::middleware(['auth', 'verified', 'check.pelanggan'])
         Route::get('/favorit', MyFavorites::class)->name('favorites');
         Route::get('/alamat', MyAddresses::class)->name('addresses');
         Route::get('/notifikasi', MyNotifications::class)->name('notifications');
+        Route::get('/voucher', VoucherWallet::class)->name('vouchers');
     });
 
 Route::get('/midtrans-test', function () {
