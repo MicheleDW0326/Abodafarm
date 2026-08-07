@@ -8,9 +8,11 @@ use App\Models\CustomerNotification;
 use App\Models\Order;
 use App\Models\OrderStatusLog;
 use App\Models\Payment;
+use App\Models\Promotion;
 use App\Services\FcmService;
 use App\Services\MidtransService;
 use App\Services\OrderStateMachine;
+use App\Services\PromotionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
@@ -78,6 +80,17 @@ class Checkout extends Component
     // Show address modal (for inline address creation)
     public bool $showAddressModal = false;
 
+    // Promo code properties
+    public string $promoCode = '';
+
+    public ?string $appliedPromoCode = null;
+
+    public ?string $promoError = null;
+
+    public ?string $promoSuccess = null;
+
+    public ?float $discountAmount = null;
+
     public function mount(): void
     {
         // Restore form state from session if exists
@@ -94,7 +107,26 @@ class Checkout extends Component
             }
         }
 
+        // Restore applied promo code
+        $this->restorePromoState();
+
         $this->loadUserAddresses();
+    }
+
+    protected function restorePromoState(): void
+    {
+        $promoService = new PromotionService();
+        $applied = $promoService->getApplied();
+
+        if ($applied) {
+            $promotion = Promotion::findByCode($applied['code']);
+            if ($promotion && $promotion->isValid()) {
+                $this->appliedPromoCode = $applied['code'];
+                $this->discountAmount = (float) $applied['discount_amount'];
+            } else {
+                $promoService->remove();
+            }
+        }
     }
 
     /**
@@ -302,6 +334,46 @@ class Checkout extends Component
         $this->saveFormState();
     }
 
+    // Promo Code Methods
+    public function applyPromoCode(): void
+    {
+        $this->promoError = null;
+        $this->promoSuccess = null;
+
+        if (empty(trim($this->promoCode))) {
+            $this->promoError = 'Masukkan kode promo.';
+            return;
+        }
+
+        $userId = auth()->id();
+        $subtotal = $this->cartTotal;
+
+        $promoService = new PromotionService();
+        $result = $promoService->apply(trim($this->promoCode), $subtotal, $userId);
+
+        if (!$result['valid']) {
+            $this->promoError = $result['message'];
+            $this->appliedPromoCode = null;
+            $this->discountAmount = null;
+            return;
+        }
+
+        $this->appliedPromoCode = $result['promotion']->code;
+        $this->discountAmount = $result['discount']['discount_amount'];
+        $this->promoSuccess = $result['message'];
+        $this->promoCode = '';
+    }
+
+    public function removePromoCode(): void
+    {
+        $promoService = new PromotionService();
+        $promoService->remove();
+
+        $this->appliedPromoCode = null;
+        $this->discountAmount = null;
+        $this->promoSuccess = 'Kode promo dihapus.';
+    }
+
     public function placeOrder(): void
     {
         $this->validate([
@@ -342,6 +414,11 @@ class Checkout extends Component
         }
 
         $order = DB::transaction(function () use ($items): Order {
+            // Calculate final total with discount
+            $subtotal = $this->cartTotal;
+            $discount = $this->discountAmount ?? 0;
+            $finalTotal = max(0, $subtotal - $discount);
+
             $order = Order::create([
                 'order_number' => 'FG-' . now()->format('YmdHis') . '-' . str_pad((string) random_int(0, 999), 3, '0', STR_PAD_LEFT),
                 'user_id' => auth()->id(),
@@ -350,7 +427,7 @@ class Checkout extends Component
                 'customer_address' => $this->address,
                 'notes' => $this->notes,
                 'total_items' => $this->cartCount,
-                'total_amount' => $this->cartTotal,
+                'total_amount' => $finalTotal, // Use discounted total
                 'status' => 'pending',
                 'placed_at' => now(),
                 'order_type' => Order::TYPE_CART,
@@ -366,6 +443,14 @@ class Checkout extends Component
                 ],
                 $items
             ));
+
+            // Store discount info on order for reference
+            if ($this->appliedPromoCode && $discount > 0) {
+                $order->update([
+                    'notes' => ($this->notes ? $this->notes . "\n" : '') .
+                        "Kode Promo: {$this->appliedPromoCode} (-Rp " . number_format($discount, 0, ',', '.') . ")",
+                ]);
+            }
 
             return $order;
         });
@@ -494,6 +579,9 @@ class Checkout extends Component
 
                     // If payment is completed
                     if (in_array($midtransStatus->transaction_status, ['capture', 'settlement'])) {
+                        // Check if stock was already decremented (idempotency - may have been done by webhook)
+                        $alreadyPaid = $order->payment && $order->payment->paid_at !== null;
+
                         $order->payment->update(['paid_at' => now()]);
 
                         // Use new FK-based state machine for payment status
@@ -505,8 +593,13 @@ class Checkout extends Component
                             'Pembayaran berhasil via Midtrans'
                         );
 
-                        // Decrement stock for all items
-                        $this->decrementOrderStock($order);
+                        // Decrement stock only if not already done (for cart orders only)
+                        if (!$alreadyPaid && $order->order_type === Order::TYPE_CART) {
+                            $this->decrementOrderStock($order);
+                        }
+
+                        // Record promotion usage if applicable
+                        $this->recordPromotionUsage($order);
 
                         // Send payment success notification
                         $this->sendPaymentSuccessNotification($order);
@@ -637,6 +730,36 @@ class Checkout extends Component
         ));
     }
 
+    #[Computed]
+    public function discountAmountValue(): float
+    {
+        return $this->discountAmount ?? 0;
+    }
+
+    #[Computed]
+    public function discountedTotal(): int
+    {
+        return max(0, $this->cartTotal - ($this->discountAmount ?? 0));
+    }
+
+    #[Computed]
+    public function formattedDiscount(): string
+    {
+        return 'Rp ' . number_format($this->discountAmount ?? 0, 0, ',', '.');
+    }
+
+    #[Computed]
+    public function formattedSubtotal(): string
+    {
+        return 'Rp ' . number_format($this->cartTotal, 0, ',', '.');
+    }
+
+    #[Computed]
+    public function formattedFinalTotal(): string
+    {
+        return 'Rp ' . number_format($this->discountedTotal, 0, ',', '.');
+    }
+
     /**
      * Get Midtrans client key for frontend.
      */
@@ -765,6 +888,37 @@ class Checkout extends Component
 
         // Dispatch browser event to refresh notification dropdown
         $this->dispatch('refresh-notifications');
+    }
+
+    /**
+     * Record promotion usage after successful payment.
+     */
+    protected function recordPromotionUsage(Order $order): void
+    {
+        $promoService = new PromotionService();
+        $applied = $promoService->getApplied();
+
+        if (!$applied || !$this->appliedPromoCode) {
+            return;
+        }
+
+        $promotion = Promotion::findByCode($this->appliedPromoCode);
+
+        if (!$promotion) {
+            return;
+        }
+
+        $promoService->recordUsage(
+            $promotion->id,
+            auth()->id(),
+            $order->id,
+            $this->discountAmount ?? 0
+        );
+
+        // Clear applied promo from session
+        $promoService->remove();
+        $this->appliedPromoCode = null;
+        $this->discountAmount = null;
     }
 
     public function render()

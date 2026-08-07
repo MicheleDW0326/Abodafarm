@@ -150,4 +150,18 @@ class User extends Authenticatable
     {
         return $this->productReviews()->approved()->count();
     }
+
+    // Recently Viewed Products
+    public function productViews(): HasMany
+    {
+        return $this->hasMany(ProductView::class)->orderBy('viewed_at', 'desc');
+    }
+
+    public function recentlyViewedProducts(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_views')
+            ->withPivot('viewed_at')
+            ->orderByPivot('viewed_at', 'desc')
+            ->limit(20);
+    }
 }

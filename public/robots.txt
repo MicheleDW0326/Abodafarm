@@ -1,2 +1,53 @@
+# robots.txt for AbodaFarm
+# https://abodafarm.test
+
 User-agent: *
-Disallow:
+Allow: /
+
+# Sitemap
+Sitemap: https://abodafarm.test/sitemap.xml
+
+# Disallow authenticated and admin areas
+Disallow: /admin/
+Disallow: /staff/
+Disallow: /peternak/
+Disallow: /pelanggan/
+Disallow: /dashboard
+Disallow: /settings/
+
+# Disallow authentication pages
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+
+# Disallow checkout and payment
+Disallow: /checkout
+Disallow: /midtrans/
+
+# Disallow API routes
+Disallow: /api/
+
+# Allow search engines to crawl important pages
+Allow: /shop
+Allow: /peternak/
+Allow: /tentang-kami
+Allow: /kontak
+Allow: /galeri
+
+# Crawl-delay (optional, for polite crawling)
+Crawl-delay: 1
+
+# Specific bot instructions
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
+
+User-agent: Slurp
+Allow: /
+Crawl-delay: 2

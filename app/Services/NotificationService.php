@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CustomerNotification;
 use App\Models\Order;
 use App\Models\PeternakNotification;
+use App\Models\StaffNotification;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 
@@ -28,6 +29,97 @@ class NotificationService
     public function __construct(FcmService $fcmService)
     {
         $this->fcmService = $fcmService;
+    }
+
+    // ==================== STAFF NOTIFICATIONS ====================
+
+    /**
+     * Check duplicate for staff notifications.
+     */
+    public function isStaffDuplicate(int $userId, string $type, string $referenceId): bool
+    {
+        $cutoff = now()->subMinutes(self::DUPLICATE_COOLDOWN);
+
+        return StaffNotification::where('user_id', $userId)
+            ->where('type', $type)
+            ->whereJsonContains('data', ['reference_id' => $referenceId])
+            ->where('created_at', '>=', $cutoff)
+            ->exists();
+    }
+
+    /**
+     * Send notification to a staff member.
+     *
+     * @param string $channel 'all', 'database', 'fcm', or 'email'
+     */
+    public function toStaff(
+        User $staff,
+        string $type,
+        string $title,
+        string $message,
+        array $data = [],
+        string $channel = self::CHANNEL_DATABASE
+    ): void {
+        // Check for duplicate
+        $referenceId = $data['reference_id'] ?? $data['order_number'] ?? uniqid();
+        if ($this->isStaffDuplicate($staff->id, $type, $referenceId)) {
+            Log::debug("Skipping duplicate staff notification", [
+                'staff_id' => $staff->id,
+                'type' => $type,
+                'reference_id' => $referenceId,
+            ]);
+            return;
+        }
+
+        // Create database notification
+        if ($channel === self::CHANNEL_ALL || $channel === self::CHANNEL_DATABASE) {
+            StaffNotification::create([
+                'user_id' => $staff->id,
+                'type' => $type,
+                'title' => $title,
+                'message' => $message,
+                'data' => array_merge($data, ['reference_id' => $referenceId]),
+                'is_read' => false,
+            ]);
+        }
+
+        // Send FCM push notification
+        if ($channel === self::CHANNEL_ALL || $channel === self::CHANNEL_FCM) {
+            try {
+                $this->fcmService->sendToUser($staff, $title, $message, array_merge($data, [
+                    'type' => $type,
+                    'source' => 'staff_notification',
+                ]));
+            } catch (\Exception $e) {
+                Log::error('FCM push failed for staff notification', [
+                    'staff_id' => $staff->id,
+                    'type' => $type,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Notify staff about new order assignment.
+     */
+    public function orderAssignedToStaff(User $staff, Order $order, User $assignedBy): void
+    {
+        $this->toStaff(
+            $staff,
+            StaffNotification::TYPE_ORDER_ASSIGNED,
+            'Pesanan Ditugaskan! 📋',
+            "Pesanan {$order->order_number} ({$order->customer_name}) telah ditugaskan kepada Anda oleh {$assignedBy->name}.",
+            [
+                'order_number' => $order->order_number,
+                'order_id' => $order->id,
+                'assigned_by_id' => $assignedBy->id,
+                'assigned_by_name' => $assignedBy->name,
+                'customer_name' => $order->customer_name,
+                'action' => 'view_order',
+                'url' => route('staff.orders.detail', $order->id),
+            ]
+        );
     }
 
     /**
@@ -533,6 +625,55 @@ class NotificationService
             'order_delivered',
             'Pesanan Selesai ✅',
             "Pesanan {$orderNumber} telah diterima. Terima kasih telah berbelanja di AbodaFarm!",
+            [
+                'order_number' => $orderNumber,
+                'action' => 'view_order',
+            ]
+        );
+    }
+
+    /**
+     * Notify staff that an order has been completed by customer
+     */
+    public function orderCompleted(User $staff, string $orderNumber): void
+    {
+        $this->toStaff(
+            $staff,
+            'order_completed_customer',
+            'Pesanan Diselesaikan! 🎉',
+            "Pesanan {$orderNumber} telah dikonfirmasi selesai oleh pelanggan.",
+            [
+                'order_number' => $orderNumber,
+                'action' => 'view_order',
+            ]
+        );
+    }
+
+    /**
+     * Notify admin that an order has been completed
+     * Note: This broadcasts via event. AdminNotification model should be created for full DB notification.
+     */
+    public function orderCompletedAdmin(string $orderNumber, string $completedBy): void
+    {
+        // Broadcast via event for now
+        // Full implementation would require AdminNotification model
+        Log::info("Order completed notification", [
+            'order_number' => $orderNumber,
+            'completed_by' => $completedBy,
+            'type' => 'admin',
+        ]);
+    }
+
+    /**
+     * Notify customer that their order was automatically completed
+     */
+    public function orderAutoCompleted(User $customer, string $orderNumber): void
+    {
+        $this->toCustomer(
+            $customer,
+            'order_auto_completed',
+            'Pesanan Otomatis Selesai 🤖',
+            "Pesanan {$orderNumber} telah otomatis diselesaikan oleh sistem setelah 3 hari.",
             [
                 'order_number' => $orderNumber,
                 'action' => 'view_order',

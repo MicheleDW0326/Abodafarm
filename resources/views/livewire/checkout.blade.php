@@ -507,9 +507,62 @@
                                 <span>Total Item</span>
                                 <span x-text="cartCount"></span>
                             </div>
-                            <div class="mt-2 flex items-center justify-between">
-                                <span class="text-slate-800">Total Bayar</span>
-                                <span class="text-xl font-bold text-sky-700">Rp <span x-text="Number(cartTotal).toLocaleString('id-ID')"></span></span>
+
+                            <!-- Promo Code Section -->
+                            @if(!$appliedPromoCode)
+                                <div class="mt-4">
+                                    <label class="mb-1.5 block text-xs font-medium text-slate-600">Kode Promo</label>
+                                    <div class="flex gap-2">
+                                        <input type="text"
+                                               wire:model.live="promoCode"
+                                               placeholder="Masukkan kode promo"
+                                               class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                        <button wire:click="applyPromoCode"
+                                                class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700">
+                                            Gunakan
+                                        </button>
+                                    </div>
+                                    @if($promoError)
+                                        <p class="mt-1 text-xs text-red-500">{{ $promoError }}</p>
+                                    @endif
+                                </div>
+                            @else
+                                <div class="mt-4 rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <i class="fa-solid fa-tag text-emerald-600"></i>
+                                            <span class="text-sm font-medium text-emerald-700">{{ $appliedPromoCode }}</span>
+                                        </div>
+                                        <button wire:click="removePromoCode" class="text-emerald-600 hover:text-emerald-800">
+                                            <i class="fa-solid fa-times text-sm"></i>
+                                        </button>
+                                    </div>
+                                    @if($promoSuccess)
+                                        <p class="mt-1 text-xs text-emerald-600">{{ $promoSuccess }}</p>
+                                    @endif
+                                </div>
+                            @endif
+
+                            <!-- Subtotal -->
+                            <div class="mt-3 flex items-center justify-between text-sm text-slate-600">
+                                <span>Subtotal</span>
+                                <span>Rp <span x-text="Number(cartTotal).toLocaleString('id-ID')"></span></span>
+                            </div>
+
+                            <!-- Discount -->
+                            @if($discountAmount && $discountAmount > 0)
+                                <div class="mt-2 flex items-center justify-between text-sm text-emerald-600">
+                                    <span>Diskon</span>
+                                    <span class="font-medium">- Rp <span x-text="Number({{ $discountAmount }}).toLocaleString('id-ID')"></span></span>
+                                </div>
+                            @endif
+
+                            <!-- Final Total -->
+                            <div class="mt-3 flex items-center justify-between pt-2 border-t border-slate-200">
+                                <span class="text-slate-800 font-semibold">Total Bayar</span>
+                                <span class="text-xl font-bold text-sky-700">
+                                    Rp <span x-text="Number(cartTotal @if($discountAmount && $discountAmount > 0) - {{ $discountAmount }} @endif).toLocaleString('id-ID')"></span>
+                                </span>
                             </div>
                         </div>
                     </div>

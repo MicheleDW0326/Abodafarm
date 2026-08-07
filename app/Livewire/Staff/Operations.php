@@ -193,9 +193,10 @@ class Operations extends Component
                 'message' => "Status pesanan {$order->order_number} diupdate ke {$this->getStatusLabel($status)}"
             ]);
         } else {
+            // Validation errors should use warning icon
             $this->dispatch('showAlert', [
-                'type' => 'error',
-                'title' => 'Gagal!',
+                'type' => 'warning',
+                'title' => 'Tidak Dapat Mengubah Status',
                 'message' => $result['message']
             ]);
         }
@@ -221,6 +222,7 @@ class Operations extends Component
 
         $count = 0;
         $skipped = 0;
+        $skipMessages = [];
 
         foreach ($this->selectedOrders as $orderId) {
             $order = Order::find($orderId);
@@ -229,6 +231,7 @@ class Operations extends Component
             $validStatuses = OrderStateMachine::getValidNextStatuses($order);
             if (!in_array($targetStatus, $validStatuses)) {
                 $skipped++;
+                $skipMessages[] = $order->order_number;
                 continue;
             }
 
@@ -252,21 +255,33 @@ class Operations extends Component
                     'Bulk update oleh staff'
                 ));
                 $count++;
+            } else {
+                $skipped++;
+                $skipMessages[] = $order->order_number;
             }
         }
 
         $this->clearSelection();
 
-        $message = "{$count} pesanan berhasil diupdate";
-        if ($skipped > 0) {
-            $message .= " ({$skipped} dilewati karena status tidak valid)";
+        if ($count === 0 && $skipped > 0) {
+            $this->dispatch('showAlert', [
+                'type' => 'warning',
+                'title' => 'Tidak Ada Perubahan',
+                'message' => "Tidak ada pesanan yang dapat diupdate ke status ini. Pesanan: " . implode(', ', $skipMessages)
+            ]);
+        } elseif ($skipped > 0) {
+            $this->dispatch('showAlert', [
+                'type' => 'warning',
+                'title' => 'Sebagian Berhasil',
+                'message' => "{$count} pesanan berhasil diupdate, {$skipped} gagal."
+            ]);
+        } else {
+            $this->dispatch('showAlert', [
+                'type' => 'success',
+                'title' => 'Berhasil!',
+                'message' => "{$count} pesanan berhasil diupdate"
+            ]);
         }
-
-        $this->dispatch('showAlert', [
-            'type' => 'success',
-            'title' => 'Berhasil!',
-            'message' => $message
-        ]);
     }
 
     // View order details
@@ -304,7 +319,8 @@ class Operations extends Component
     // Stats for dashboard
     public function getStats(): array
     {
-        $orders = Order::query();
+        $staffId = auth()->id();
+        $orders = Order::query()->where('assigned_staff_id', $staffId);
 
         return [
             'ready_to_process' => (clone $orders)->whereIn('status', ['paid', 'approved'])->count(),
@@ -319,7 +335,10 @@ class Operations extends Component
     protected function getOrdersQuery()
     {
         $query = Order::query()
-            ->with(['user', 'statusLogs']);
+            ->with(['user', 'statusLogs', 'assignedStaff']);
+
+        // Filter by current staff's assigned orders
+        $query->where('assigned_staff_id', auth()->id());
 
         // Apply quick filter
         if (isset($this->quickFilters[$this->quickFilter])) {

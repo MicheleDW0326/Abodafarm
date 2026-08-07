@@ -6,71 +6,155 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ filled($title ?? null) ? $title . ' - ' . config('app.name', 'Laravel') : config('app.name', 'Laravel') }}
-    </title>
+    {{-- Search Engine Verification --}}
+    <x-webmaster-verification />
 
+    {{-- SEO Meta Tags with Structured Data (Dashboard - noindex, nofollow) --}}
+    <x-seo.meta
+        :title="isset($seoTitle) ? $seoTitle : ($title ?? null)"
+        :description="isset($seoDescription) ? $seoDescription : null"
+        :keywords="isset($seoKeywords) ? $seoKeywords : null"
+        :image="isset($seoImage) ? $seoImage : null"
+        :url="isset($seoCanonical) ? $seoCanonical : null"
+        :type="isset($seoType) ? $seoType : 'website'"
+        :author="isset($seoAuthor) ? $seoAuthor : null"
+        robots="noindex, nofollow"
+    />
+
+    {{-- Favicon --}}
     <link rel="icon" href="/icons/IconTitle.png" type="image/png">
     <link rel="apple-touch-icon" href="/icons/IconTitle.png">
 
-    <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=outfit:400,500,600,700" rel="stylesheet" />
+    {{-- DNS Prefetch for faster connections --}}
+    <link rel="dns-prefetch" href="https://fonts.bunny.net">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://maps.googleapis.com">
+
+    {{-- Preconnect to critical third-party domains --}}
+    <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://maps.googleapis.com" crossorigin>
+
+    {{-- Font Awesome Icons --}}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
+    {{-- Preload critical font with display=swap for FOIT prevention --}}
+    <link
+        rel="preload"
+        href="https://fonts.bunny.net/css?family=outfit:400,500,600,700&display=swap"
+        as="style"
+        onload="this.onload=null;this.rel='stylesheet'"
+    >
+    <noscript>
+        <link rel="stylesheet" href="https://fonts.bunny.net/css?family=outfit:400,500,600,700&display=swap">
+    </noscript>
+
+    {{-- Preload logo for faster LCP --}}
+    <link rel="preload" href="/icons/MainLogo.png" as="image" type="image/png">
+
+    {{-- Critical inline CSS for dashboard skeleton --}}
+    <style>
+        /* Dashboard skeleton - prevents CLS */
+        .skeleton {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+        }
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        /* Reserve space for sidebar */
+        .sidebar-placeholder {
+            min-height: 100vh;
+            width: 260px;
+        }
+        /* Reserve space for header */
+        .header-placeholder {
+            height: 64px;
+            background: #fff;
+            border-bottom: 1px solid #e2e8f0;
+        }
+    </style>
+
+    {{-- Pass current route name to JavaScript for sidebar active state detection --}}
+    <script>
+        window.currentRouteName = '{{ Route::currentRouteName() ?? '' }}';
+        window.currentRoutePrefix = '{{ Route::currentRouteName() ? implode('.', array_slice(explode('.', Route::currentRouteName()), 0, -1)) : '' }}';
+    </script>
+
+    {{-- Vite Assets --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    {{-- Google Maps - lazy loaded --}}
+    @if (config('googlemaps.api_key'))
+        <script>
+            window.loadGoogleMaps = function() {
+                if (!window.googleMapsLoaded) {
+                    const script = document.createElement('script');
+                    script.src = 'https://maps.googleapis.com/maps/api/js?key={{ config('googlemaps.api_key') }}&libraries=places&loading=async';
+                    script.async = true;
+                    script.defer = true;
+                    document.head.appendChild(script);
+                    window.googleMapsLoaded = true;
+                }
+            };
+        </script>
+    @endif
+
     @livewireStyles
 
-    @if (config('googlemaps.api_key'))
-        <script
-            src="https://maps.googleapis.com/maps/api/js?key={{ config('googlemaps.api_key') }}&libraries=places&loading=async"
-            async defer></script>
-    @endif
+    {{-- Analytics & Tracking Scripts --}}
+    <x-analytics />
 </head>
 
+{{-- Add skeleton placeholder to prevent CLS --}}
 <body class="bg-[#F5F7FA] font-['Outfit'] text-slate-900 antialiased" x-data="{
     sidebarOpen: false,
     sidebarCollapsed: false,
     contentReady: false,
     accountMenuOpen: false,
-    activeRoute: '',
+    collapsedFlyout: null,
+
     init() {
         const saved = localStorage.getItem('abodafarm.sidebarCollapsed');
         this.sidebarCollapsed = saved === '1';
 
-        // Get initial route
-        this.activeRoute = window.location.pathname;
-
         requestAnimationFrame(() => {
             this.contentReady = true;
-        });
-
-        // Update active route on navigation
-        window.addEventListener('livewire:navigating', (event) => {
-            if (event.detail?.url) {
-                this.activeRoute = new URL(event.detail.url, window.location.origin).pathname;
-            }
-        });
-
-        window.addEventListener('livewire:navigated', () => {
-            this.activeRoute = window.location.pathname;
         });
     },
     toggleSidebar() {
         this.sidebarCollapsed = !this.sidebarCollapsed;
+        this.collapsedFlyout = null;
         localStorage.setItem('abodafarm.sidebarCollapsed', this.sidebarCollapsed ? '1' : '0');
     },
-    isRouteActive(routePattern) {
-        if (!this.activeRoute || !routePattern) return false;
 
-        // Pattern comes as \/admin\/dashboard, convert \/ to / for regex
-        const cleanPattern = routePattern.replace(/\\\//g, '\\/');
-        const pathRegex = new RegExp('^' + cleanPattern, 'i');
+    openFlyout(index, event) {
+        event.stopPropagation();
+        this.collapsedFlyout = this.collapsedFlyout === index ? null : index;
+    },
 
-        return pathRegex.test(this.activeRoute);
+    closeFlyout() {
+        this.collapsedFlyout = null;
+    },
+
+    isRouteActive(routeName) {
+        if (!routeName || !window.currentRouteName) return false;
+        return window.currentRouteName === routeName || window.currentRouteName.startsWith(routeName + '.');
+    },
+
+    isAnyRouteActive(routeNames) {
+        if (!routeNames || !window.currentRouteName) return false;
+        return routeNames.some(name => window.currentRouteName === name || window.currentRouteName.startsWith(name + '.'));
     }
 }"
-    @click.outside="accountMenuOpen = false">
+    @click.outside="accountMenuOpen = false; collapsedFlyout = null">
 
-    <!-- Splash Screen - untuk halaman penting -->
+    {{-- Google Tag Manager (noscript) --}}
+    <x-analytics-body-start />
+
+    <!-- Splash Screen -->
     @livewire('splash-screen')
 
     <div class="min-h-screen">
@@ -93,7 +177,25 @@
 
                     <div>
                         <h1 class="text-lg font-bold text-slate-900">
-                            {{ $title ?? (auth()->user()?->hasRole('peternak') ? 'Peternak' : (auth()->user()?->hasRole('admin') ? 'Admin' : 'Dashboard')) }}
+                            @php
+                                $roleTitle = $title ?? null;
+                                if (!$roleTitle && auth()->check()) {
+                                    $user = auth()->user();
+                                    if ($user->hasRole('admin')) {
+                                        $roleTitle = 'Admin';
+                                    } elseif ($user->hasRole('staf')) {
+                                        $roleTitle = 'Staff';
+                                    } elseif ($user->hasRole('peternak')) {
+                                        $roleTitle = 'Peternak';
+                                    } else {
+                                        $roleTitle = 'Dashboard';
+                                    }
+                                }
+                                if (!$roleTitle) {
+                                    $roleTitle = 'Dashboard';
+                                }
+                            @endphp
+                            {{ $roleTitle }}
                         </h1>
                         <p class="text-xs text-slate-400">Selamat datang kembali, {{ auth()->user()?->name }}!</p>
                     </div>
@@ -111,9 +213,10 @@
                         </svg>
                     </div>
 
+                    {{-- Notification dropdown --}}
                     @livewire('notification-dropdown')
 
-                    <!-- FCM Token Manager - Hidden component -->
+                    {{-- FCM Token Manager --}}
                     @livewire('save-fcm-token')
 
                     <div
@@ -134,10 +237,22 @@
         </div>
     </div>
 
+    {{-- Global Staff Delivery Modals - lazy loaded --}}
+    @auth
+        @if(auth()->user()->hasRole('staf'))
+            @livewire(\App\Livewire\Staff\StartDelivery::class)
+            @livewire(\App\Livewire\Staff\CompleteDelivery::class)
+        @endif
+        @if(auth()->user()->hasRole('pelanggan'))
+            @livewire(\App\Livewire\Pelanggan\ConfirmDelivery::class)
+        @endif
+    @endauth
+
     @livewireScripts
     @include('sweetalert::alert')
     @include('components.alerts.sweet-alert')
 
+    {{-- Defer non-critical initialization --}}
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             window.addEventListener('refresh-notifications', () => {

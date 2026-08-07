@@ -3,8 +3,10 @@
 namespace App\Livewire\Shop;
 
 use App\Models\Product;
+use App\Models\ProductView;
 use App\Models\Review;
-use Illuminate\Support\Str;
+use App\Services\ProductRecommendationService;
+use App\Services\SeoService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -23,6 +25,10 @@ class ProductDetail extends Component
 
     public ?int $selectedImageIndex = 0;
 
+    public array $recommendations = [];
+
+    public string $recommendationTitle = 'Produk Lainnya';
+
     public function mount(Product $product)
     {
         $this->product = $product->load(['category', 'reviews' => function ($query) {
@@ -32,6 +38,21 @@ class ProductDetail extends Component
         }]);
 
         $this->buildImageGallery();
+
+        // Track this product view
+        ProductView::track($product->id);
+
+        // Load recommendations
+        $this->loadRecommendations();
+    }
+
+    protected function loadRecommendations(): void
+    {
+        $recommendationService = new ProductRecommendationService();
+
+        $userId = auth()->id();
+        $this->recommendationTitle = $recommendationService->getSectionTitle($userId);
+        $this->recommendations = $recommendationService->getRecommendations($userId, $this->product, 8);
     }
 
     protected function buildImageGallery(): void
@@ -85,46 +106,17 @@ class ProductDetail extends Component
         }
     }
 
-    public function getRelatedProducts(): array
-    {
-        if (!$this->product->category) {
-            return [];
-        }
-
-        return Product::supply()
-            ->where('category_id', $this->product->category_id)
-            ->where('id', '!=', $this->product->id)
-            ->available()
-            ->inStock()
-            ->with('category')
-            ->limit(4)
-            ->get()
-            ->map(fn($p) => [
-                'id' => $p->id,
-                'name' => $p->name,
-                'slug' => $p->slug,
-                'current_price' => $p->current_price,
-                'formatted_current_price' => $p->formatted_current_price,
-                'has_discount' => $p->has_discount,
-                'discount_percent' => $p->discount_percentage,
-                'image' => $p->image_url,
-                'stock_status' => $p->stock_status,
-                'category' => $p->category?->name ?? '',
-            ])
-            ->toArray();
-    }
-
     public function getReviewsAttribute(): array
     {
         return $this->product->approvedReviews()
-            ->with('user')
+            ->with(['user.farmProfile'])
             ->orderByDesc('created_at')
             ->limit(10)
             ->get()
             ->map(fn($review) => [
                 'id' => $review->id,
                 'user_name' => $review->user?->name ?? 'Anonim',
-                'user_avatar' => $review->user?->avatar ?? null,
+                'user_avatar' => $review->user?->farmProfile?->image ?? null,
                 'rating' => $review->rating,
                 'content' => $review->content,
                 'title' => $review->title,
@@ -165,6 +157,12 @@ class ProductDetail extends Component
 
     public function render()
     {
-        return view('livewire.shop.product-detail');
+        // Generate dynamic SEO data
+        $seoService = app(SeoService::class);
+        $seo = $seoService->forProduct($this->product);
+
+        return view('livewire.shop.product-detail', [
+            'seo' => $seo,
+        ]);
     }
 }

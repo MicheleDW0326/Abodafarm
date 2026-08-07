@@ -10,6 +10,7 @@
     quickViewProduct: null,
     showQuickView: false,
     bannerCount: {{ count($heroBanners ?? []) }},
+    wishlistProductIds: JSON.parse(localStorage.getItem('abodafarm_wishlist') || '[]'),
 
     init() {
         // Banner auto-rotate
@@ -21,7 +22,71 @@
             if (e.key === 'abodafarm_cart') {
                 this.cartItems = JSON.parse(e.newValue || '[]');
             }
+            if (e.key === 'abodafarm_wishlist') {
+                this.wishlistProductIds = JSON.parse(e.newValue || '[]');
+            }
         });
+
+        // Fetch wishlist from server if logged in
+        @auth
+        fetch('/api/favorites/count')
+            .then(r => r.json())
+            .then(d => {
+                if (d.count !== undefined) {
+                    // Store product IDs in localStorage for quick access
+                    this.fetchWishlistIds();
+                }
+            })
+            .catch(() => {});
+        @endauth
+    },
+
+    async fetchWishlistIds() {
+        // This would fetch the actual product IDs from the server
+        // For now, we rely on localStorage
+    },
+
+    isInWishlist(productId) {
+        return this.wishlistProductIds.includes(productId);
+    },
+
+    async toggleWishlist(productId, event) {
+        event.stopPropagation();
+
+        @guest
+        this.showAddToast('Silakan login untuk menyimpan ke wishlist', 'heart', 'warning');
+        return;
+        @endguest
+
+        try {
+            const response = await fetch('/api/favorites/toggle', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content
+                },
+                body: JSON.stringify({ product_id: productId })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                if (data.is_favorited) {
+                    if (!this.wishlistProductIds.includes(productId)) {
+                        this.wishlistProductIds.push(productId);
+                    }
+                    this.showAddToast('Ditambahkan ke wishlist', 'heart', 'success');
+                } else {
+                    this.wishlistProductIds = this.wishlistProductIds.filter(id => id !== productId);
+                    this.showAddToast('Dihapus dari wishlist', 'heart', 'info');
+                }
+                localStorage.setItem('abodafarm_wishlist', JSON.stringify(this.wishlistProductIds));
+                window.dispatchEvent(new CustomEvent('wishlist-updated'));
+            }
+        } catch (error) {
+            console.error('Wishlist error:', error);
+            this.showAddToast('Gagal memperbarui wishlist', 'times', 'error');
+        }
     },
 
     showAddToast(message, icon = 'check', type = 'success') {
@@ -388,8 +453,14 @@
                         <!-- Image -->
                         <div class="relative hidden lg:block">
                             <div class="relative overflow-hidden rounded-3xl shadow-2xl shadow-emerald-900/30">
-                                <img src="{{ $banner['image'] }}" alt="{{ $banner['title'] }}"
-                                     class="w-full aspect-[4/3] object-cover">
+                                <x-image
+                                    src="{{ $banner['image'] }}"
+                                    alt="{{ $banner['title'] }}"
+                                    type="banner"
+                                    width="600"
+                                    height="450"
+                                    class="w-full aspect-[4/3] object-cover"
+                                />
                                 <!-- Overlay Gradient -->
                                 <div class="absolute inset-0 bg-gradient-to-t from-emerald-900/30 to-transparent"></div>
                             </div>
@@ -524,53 +595,166 @@
                      wire:transition-enter-start="opacity-0 -translate-y-2"
                      wire:transition-enter-end="opacity-100 translate-y-0"
                      class="border-t border-slate-100 bg-gradient-to-b from-slate-50 to-white p-5">
-                    <div class="flex flex-wrap items-center gap-4 lg:gap-6 overflow-x-auto scrollbar-hide">
+                    <!-- Active Filter Chips -->
+                    @if(count($this->getActiveFiltersList()) > 0)
+                        <div class="mb-4 flex flex-wrap items-center gap-2">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Filter Aktif:</span>
+                            @foreach($this->getActiveFiltersList() as $filter)
+                                <button wire:click="removeFilter('{{ $filter['key'] }}')"
+                                        class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-200">
+                                    {{ $filter['label'] }}
+                                    <i class="fa-solid fa-xmark text-[10px]"></i>
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3 xl:grid-cols-4">
                         <!-- Price Range Filter -->
-                        <div class="flex flex-wrap gap-2">
-                            <label class="w-full text-xs font-bold uppercase tracking-wider text-slate-500 sm:w-auto">Rentang Harga</label>
+                        <div>
+                            <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Rentang Harga</label>
                             <div class="flex flex-wrap gap-2">
                                 <button wire:click="setPriceRange('all')"
-                                        :class="$wire.priceRange === 'all' ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
-                                        class="rounded-xl border px-4 py-2 text-sm font-medium transition-all whitespace-nowrap">
+                                        :class="$wire.priceRange === 'all' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
+                                        class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-all">
                                     Semua
                                 </button>
                                 <button wire:click="setPriceRange('0-50k')"
-                                        :class="$wire.priceRange === '0-50k' ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
-                                        class="rounded-xl border px-4 py-2 text-sm font-medium transition-all whitespace-nowrap">
+                                        :class="$wire.priceRange === '0-50k' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
+                                        class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-all">
                                     < Rp 50rb
                                 </button>
                                 <button wire:click="setPriceRange('50k-100k')"
-                                        :class="$wire.priceRange === '50k-100k' ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
-                                        class="rounded-xl border px-4 py-2 text-sm font-medium transition-all whitespace-nowrap">
-                                    Rp 50rb - 100rb
+                                        :class="$wire.priceRange === '50k-100k' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
+                                        class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-all">
+                                    50-100rb
                                 </button>
                                 <button wire:click="setPriceRange('100k-250k')"
-                                        :class="$wire.priceRange === '100k-250k' ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
-                                        class="rounded-xl border px-4 py-2 text-sm font-medium transition-all whitespace-nowrap">
-                                    Rp 100rb - 250rb
+                                        :class="$wire.priceRange === '100k-250k' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
+                                        class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-all">
+                                    100-250rb
                                 </button>
                                 <button wire:click="setPriceRange('250k-500k')"
-                                        :class="$wire.priceRange === '250k-500k' ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
-                                        class="rounded-xl border px-4 py-2 text-sm font-medium transition-all whitespace-nowrap">
-                                    Rp 250rb - 500rb
+                                        :class="$wire.priceRange === '250k-500k' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
+                                        class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-all">
+                                    250-500rb
                                 </button>
                                 <button wire:click="setPriceRange('500k+')"
-                                        :class="$wire.priceRange === '500k+' ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
-                                        class="rounded-xl border px-4 py-2 text-sm font-medium transition-all whitespace-nowrap">
-                                    > Rp 500rb
+                                        :class="$wire.priceRange === '500k+' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:bg-emerald-50'"
+                                        class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-all">
+                                    > 500rb
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Clear Filters -->
-                        @if($this->getActiveFiltersCount() > 0)
-                            <button wire:click="clearFilters"
-                                    class="ml-auto flex items-center gap-2 text-sm font-semibold text-red-500 transition hover:text-red-600 whitespace-nowrap">
-                                <i class="fa-solid fa-times-circle"></i>
-                                Hapus Filter
+                        <!-- Location Filter -->
+                        <div>
+                            <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Lokasi</label>
+                            <div x-data="{ open: false }" class="relative">
+                                <button @click="open = !open"
+                                        class="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:border-emerald-300">
+                                    <span>{{ $location ? ($locations[$location] ?? $location) : 'Semua Lokasi' }}</span>
+                                    <i class="fa-solid fa-chevron-down text-[10px]" :class="open ? 'rotate-180' : ''"></i>
+                                </button>
+                                <div x-show="open" @click.outside="open = false"
+                                     x-transition:enter="transition ease-out duration-200"
+                                     x-transition:enter-start="opacity-0 translate-y-2"
+                                     x-transition:enter-end="opacity-100 translate-y-0"
+                                     class="absolute left-0 top-full z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                                    <button wire:click="setLocation(null)"
+                                            class="block w-full px-3 py-2 text-left text-xs text-slate-600 hover:bg-emerald-50"
+                                            :class="!$wire.location ? 'bg-emerald-50 text-emerald-700 font-semibold' : ''">
+                                        Semua Lokasi
+                                    </button>
+                                    @foreach($locations as $key => $name)
+                                        <button wire:click="setLocation('{{ $key }}')"
+                                                class="block w-full px-3 py-2 text-left text-xs text-slate-600 hover:bg-emerald-50"
+                                                :class="$wire.location === '{{ $key }}' ? 'bg-emerald-50 text-emerald-700 font-semibold' : ''">
+                                            {{ $name }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weight Filter -->
+                        <div>
+                            <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Berat</label>
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach($weightRanges as $key => $label)
+                                    <button wire:click="setWeightRange('{{ $key }}')"
+                                            :class="$wire.weightRange === '{{ $key }}' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'"
+                                            class="rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all">
+                                        {{ $label }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Age Filter -->
+                        <div>
+                            <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Umur</label>
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach($ageRanges as $key => $label)
+                                    <button wire:click="setAgeRange('{{ $key }}')"
+                                            :class="$wire.ageRange === '{{ $key }}' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'"
+                                            class="rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all">
+                                        {{ $label }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Gender Filter -->
+                        <div>
+                            <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Jenis Kelamin</label>
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach($genderOptions as $key => $label)
+                                    <button wire:click="setGender('{{ $key }}')"
+                                            :class="$wire.gender === '{{ $key }}' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'"
+                                            class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-all">
+                                        {{ $label }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Rating Filter -->
+                        <div>
+                            <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Rating</label>
+                            <div class="flex flex-wrap gap-1.5">
+                                @foreach($ratingOptions as $rating => $label)
+                                    <button wire:click="setMinRating({{ $rating }})"
+                                            :class="$wire.minRating === {{ $rating }} ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'"
+                                            class="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all">
+                                        <i class="fa-solid fa-star text-amber-400"></i> {{ $label }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Organic Filter -->
+                        <div>
+                            <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Tipe</label>
+                            <button wire:click="setOrganicOnly(!$wire.organicOnly)"
+                                    :class="$wire.organicOnly ? 'bg-green-600 text-white border-green-600' : 'bg-white text-slate-600 border-slate-200 hover:border-green-300'"
+                                    class="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all">
+                                <i class="fa-solid fa-leaf"></i>
+                                {{ $organicOnly ? 'Organic Only' : 'Tampilkan Organic' }}
                             </button>
-                        @endif
+                        </div>
                     </div>
+
+                    <!-- Clear Filters -->
+                    @if($this->getActiveFiltersCount() > 0)
+                        <div class="mt-4 flex justify-end border-t border-slate-100 pt-4">
+                            <button wire:click="clearFilters"
+                                    class="flex items-center gap-2 text-sm font-semibold text-red-500 transition hover:text-red-600">
+                                <i class="fa-solid fa-times-circle"></i>
+                                Hapus Semua Filter
+                            </button>
+                        </div>
+                    @endif
                 </div>
             @endif
         </div>
@@ -723,9 +907,13 @@
                             </div>
 
                             <!-- Wishlist Button -->
-                            <button class="absolute bottom-3 right-3 flex size-10 items-center justify-center rounded-full bg-white/95 text-slate-400 shadow-lg backdrop-blur-sm transition-all hover:text-red-500 hover:scale-110 opacity-0 group-hover:opacity-100"
-                                    @click.stop>
-                                <i class="fa-solid fa-heart"></i>
+                            <button
+                                x-data="{ isWishlist: {{ auth()->check() && auth()->user()->favoriteProducts()->where('id', $product->id)->exists() ? 'true' : 'false' }}"
+                                @click="toggleWishlist({{ $product->id }}, $event)"
+                                :class="isWishlist ? 'text-rose-500' : 'text-slate-400'"
+                                class="absolute bottom-3 right-3 flex size-10 items-center justify-center rounded-full bg-white/95 shadow-lg backdrop-blur-sm transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
+                            >
+                                <i :class="isWishlist ? 'fa-solid fa-heart' : 'fa-regular fa-heart'"></i>
                             </button>
                         </div>
 

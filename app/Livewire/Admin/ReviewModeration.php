@@ -42,9 +42,10 @@ class ReviewModeration extends Component
     {
         return [
             'total' => Review::count(),
-            'pending' => Review::where('status', ReviewStatusEnum::PENDING->value)->count(),
-            'approved' => Review::where('status', ReviewStatusEnum::APPROVED->value)->count(),
-            'rejected' => Review::where('status', ReviewStatusEnum::REJECTED->value)->count(),
+            'pending' => Review::where('status', 'pending')->count(),
+            'approved' => Review::where('status', 'approved')->count(),
+            'rejected' => Review::where('status', 'rejected')->count(),
+            'hidden' => Review::where('is_visible', false)->count(),
         ];
     }
 
@@ -58,6 +59,26 @@ class ReviewModeration extends Component
             'title' => 'Berhasil',
             'message' => 'Ulasan berhasil disetujui.',
         ]);
+    }
+
+    public function toggleVisibility(int $reviewId)
+    {
+        $review = Review::findOrFail($reviewId);
+        if ($review->is_visible) {
+            ReviewService::hideReview($review);
+            $this->dispatch('notify', [
+                'type' => 'info',
+                'title' => 'Berhasil',
+                'message' => 'Ulasan berhasil disembunyikan.',
+            ]);
+        } else {
+            ReviewService::showReview($review);
+            $this->dispatch('notify', [
+                'type' => 'success',
+                'title' => 'Berhasil',
+                'message' => 'Ulasan berhasil ditampilkan.',
+            ]);
+        }
     }
 
     public function openRejectModal(int $reviewId)

@@ -117,27 +117,27 @@
                                     <i class="fa-solid fa-credit-card mr-1"></i>Pembayaran
                                 </p>
                                 <div class="flex items-center gap-2">
-                                    @foreach($paymentProgress['steps'] as $index => $step)
+                                    @foreach($paymentProgress['steps'] as $key => $step)
                                         <div class="flex flex-1 items-center">
                                             <div class="flex flex-1 items-center gap-2">
                                                 <div class="h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold
-                                                    @if($index <= $paymentProgress['currentStep'])
+                                                    @if($loop->iteration - 1 <= $paymentProgress['currentStep'])
                                                         bg-emerald-500 text-white
                                                     @else
                                                         bg-slate-200 text-slate-500
                                                     @endif">
-                                                    @if($index < $paymentProgress['currentStep'])
+                                                    @if($loop->iteration - 1 < $paymentProgress['currentStep'])
                                                         <i class="fa-solid fa-check text-[10px]"></i>
                                                     @else
-                                                        {{ $index + 1 }}
+                                                        {{ $loop->iteration }}
                                                     @endif
                                                 </div>
-                                                <span class="text-xs font-medium @if($index <= $paymentProgress['currentStep']) text-emerald-600 @else text-slate-400 @endif">
+                                                <span class="text-xs font-medium @if($loop->iteration - 1 <= $paymentProgress['currentStep']) text-emerald-600 @else text-slate-400 @endif">
                                                     {{ $step['label'] }}
                                                 </span>
                                             </div>
                                             @if(!$loop->last)
-                                                <div class="h-0.5 flex-1 @if($index < $paymentProgress['currentStep']) bg-emerald-400 @else bg-slate-200 @endif mx-1"></div>
+                                                <div class="h-0.5 flex-1 @if($loop->iteration - 1 < $paymentProgress['currentStep']) bg-emerald-400 @else bg-slate-200 @endif mx-1"></div>
                                             @endif
                                         </div>
                                     @endforeach
@@ -151,27 +151,27 @@
                                 <i class="fa-solid fa-truck mr-1"></i>Pengiriman
                             </p>
                             <div class="flex items-center gap-2">
-                                @foreach($deliveryProgress['steps'] as $index => $step)
+                                @foreach($deliveryProgress['steps'] as $key => $step)
                                     <div class="flex flex-1 items-center">
                                         <div class="flex flex-1 items-center gap-2">
                                             <div class="h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold
-                                                @if($index <= $deliveryProgress['currentStep'])
+                                                @if($loop->iteration - 1 <= $deliveryProgress['currentStep'])
                                                     bg-emerald-500 text-white
                                                 @else
                                                     bg-slate-200 text-slate-500
                                                 @endif">
-                                                @if($index < $deliveryProgress['currentStep'])
+                                                @if($loop->iteration - 1 < $deliveryProgress['currentStep'])
                                                     <i class="fa-solid fa-check text-[10px]"></i>
                                                 @else
-                                                    {{ $index + 1 }}
+                                                    {{ $loop->iteration }}
                                                 @endif
                                             </div>
-                                            <span class="text-xs font-medium @if($index <= $deliveryProgress['currentStep']) text-emerald-600 @else text-slate-400 @endif">
+                                            <span class="text-xs font-medium @if($loop->iteration - 1 <= $deliveryProgress['currentStep']) text-emerald-600 @else text-slate-400 @endif">
                                                 {{ $step['label'] }}
                                             </span>
                                         </div>
                                         @if(!$loop->last)
-                                            <div class="h-0.5 flex-1 @if($index < $deliveryProgress['currentStep']) bg-emerald-400 @else bg-slate-200 @endif mx-1"></div>
+                                            <div class="h-0.5 flex-1 @if($loop->iteration - 1 < $deliveryProgress['currentStep']) bg-emerald-400 @else bg-slate-200 @endif mx-1"></div>
                                         @endif
                                     </div>
                                 @endforeach
@@ -229,6 +229,23 @@
 
                 {{-- Actions --}}
                 <div class="mt-4 flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
+                    {{-- Confirm Order Received Button (for delivered orders) --}}
+                    @if($order->status === 'delivered')
+                        <button
+                            wire:click="$dispatch('open-confirm-delivery', { order: {{ $order->id }} })"
+                            class="rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:from-emerald-600 hover:to-emerald-700 hover:shadow-xl"
+                        >
+                            <i class="fa-solid fa-check-circle mr-1"></i> Konfirmasi Diterima
+                        </button>
+                    @endif
+
+                    {{-- Completed Badge (for completed orders) --}}
+                    @if($order->status === 'completed')
+                        <span class="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-semibold text-emerald-700">
+                            <i class="fa-solid fa-check-double mr-1"></i> Selesai
+                        </span>
+                    @endif
+
                     <button
                         wire:click="selectOrder({{ $order->id }})"
                         class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
@@ -315,27 +332,27 @@
                                     <i class="fa-solid fa-credit-card mr-1"></i>Pembayaran
                                 </p>
                                 <div class="flex items-center gap-2">
-                                    @foreach($paymentProgress['steps'] as $index => $step)
+                                    @foreach($paymentProgress['steps'] as $key => $step)
                                         <div class="flex flex-1 items-center">
                                             <div class="flex flex-1 flex-col items-center gap-1">
                                                 <div class="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold
-                                                    @if($index <= $paymentProgress['currentStep'])
+                                                    @if($loop->iteration - 1 <= $paymentProgress['currentStep'])
                                                         bg-emerald-500 text-white shadow-lg shadow-emerald-200
                                                     @else
                                                         bg-slate-200 text-slate-500
                                                     @endif">
-                                                    @if($index < $paymentProgress['currentStep'])
+                                                    @if($loop->iteration - 1 < $paymentProgress['currentStep'])
                                                         <i class="fa-solid fa-check text-[10px]"></i>
                                                     @else
-                                                        {{ $index + 1 }}
+                                                        {{ $loop->iteration }}
                                                     @endif
                                                 </div>
-                                                <span class="text-xs font-medium text-center @if($index <= $paymentProgress['currentStep']) text-emerald-600 @else text-slate-400 @endif">
+                                                <span class="text-xs font-medium text-center @if($loop->iteration - 1 <= $paymentProgress['currentStep']) text-emerald-600 @else text-slate-400 @endif">
                                                     {{ $step['label'] }}
                                                 </span>
                                             </div>
                                             @if(!$loop->last)
-                                                <div class="h-1 flex-1 rounded-full @if($index < $paymentProgress['currentStep']) bg-emerald-400 @else bg-slate-200 @endif mb-4 mx-0.5"></div>
+                                                <div class="h-1 flex-1 rounded-full @if($loop->iteration - 1 < $paymentProgress['currentStep']) bg-emerald-400 @else bg-slate-200 @endif mb-4 mx-0.5"></div>
                                             @endif
                                         </div>
                                     @endforeach
@@ -349,27 +366,27 @@
                                 <i class="fa-solid fa-truck mr-1"></i>Pengiriman
                             </p>
                             <div class="flex items-center gap-2">
-                                @foreach($deliveryProgress['steps'] as $index => $step)
+                                @foreach($deliveryProgress['steps'] as $key => $step)
                                     <div class="flex flex-1 items-center">
                                         <div class="flex flex-1 flex-col items-center gap-1">
                                             <div class="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold
-                                                @if($index <= $deliveryProgress['currentStep'])
+                                                @if($loop->iteration - 1 <= $deliveryProgress['currentStep'])
                                                     bg-emerald-500 text-white shadow-lg shadow-emerald-200
                                                 @else
                                                     bg-slate-200 text-slate-500
                                                 @endif">
-                                                @if($index < $deliveryProgress['currentStep'])
+                                                @if($loop->iteration - 1 < $deliveryProgress['currentStep'])
                                                     <i class="fa-solid fa-check text-[10px]"></i>
                                                 @else
-                                                    {{ $index + 1 }}
+                                                    {{ $loop->iteration }}
                                                 @endif
                                             </div>
-                                            <span class="text-xs font-medium text-center @if($index <= $deliveryProgress['currentStep']) text-emerald-600 @else text-slate-400 @endif">
+                                            <span class="text-xs font-medium text-center @if($loop->iteration - 1 <= $deliveryProgress['currentStep']) text-emerald-600 @else text-slate-400 @endif">
                                                 {{ $step['label'] }}
                                             </span>
                                         </div>
                                         @if(!$loop->last)
-                                            <div class="h-1 flex-1 rounded-full @if($index < $deliveryProgress['currentStep']) bg-emerald-400 @else bg-slate-200 @endif mb-4 mx-0.5"></div>
+                                            <div class="h-1 flex-1 rounded-full @if($loop->iteration - 1 < $deliveryProgress['currentStep']) bg-emerald-400 @else bg-slate-200 @endif mb-4 mx-0.5"></div>
                                         @endif
                                     </div>
                                 @endforeach
@@ -453,6 +470,53 @@
                         <h4 class="mb-3 font-semibold text-slate-700">Riwayat Pesanan</h4>
                         <x-order-timeline :order="$selectedOrder" />
                     </div>
+
+                    {{-- Delivery Proof Section (for delivered orders) --}}
+                    @if($selectedOrder->status === 'delivered' && ($selectedOrder->receiver_name || $selectedOrder->delivery_photo))
+                        <div class="rounded-xl bg-emerald-50 p-4 border border-emerald-100">
+                            <h4 class="mb-3 font-semibold text-emerald-900 flex items-center gap-2">
+                                <i class="fa-solid fa-clipboard-check text-emerald-600"></i>
+                                Bukti Pengiriman
+                            </h4>
+                            <div class="space-y-3">
+                                @if($selectedOrder->delivery_photo)
+                                    <div>
+                                        <p class="text-xs text-emerald-600 mb-1">Foto Bukti</p>
+                                        <a href="{{ asset('storage/' . $selectedOrder->delivery_photo) }}"
+                                           target="_blank"
+                                           class="block overflow-hidden rounded-lg border border-emerald-200 hover:border-emerald-300 transition-colors">
+                                            <img src="{{ asset('storage/' . $selectedOrder->delivery_photo) }}"
+                                                 alt="Bukti Pengiriman"
+                                                 class="max-h-32 w-full object-cover" />
+                                        </a>
+                                    </div>
+                                @endif
+
+                                @if($selectedOrder->receiver_name)
+                                    <div>
+                                        <p class="text-xs text-emerald-600">Diterima Oleh</p>
+                                        <p class="font-medium text-emerald-900">{{ $selectedOrder->receiver_name }}</p>
+                                    </div>
+                                @endif
+
+                                @if($selectedOrder->delivery_completed_at)
+                                    <div>
+                                        <p class="text-xs text-emerald-600">Waktu Penerimaan</p>
+                                        <p class="font-medium text-emerald-900">
+                                            {{ \Carbon\Carbon::parse($selectedOrder->delivery_completed_at)->format('d M Y, H:i') }}
+                                        </p>
+                                    </div>
+                                @endif
+
+                                @if($selectedOrder->delivery_note)
+                                    <div>
+                                        <p class="text-xs text-emerald-600">Catatan</p>
+                                        <p class="text-sm text-emerald-800 whitespace-pre-line">{{ $selectedOrder->delivery_note }}</p>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Modal Footer --}}
@@ -470,6 +534,19 @@
                         >
                             <i class="fa-solid fa-credit-card mr-1"></i> Bayar Sekarang
                         </a>
+                    @endif
+                    @if($selectedOrder->status === 'delivered')
+                        <button
+                            wire:click="$dispatch('open-confirm-delivery', { order: {{ $selectedOrder->id }} })"
+                            class="rounded-lg bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:from-emerald-600 hover:to-emerald-700 hover:shadow-xl"
+                        >
+                            <i class="fa-solid fa-check-circle mr-1"></i> Konfirmasi Diterima
+                        </button>
+                    @endif
+                    @if($selectedOrder->status === 'completed')
+                        <span class="inline-flex items-center rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700">
+                            <i class="fa-solid fa-check-double mr-1"></i> Pesanan Selesai
+                        </span>
                     @endif
                 </div>
             </div>

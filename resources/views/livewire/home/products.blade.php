@@ -114,8 +114,15 @@
                             data-aos="{{ $index % 2 === 0 ? 'fade-right' : 'fade-left' }}"
                             data-aos-delay="{{ ($index % 3) * 100 }}">
                             <div class="relative">
-                                <img src="{{ $product['image'] }}" alt="{{ $product['name'] }}"
-                                    class="h-56 w-full object-cover">
+                                <x-image
+                                    src="{{ $product['image'] }}"
+                                    alt="{{ $product['name'] }}"
+                                    type="product"
+                                    context="{{ $product['category'] }}"
+                                    width="400"
+                                    height="224"
+                                    class="h-56 w-full object-cover"
+                                />
                                 <div class="absolute left-4 top-4 flex flex-wrap gap-2">
                                     <span
                                         class="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">Organik</span>
@@ -193,15 +200,140 @@
                 </div>
             </template>
 
-            {{-- Daging Segar (Add-to-cart) --}}
+            {{-- Daging Segar (Add-to-cart with stock control) --}}
             <template x-if="activeTab === 'fresh'">
-                <div class="contents">
+                <div class="contents" x-data="{
+                    cartItems: JSON.parse(localStorage.getItem('abodafarm_cart') || '[]'),
+                    productStocks: {{ json_encode(array_column($productsFresh, 'stock', 'id')) }},
+                    productMaxStock: {{ json_encode(array_column($productsFresh, 'stock', 'id')) }},
+                    quantities: {},
+
+                    init() {
+                        window.addEventListener('storage', (e) => {
+                            if (e.key === 'abodafarm_cart') {
+                                this.cartItems = JSON.parse(e.newValue || '[]');
+                            }
+                        });
+                        window.addEventListener('cart-updated', () => {
+                            this.cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+                        });
+                        this.refreshStock();
+                    },
+
+                    async refreshStock() {
+                        @foreach($productsFresh as $p)
+                            try {
+                                const response = await fetch('/shop/check-stock/' + {{ $p['id'] }});
+                                const data = await response.json();
+                                this.productStocks[{{ $p['id'] }}] = data.stock;
+                                this.productMaxStock[{{ $p['id'] }}] = data.stock;
+                            } catch (e) {
+                                console.error('Error fetching stock for product {{ $p['id'] }}');
+                            }
+                        @endforeach
+                    },
+
+                    getQuantity(productId) {
+                        const key = 'product_' + productId + '_fresh';
+                        const item = this.cartItems.find(i => i.key === key);
+                        return item ? item.qty : 0;
+                    },
+
+                    getAvailableStock(productId) {
+                        const inCart = this.getQuantity(productId);
+                        const maxStock = this.productMaxStock[productId] || 0;
+                        return Math.max(0, maxStock - inCart);
+                    },
+
+                    canAdd(productId) {
+                        return this.getAvailableStock(productId) > 0;
+                    },
+
+                    getStockStatus(productId) {
+                        const available = this.getAvailableStock(productId);
+                        if (available <= 0) return 'out';
+                        if (available <= 3) return 'low';
+                        return 'ok';
+                    },
+
+                    async addToCart(productId, name, price, image, maxStock) {
+                        const available = this.getAvailableStock(productId);
+                        if (available <= 0) {
+                            window.dispatchEvent(new CustomEvent('alert', {
+                                detail: { type: 'error', message: 'Stok habis! Tidak bisa menambahkan lagi.' }
+                            }));
+                            return;
+                        }
+
+                        const key = 'product_' + productId + '_fresh';
+                        const existing = this.cartItems.find(i => i.key === key);
+
+                        if (existing) {
+                            if (existing.qty >= maxStock) {
+                                window.dispatchEvent(new CustomEvent('alert', {
+                                    detail: { type: 'error', message: 'Stok tidak mencukupi!' }
+                                }));
+                                return;
+                            }
+                            existing.qty++;
+                        } else {
+                            this.cartItems.push({
+                                key: key,
+                                product_id: productId,
+                                name: name,
+                                price: price,
+                                image: image,
+                                type: 'fresh',
+                                qty: 1
+                            });
+                        }
+
+                        localStorage.setItem('abodafarm_cart', JSON.stringify(this.cartItems));
+                        window.dispatchEvent(new CustomEvent('cart-updated'));
+                        window.dispatchEvent(new CustomEvent('alert', {
+                            detail: { type: 'success', message: name + ' ditambahkan ke keranjang' }
+                        }));
+
+                        // Refresh stock after adding
+                        this.$nextTick(() => this.refreshStock());
+                    }
+                }">
                     @foreach ($productsFresh as $index => $product)
                         <article class="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-md"
                             data-aos="{{ $index % 2 === 0 ? 'fade-right' : 'fade-left' }}"
-                            data-aos-delay="{{ ($index % 3) * 100 }}">
-                            <img src="{{ $product['image'] }}" alt="{{ $product['name'] }}"
-                                class="h-56 w-full object-cover">
+                            data-aos-delay="{{ ($index % 3) * 100 }}"
+                            x-data="{ stockData: { stock: {{ $product['stock'] }}, status: '{{ $product['stock_status'] }}' } }">
+                            <div class="relative">
+                                <x-image
+                                    src="{{ $product['image'] }}"
+                                    alt="{{ $product['name'] }}"
+                                    type="product"
+                                    context="fresh-meat"
+                                    width="400"
+                                    height="224"
+                                    class="h-56 w-full object-cover"
+                                />
+                                {{-- Stock Badge --}}
+                                <div class="absolute left-3 top-3 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold shadow-sm"
+                                    :class="getStockStatus({{ $product['id'] }}) === 'out' ? 'bg-red-500 text-white' :
+                                           (getStockStatus({{ $product['id'] }}) === 'low' ? 'bg-amber-500 text-white' : 'bg-emerald-500 text-white')">
+                                    <template x-if="getStockStatus({{ $product['id'] }}) === 'out'">
+                                        <span><i class="fa-solid fa-ban mr-1"></i>Stok Habis</span>
+                                    </template>
+                                    <template x-if="getStockStatus({{ $product['id'] }}) === 'low'">
+                                        <span><i class="fa-solid fa-box-open mr-1"></i>Stok: <span x-text="getAvailableStock({{ $product['id'] }})"></span></span>
+                                    </template>
+                                    <template x-if="getStockStatus({{ $product['id'] }}) === 'ok'">
+                                        <span><i class="fa-solid fa-check mr-1"></i>Tersedia</span>
+                                    </template>
+                                </div>
+                                {{-- Cart Quantity Indicator --}}
+                                <template x-if="getQuantity({{ $product['id'] }}) > 0">
+                                    <div class="absolute right-3 top-3 rounded-full bg-blue-500 px-2 py-1 text-xs font-bold text-white shadow-sm">
+                                        <span x-text="getQuantity({{ $product['id'] }})"></span> di keranjang
+                                    </div>
+                                </template>
+                            </div>
                             <div class="space-y-3 p-5">
                                 <h3 class="line-clamp-1 text-lg font-semibold text-slate-900">{{ $product['name'] }}
                                 </h3>
@@ -209,22 +341,56 @@
                                 <div class="flex items-center justify-between">
                                     <span class="text-lg font-bold text-emerald-700">Rp
                                         {{ number_format($product['price']) }}</span>
-                                    <button
-                                        @click="
-                                            window.dispatchEvent(new CustomEvent('add-to-cart', {
-                                                detail: {
-                                                    id: {{ $product['id'] }},
-                                                    name: '{{ addslashes($product['name']) }}',
-                                                    price: {{ $product['price'] }},
-                                                    image: '{{ $product['image'] }}'
-                                                }
-                                            }));
-                                            $el.innerHTML = '<svg class=\'size-3 animate-spin inline\' viewBox=\'0 0 24 24\' fill=\'none\'><circle class=\'opacity-25\' cx=\'12\' cy=\'12\' r=\'10\' stroke=\'currentColor\' stroke-width=\'4\'></circle><path class=\'opacity-75\' fill=\'currentColor\' d=\'M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z\'></path></svg>';
-                                            setTimeout(() => { $el.innerHTML = 'Ditambahkan'; setTimeout(() => { $el.innerHTML = 'Tambah'; }, 800); }, 300);
-                                        "
-                                        class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700 active:scale-95">
-                                        Tambah
-                                    </button>
+                                    {{-- Stock Control Buttons --}}
+                                    <div class="flex items-center gap-2">
+                                        <template x-if="getQuantity({{ $product['id'] }}) > 0">
+                                            <div class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
+                                                <button
+                                                    type="button"
+                                                    @click="
+                                                        const key = 'product_' + {{ $product['id'] }} + '_fresh';
+                                                        const item = cartItems.find(i => i.key === key);
+                                                        if (item) {
+                                                            if (item.qty <= 1) {
+                                                                cartItems = cartItems.filter(i => i.key !== key);
+                                                            } else {
+                                                                item.qty--;
+                                                            }
+                                                            localStorage.setItem('abodafarm_cart', JSON.stringify(cartItems));
+                                                            window.dispatchEvent(new Event('cart-updated'));
+                                                            $forceUpdate();
+                                                        }
+                                                    "
+                                                    class="flex h-6 w-6 items-center justify-center rounded-md bg-white text-sm font-bold text-slate-600 shadow-sm transition hover:bg-emerald-50 hover:text-emerald-600">
+                                                    <i class="fa-solid fa-minus text-xs"></i>
+                                                </button>
+                                                <span class="min-w-[2rem] text-center text-sm font-semibold" x-text="getQuantity({{ $product['id'] }})"></span>
+                                                <button
+                                                    type="button"
+                                                    @click="addToCart({{ $product['id'] }}, '{{ addslashes($product['name']) }}', {{ $product['price'] }}, '{{ $product['image'] }}', productMaxStock[{{ $product['id'] }}])"
+                                                    :disabled="!canAdd({{ $product['id'] }})"
+                                                    :class="canAdd({{ $product['id'] }}) ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
+                                                    class="flex h-6 w-6 items-center justify-center rounded-md text-sm font-bold shadow-sm transition">
+                                                    <i class="fa-solid fa-plus text-xs"></i>
+                                                </button>
+                                            </div>
+                                        </template>
+                                        <template x-if="getQuantity({{ $product['id'] }}) === 0">
+                                            <button
+                                                type="button"
+                                                @click="addToCart({{ $product['id'] }}, '{{ addslashes($product['name']) }}', {{ $product['price'] }}, '{{ $product['image'] }}', productMaxStock[{{ $product['id'] }}])"
+                                                :disabled="!canAdd({{ $product['id'] }})"
+                                                :class="canAdd({{ $product['id'] }}) ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed'"
+                                                class="rounded-lg px-4 py-1.5 text-xs font-semibold text-white transition active:scale-95">
+                                                <template x-if="canAdd({{ $product['id'] }})">
+                                                    <span><i class="fa-solid fa-cart-plus mr-1"></i>Tambah</span>
+                                                </template>
+                                                <template x-if="!canAdd({{ $product['id'] }})">
+                                                    <span><i class="fa-solid fa-ban mr-1"></i>Habis</span>
+                                                </template>
+                                            </button>
+                                        </template>
+                                    </div>
                                 </div>
                             </div>
                         </article>

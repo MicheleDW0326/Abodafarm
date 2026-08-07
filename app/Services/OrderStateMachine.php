@@ -18,8 +18,8 @@ class OrderStateMachine
     // =========================================================================
     // CART ORDER TRANSITIONS (Fresh Meat / Pembelian)
     // =========================================================================
-    // Payment flow: pending -> paid -> fulfillment: processing -> shipped -> delivered -> completed
-    // Cancelled: can happen from pending, paid, processing
+    // Payment flow: pending -> paid -> processing -> ready_for_delivery -> shipped -> delivered -> completed
+    // Cancelled: can happen from pending, paid, processing, ready_for_delivery
 
     /**
      * Get valid next statuses for CART orders.
@@ -29,25 +29,24 @@ class OrderStateMachine
         $paymentStatus = $order->paymentStatusRelation?->code;
         $shipmentStatus = $order->shipmentStatusRelation?->code;
 
-        // Determine current stage
-        if ($paymentStatus === 'paid') {
-            // Payment completed, check fulfillment status
-            return match($shipmentStatus) {
-                'processing' => ['shipped', 'cancelled'],
-                'shipped' => ['delivered'],
-                'delivered' => ['completed'],
-                'completed', 'cancelled' => [], // Terminal
-                default => ['processing'], // From paid to processing
-            };
-        }
-
-        // Payment not completed yet
+        // Terminal shipment statuses
         if (in_array($shipmentStatus, ['completed', 'cancelled'])) {
             return []; // Terminal
         }
 
-        // Payment pending
-        return ['paid', 'cancelled'];
+        // Payment not completed yet - can only pay or cancel
+        if ($paymentStatus !== 'paid') {
+            return ['paid', 'cancelled'];
+        }
+
+        // Payment completed, check fulfillment status
+        return match($shipmentStatus) {
+            'processing' => ['ready_for_delivery', 'shipped', 'cancelled'],
+            'ready_for_delivery' => ['shipped', 'cancelled'],
+            'shipped' => ['delivered'],
+            'delivered' => ['completed'],
+            default => ['processing'], // Start fulfillment from paid
+        };
     }
 
     /**
@@ -58,26 +57,32 @@ class OrderStateMachine
         $bookingStatus = $order->bookingStatusRelation?->code;
         $shipmentStatus = $order->shipmentStatusRelation?->code;
 
-        // Booking approval stage
+        // Terminal booking statuses - no transitions allowed
+        if (in_array($bookingStatus, ['rejected'])) {
+            return [];
+        }
+
+        // Booking approval stage - pending booking needs approval/rejection
         if (in_array($bookingStatus, ['pending', null])) {
             return ['approved', 'rejected', 'cancelled'];
         }
 
-        // If approved, check fulfillment
-        if ($bookingStatus === 'approved') {
-            if (in_array($shipmentStatus, ['completed', 'cancelled'])) {
+        // After approval, handle fulfillment (shipping) flow
+        if (in_array($bookingStatus, ['approved', 'ready_for_delivery', 'survey_scheduled'])) {
+            // Already shipped/delivered/completed - terminal
+            if (in_array($shipmentStatus, ['delivered', 'completed', 'cancelled'])) {
                 return [];
             }
 
+            // Shipment flow
             return match($shipmentStatus) {
                 'processing' => ['shipped', 'cancelled'],
                 'shipped' => ['delivered'],
                 'delivered' => ['completed'],
-                default => ['processing'], // Start fulfillment
+                default => ['processing'], // Start fulfillment from approved booking
             };
         }
 
-        // Rejected or other terminal
         return [];
     }
 
@@ -189,16 +194,16 @@ class OrderStateMachine
      */
     protected static function updateStatusColumns(Order $order, string $toStatus): void
     {
-        // Determine which FK column to update
+        // Determine which FK column to update based on status category
         if (in_array($toStatus, ['pending', 'paid', 'payment_failed', 'payment_refunded'])) {
             // Payment status
             $statusId = OrderStatus::findIdByCode($toStatus);
             if ($statusId) {
                 $order->payment_status_id = $statusId;
-                $order->saveQuietly(); // Save without events
+                $order->saveQuietly();
             }
-        } elseif (in_array($toStatus, ['pending', 'approved', 'rejected'])) {
-            // Booking status
+        } elseif (in_array($toStatus, ['pending', 'approved', 'rejected', 'survey_scheduled', 'ready_for_delivery'])) {
+            // Booking status (includes intermediate booking statuses)
             $statusId = BookingStatus::findIdByCode($toStatus);
             if ($statusId) {
                 $order->booking_status_id = $statusId;

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\CustomAuthenticatedSessionController;
+use App\Http\Controllers\SitemapController;
 use App\Livewire\Admin\CustomerManagement;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
 use App\Livewire\Admin\FinancialReport;
@@ -28,6 +29,14 @@ use App\Livewire\Peternak\Wallet;
 use App\Livewire\Peternak\FarmProfileSettings;
 use App\Livewire\Peternak\AccountSettings;
 use App\Livewire\Peternak\IncomingBookings;
+use App\Livewire\Staff\Dashboard as StaffDashboard;
+use App\Livewire\Staff\History;
+use App\Livewire\Staff\Notifications as StaffNotifications;
+use App\Livewire\Staff\Operations;
+use App\Livewire\Staff\OrderDetail;
+use App\Livewire\Staff\OrdersList;
+use App\Livewire\Staff\Profile;
+use App\Livewire\Staff\Shipping;
 use App\Livewire\Pelanggan\MyBookings;
 use App\Livewire\Pelanggan\Dashboard;
 use App\Livewire\Pelanggan\MyProfile;
@@ -40,10 +49,16 @@ use App\Livewire\Customer\SubmitProductReview;
 use App\Livewire\Customer\SubmitFarmerReview;
 use App\Livewire\Admin\ReviewModeration;
 use App\Livewire\Admin\FarmerVerification;
+use App\Livewire\Location\ProvincePage;
+use App\Livewire\Location\RegencyPage;
+use App\Livewire\Location\CategoryLocationPage;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Admin\TemplateController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+// Sitemap (public, no auth required)
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 
 // Custom logout route (Fortify will use our custom controller for login)
 Route::middleware('auth')->group(function () {
@@ -59,6 +74,30 @@ Route::get('/checkout', Checkout::class)->name('checkout');
 // Shop - Feed & Farm Supplies
 Route::get('/shop', Shop::class)->name('shop');
 Route::get('/shop/{slug}', ProductDetail::class)->name('shop.product');
+
+// Local SEO - Location Pages (public routes for SEO indexing)
+// Use a constraint to avoid matching protected paths like /ternak, /pesanan, etc.
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/peternak', function () {
+        return redirect('/');
+    })->name('peternak.index');
+
+    // Only match if {province} contains a hyphen (indicating it's a slug like 'jawa-barat')
+    // and is NOT a protected route path like 'ternak', 'pesanan', etc.
+    Route::get('/peternak/{province}', ProvincePage::class)
+        ->name('peternak.province')
+        ->where('province', '[a-z]+(-[a-z]+)+');
+
+    Route::get('/peternak/{province}/{regency}', RegencyPage::class)
+        ->name('peternak.regency')
+        ->where('province', '[a-z]+(-[a-z]+)+')
+        ->where('regency', '[a-z]+(-[a-z]+)+');
+});
+
+// Local SEO - Category Location Pages
+Route::get('/ternak/{location}', CategoryLocationPage::class)->name('location.ternak');
+Route::get('/daging/{location}', CategoryLocationPage::class)->name('location.daging');
+Route::get('/pakan/{location}', CategoryLocationPage::class)->name('location.pakan');
 
 // Stock Check Routes (for cart validation)
 Route::get('/shop/check-stock/{productId}', function ($productId) {
@@ -116,6 +155,43 @@ Route::get('/shop/validate-cart/{productId}', function ($productId, \Illuminate\
     ]);
 })->name('shop.validate-cart');
 
+// Bulk stock check for multiple products (for cart real-time updates)
+Route::post('/shop/check-stock-bulk', function (\Illuminate\Http\Request $request) {
+    $productIds = $request->input('product_ids', []);
+
+    if (empty($productIds)) {
+        return response()->json([]);
+    }
+
+    $products = \App\Models\Product::whereIn('id', $productIds)
+        ->get()
+        ->keyBy('id');
+
+    $result = [];
+    foreach ($productIds as $productId) {
+        $product = $products->get($productId);
+        if ($product) {
+            $result[$productId] = [
+                'available' => $product->stock > 0 && $product->status === 'available',
+                'stock' => $product->stock,
+                'status' => $product->stock_status,
+                'message' => $product->stock > 0
+                    ? "Stok tersedia: {$product->stock} unit"
+                    : 'Stok habis',
+            ];
+        } else {
+            $result[$productId] = [
+                'available' => false,
+                'stock' => 0,
+                'status' => 'not_found',
+                'message' => 'Produk tidak ditemukan',
+            ];
+        }
+    }
+
+    return response()->json($result);
+})->name('shop.check-stock-bulk');
+
 // FCM Token Routes (web - session auth)
 Route::middleware(['auth'])->prefix('fcm-token')->group(function () {
     Route::post('/save', [App\Http\Controllers\Api\FcmController::class, 'saveToken'])->name('fcm-token.save');
@@ -155,14 +231,21 @@ Route::middleware(['auth', 'verified', 'check.admin'])
         Route::get('/pengaturan-toko', StoreSetting::class)->name('settings');
         Route::get('/pengaturan-akun', AdminAccountSettings::class)->name('account-settings');
         Route::get('/verifikasi-peternak', FarmerVerification::class)->name('farmer-verification');
+        Route::get('/promo', \App\Livewire\Admin\PromotionManagement::class)->name('promotions');
     });
 
 Route::middleware(['auth', 'verified', 'check.staff'])
     ->prefix('staff')
     ->name('staff.')
     ->group(function (): void {
-        Route::view('/', 'dashboard')->name('dashboard');
-        Route::get('/operasi', \App\Livewire\Staff\Operations::class)->name('operations');
+        Route::get('/', StaffDashboard::class)->name('dashboard');
+        Route::get('/pesanan', OrdersList::class)->name('orders.list');
+        Route::get('/pesanan/{id}', OrderDetail::class)->name('orders.detail');
+        Route::get('/pengiriman', Shipping::class)->name('shipping');
+        Route::get('/riwayat', History::class)->name('history');
+        Route::get('/operasional', Operations::class)->name('operations');
+        Route::get('/notifikasi', StaffNotifications::class)->name('notifications');
+        Route::get('/profil', Profile::class)->name('profile');
     });
 
 Route::middleware(['auth', 'verified', 'check.peternak'])
@@ -190,6 +273,7 @@ Route::middleware(['auth', 'verified', 'check.peternak'])
         Route::get('/penjualan', SalesHistory::class)->name('sales');
         Route::get('/dompet', Wallet::class)->name('wallet');
         Route::get('/profil', FarmProfileSettings::class)->name('profile');
+        Route::get('/ulasan', \App\Livewire\Peternak\MyReviews::class)->name('reviews');
         Route::get('/notifikasi', Notifications::class)->name('notifications');
         Route::get('/pengaturan', AccountSettings::class)->name('settings');
         Route::get('/pengaturan/password', AccountSettings::class)->name('settings.password');

@@ -82,8 +82,16 @@
             @endforelse
         </div>
 
+        @php
+            $notificationRoute = match(true) {
+                auth()->user()?->hasRole('admin') => 'admin.notifications',
+                auth()->user()?->hasRole('staf') => 'staff.notifications',
+                auth()->user()?->hasRole('peternak') => 'peternak.notifications',
+                default => 'pelanggan.notifications',
+            };
+        @endphp
         <a
-            href="{{ route('peternak.notifications') }}"
+            href="{{ route($notificationRoute) }}"
             class="block border-t border-slate-100 px-4 py-3 text-center text-sm font-medium text-emerald-600 hover:bg-slate-50"
         >
             Lihat semua notifikasi

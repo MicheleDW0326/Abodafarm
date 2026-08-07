@@ -59,6 +59,27 @@ class Order extends Model
         'payment_status_id',
         'booking_status_id',
         'shipment_status_id',
+        // Staff assignment fields
+        'assigned_staff_id',
+        'assigned_at',
+        'assigned_by',
+        // Delivery fields
+        'estimated_delivery_time',
+        'delivery_notes',
+        'vehicle_info',
+        'courier_name',
+        'delivery_started_at',
+        // Delivery proof fields
+        'receiver_name',
+        'delivery_photo',
+        'delivery_note',
+        'delivery_completed_at',
+        'delivery_latitude',
+        'delivery_longitude',
+        // Completion fields
+        'completed_at',
+        'completed_by_customer',
+        'completed_automatically',
     ];
 
     // =========================================================================
@@ -71,12 +92,24 @@ class Order extends Model
             'preferred_delivery_date' => 'date',
             'shipped_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'assigned_at' => 'datetime',
+            'estimated_delivery_time' => 'datetime',
+            'delivery_started_at' => 'datetime',
+            'delivery_completed_at' => 'datetime',
+            'delivery_latitude' => 'decimal:8',
+            'delivery_longitude' => 'decimal:8',
+            'completed_at' => 'datetime',
+            'completed_by_customer' => 'boolean',
+            'completed_automatically' => 'boolean',
             'total_amount' => 'decimal:0',
             'total_items' => 'integer',
             // Enum casts for new FK columns
             'payment_status_id' => 'integer',
             'booking_status_id' => 'integer',
             'shipment_status_id' => 'integer',
+            // Staff assignment
+            'assigned_staff_id' => 'integer',
+            'assigned_by' => 'integer',
         ];
     }
 
@@ -86,6 +119,16 @@ class Order extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function assignedStaff(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_staff_id');
+    }
+
+    public function assignedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
     }
 
     public function items(): HasMany
@@ -372,6 +415,16 @@ class Order extends Model
         return $query->where('user_id', $userId)->where('order_type', self::TYPE_CART);
     }
 
+    public function scopeAssignedToStaff($query, int $staffId)
+    {
+        return $query->where('assigned_staff_id', $staffId);
+    }
+
+    public function scopeUnassigned($query)
+    {
+        return $query->whereNull('assigned_staff_id');
+    }
+
     public function scopeWithOwnedProducts($query, int $userId)
     {
         return $query->whereHas('items.product', fn($q) => $q->where('owner_id', $userId));
@@ -532,5 +585,246 @@ class Order extends Model
     public function getLastStatusLog(): ?OrderStatusLog
     {
         return $this->statusLogs()->latest('created_at')->first();
+    }
+
+    // =========================================================================
+    // STAFF ASSIGNMENT HELPERS
+    // =========================================================================
+
+    public function isAssigned(): bool
+    {
+        return $this->assigned_staff_id !== null;
+    }
+
+    public function isAssignedTo(int $staffId): bool
+    {
+        return $this->assigned_staff_id === $staffId;
+    }
+
+    public function getAssignedStaffName(): ?string
+    {
+        return $this->assignedStaff?->name;
+    }
+
+    public function getAssignedByName(): ?string
+    {
+        return $this->assignedByUser?->name;
+    }
+
+    // =========================================================================
+    // DELIVERY HELPERS
+    // =========================================================================
+
+    /**
+     * Check if order is ready for delivery (staff can start delivery).
+     */
+    public function isReadyForDelivery(): bool
+    {
+        return in_array($this->status, ['paid', 'approved', 'processing', 'ready_to_ship']);
+    }
+
+    /**
+     * Check if delivery has started (order is being shipped).
+     */
+    public function isInDelivery(): bool
+    {
+        return $this->status === self::STATUS_SHIPPED;
+    }
+
+    /**
+     * Check if order has been delivered.
+     */
+    public function isDelivered(): bool
+    {
+        return in_array($this->status, [self::STATUS_DELIVERED, self::STATUS_COMPLETED]);
+    }
+
+    /**
+     * Check if staff can manage this order's delivery.
+     */
+    public function canStaffManageDelivery(?int $staffId): bool
+    {
+        // Staff can only manage orders assigned to them
+        if ($staffId === null) {
+            return false;
+        }
+
+        return $this->isAssignedTo($staffId);
+    }
+
+    /**
+     * Get formatted estimated delivery time.
+     */
+    public function getFormattedEstimatedDelivery(): ?string
+    {
+        if (!$this->estimated_delivery_time) {
+            return null;
+        }
+
+        return $this->estimated_delivery_time->translatedFormat('d M Y, H:i');
+    }
+
+    /**
+     * Get delivery status label.
+     */
+    public function getDeliveryStatusLabel(): string
+    {
+        if ($this->isDelivered()) {
+            return 'Selesai';
+        }
+
+        if ($this->isInDelivery()) {
+            return 'Sedang Dikirim';
+        }
+
+        if ($this->isReadyForDelivery()) {
+            return 'Siap Dikirim';
+        }
+
+        return 'Menunggu';
+    }
+
+    // =========================================================================
+    // DELIVERY PROOF HELPERS
+    // =========================================================================
+
+    /**
+     * Check if order has delivery proof.
+     */
+    public function hasDeliveryProof(): bool
+    {
+        return $this->receiver_name !== null || $this->delivery_photo !== null;
+    }
+
+    /**
+     * Get delivery photo URL.
+     */
+    public function getDeliveryPhotoUrl(): ?string
+    {
+        if (!$this->delivery_photo) {
+            return null;
+        }
+
+        return asset('storage/' . $this->delivery_photo);
+    }
+
+    /**
+     * Check if has GPS location.
+     */
+    public function hasGpsLocation(): bool
+    {
+        return $this->delivery_latitude !== null && $this->delivery_longitude !== null;
+    }
+
+    /**
+     * Get GPS location as array.
+     */
+    public function getGpsLocation(): ?array
+    {
+        if (!$this->hasGpsLocation()) {
+            return null;
+        }
+
+        return [
+            'latitude' => (float) $this->delivery_latitude,
+            'longitude' => (float) $this->delivery_longitude,
+            'google_maps_url' => "https://www.google.com/maps?q={$this->delivery_latitude},{$this->delivery_longitude}",
+        ];
+    }
+
+    /**
+     * Get formatted delivery completed time.
+     */
+    public function getFormattedDeliveryCompletedAt(): ?string
+    {
+        if (!$this->delivery_completed_at) {
+            return null;
+        }
+
+        return $this->delivery_completed_at->translatedFormat('d M Y, H:i');
+    }
+
+    // =========================================================================
+    // COMPLETION HELPERS
+    // =========================================================================
+
+    /**
+     * Check if order is awaiting customer confirmation.
+     */
+    public function isAwaitingConfirmation(): bool
+    {
+        return $this->status === self::STATUS_DELIVERED;
+    }
+
+    /**
+     * Check if order was completed by customer.
+     */
+    public function isCompletedByCustomer(): bool
+    {
+        return $this->completed_by_customer === true;
+    }
+
+    /**
+     * Check if order was automatically completed.
+     */
+    public function isCompletedAutomatically(): bool
+    {
+        return $this->completed_automatically === true;
+    }
+
+    /**
+     * Check if order is fully completed.
+     */
+    public function isFullyCompleted(): bool
+    {
+        return $this->status === self::STATUS_COMPLETED;
+    }
+
+    /**
+     * Get completion method label.
+     */
+    public function getCompletionMethodLabel(): string
+    {
+        if (!$this->isFullyCompleted()) {
+            return '-';
+        }
+
+        if ($this->isCompletedAutomatically()) {
+            return 'Otomatis';
+        }
+
+        if ($this->isCompletedByCustomer()) {
+            return 'Pelanggan';
+        }
+
+        return 'Manual';
+    }
+
+    /**
+     * Get formatted completion time.
+     */
+    public function getFormattedCompletedAt(): ?string
+    {
+        if (!$this->completed_at) {
+            return null;
+        }
+
+        return $this->completed_at->translatedFormat('d M Y, H:i');
+    }
+
+    /**
+     * Check if auto-completion should trigger.
+     */
+    public function shouldAutoComplete(int $autoCompleteDays = 3): bool
+    {
+        if (!$this->isAwaitingConfirmation()) {
+            return false;
+        }
+
+        if (!$this->delivery_completed_at) {
+            return false;
+        }
+
+        return $this->delivery_completed_at->addDays($autoCompleteDays)->isPast();
     }
 }

@@ -172,28 +172,30 @@ class PermissionSeeder extends Seeder
         // Admin: Full access
         $admin->givePermissionTo(Permission::all());
 
-        // Staff: Similar to admin but no delete users
+        // Staff: Operational tasks only - no management capabilities
+        // Per requirements:
+        // CAN: View assigned orders, View order details, View customer info, View shipping info,
+        //      Update shipping status, Upload delivery proof (future), View notifications, Update own profile
+        // CANNOT: Manage products, Manage categories, Manage users, Manage roles, Manage permissions,
+        //         Manage bookings, Manage finances, Manage reports, Import Excel, Export Finance,
+        //         Delete orders, Refund payments, Change product stock, Approve livestock booking
         $stafPermissions = [
-            // Orders
-            'orders.view', 'orders.view-own', 'orders.create', 'orders.update',
-            'orders.update-own', 'orders.cancel', 'orders.approve', 'orders.reject',
-            'orders.process', 'orders.ship', 'orders.deliver', 'orders.complete',
-            // Products
-            'products.view', 'products.create', 'products.update', 'products.delete',
-            // Reviews
-            'reviews.view', 'reviews.create', 'reviews.update', 'reviews.update-own',
-            'reviews.delete', 'reviews.delete-own', 'reviews.moderate', 'reviews.flag',
-            // Farm Profiles
-            'farm-profiles.view', 'farm-profiles.create', 'farm-profiles.update',
-            // Addresses
-            'addresses.view', 'addresses.create', 'addresses.update', 'addresses.delete',
-            // Users
-            'users.view', 'users.create', 'users.update',
-            // Categories
-            'categories.view', 'categories.create', 'categories.update',
-            // Reports
-            'reports.view', 'reports.export',
-            // Settings
+            // Orders - View and update shipping status only
+            'orders.view',
+            'orders.update', // Update shipping status
+            'orders.process',
+            'orders.ship',
+            'orders.deliver',
+            // Products - View only, no management
+            'products.view',
+            // Reviews - Moderate assigned reviews
+            'reviews.view',
+            'reviews.moderate',
+            // Farm Profiles - View only
+            'farm-profiles.view',
+            // Addresses - View customer addresses for delivery
+            'addresses.view',
+            // Settings - View and update own profile only
             'settings.view',
         ];
         $staf->givePermissionTo($stafPermissions);

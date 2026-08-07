@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\FcmController;
+use App\Http\Controllers\Api\FavoriteController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ProductController;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,13 @@ Route::prefix('payments')->group(function () {
 
     // Get payment status
     Route::get('/status', [PaymentController::class, 'status'])->name('api.payments.status');
+});
+
+// Favorite/Wishlist Routes (auth required)
+Route::middleware(['auth'])->prefix('favorites')->group(function () {
+    Route::post('/toggle', [FavoriteController::class, 'toggle'])->name('api.favorites.toggle');
+    Route::post('/check', [FavoriteController::class, 'check'])->name('api.favorites.check');
+    Route::get('/count', [FavoriteController::class, 'count'])->name('api.favorites.count');
 });
 
 // FCM Token Routes (Sanctum - for mobile API)

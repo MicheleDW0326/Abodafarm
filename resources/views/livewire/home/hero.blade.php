@@ -8,6 +8,9 @@
         activeSlide: 0,
         slides: @js($heroSlides),
         timer: null,
+        get currentSlideImage() {
+            return this.slides[this.activeSlide]?.image || '';
+        },
         init() {
             this.timer = setInterval(() => {
                 this.nextSlide()
@@ -71,14 +74,25 @@
         <div class="relative">
             <div class="absolute -inset-4 -z-10 rounded-4xl bg-linear-to-br from-sky-400/20 to-emerald-300/20 blur-2xl">
             </div>
-            <img :src="slides[activeSlide].image" alt="Hero AbodaFarm"
-                class="h-96 w-full rounded-4xl object-cover shadow-2xl shadow-slate-300/70 sm:h-115 transition-all duration-700 ease-out"
+            <div
                 x-transition:enter="transition ease-out duration-700"
                 x-transition:enter-start="opacity-0 scale-105"
                 x-transition:enter-end="opacity-100 scale-100"
                 x-transition:leave="transition ease-in duration-500"
                 x-transition:leave-start="opacity-100 scale-100"
-                x-transition:leave-end="opacity-0 scale-95">
+                x-transition:leave-end="opacity-0 scale-95"
+            >
+                <x-image
+                    x-bind:src="currentSlideImage"
+                    alt="Hero Banner"
+                    type="hero"
+                    width="800"
+                    height="600"
+                    loading="eager"
+                    decoding="async"
+                    class="h-96 w-full rounded-4xl object-cover shadow-2xl shadow-slate-300/70 sm:h-115"
+                />
+            </div>
         </div>
     </div>
 </section>

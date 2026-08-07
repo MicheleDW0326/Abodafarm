@@ -16,7 +16,28 @@ class CheckStaff
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (! Auth::check() || ! Auth::user()?->hasRole('staf')) {
+        if (! Auth::check()) {
+            return to_route('login');
+        }
+
+        $user = Auth::user();
+
+        // Prevent admin from accessing staff pages
+        if ($user->hasRole('admin')) {
+            return to_route('admin.dashboard');
+        }
+
+        // Prevent farmer from accessing staff pages
+        if ($user->hasRole('peternak')) {
+            return to_route('peternak.dashboard');
+        }
+
+        // Prevent customer from accessing staff pages
+        if ($user->hasRole('pelanggan')) {
+            return to_route('pelanggan.dashboard');
+        }
+
+        if (! $user->hasRole('staf')) {
             abort(403);
         }
 

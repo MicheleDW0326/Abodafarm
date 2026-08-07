@@ -285,7 +285,28 @@ class ReviewService
      */
     public static function approveReview(Review $review): void
     {
-        $review->update(['status' => ReviewStatusEnum::APPROVED->value]);
+        $review->update([
+            'status' => ReviewStatusEnum::APPROVED->value,
+            'is_visible' => true,
+        ]);
+        self::recalculateRating($review);
+    }
+
+    /**
+     * Hide a review (make it invisible without deleting).
+     */
+    public static function hideReview(Review $review): void
+    {
+        $review->update(['is_visible' => false]);
+        self::recalculateRating($review);
+    }
+
+    /**
+     * Show a hidden review.
+     */
+    public static function showReview(Review $review): void
+    {
+        $review->update(['is_visible' => true]);
         self::recalculateRating($review);
     }
 
@@ -320,11 +341,11 @@ class ReviewService
         }
 
         return [
-            5 => round((($product->rating_5_count ?? 0) / $total * 100, 1),
-            4 => round((($product->rating_4_count ?? 0) / $total * 100, 1),
-            3 => round((($product->rating_3_count ?? 0) / $total * 100, 1),
-            2 => round((($product->rating_2_count ?? 0) / $total * 100, 1),
-            1 => round((($product->rating_1_count ?? 0) / $total * 100, 1),
+            5 => round((($product->rating_5_count ?? 0) / $total) * 100, 1),
+            4 => round((($product->rating_4_count ?? 0) / $total) * 100, 1),
+            3 => round((($product->rating_3_count ?? 0) / $total) * 100, 1),
+            2 => round((($product->rating_2_count ?? 0) / $total) * 100, 1),
+            1 => round((($product->rating_1_count ?? 0) / $total) * 100, 1),
         ];
     }
 }

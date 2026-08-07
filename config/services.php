@@ -13,6 +13,56 @@ return [
     | a conventional file to locate the various service credentials.
     |
     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Search Console & Webmaster Verification
+    |--------------------------------------------------------------------------
+    */
+    'google' => [
+        // Google Search Console verification meta tag content
+        'site_verification' => env('GOOGLE_SITE_VERIFICATION'),
+
+        // Google Analytics 4 Measurement ID (G-XXXXXXXXXX)
+        'analytics_id' => env('GOOGLE_ANALYTICS_ID'),
+
+        // Google Tag Manager Container ID (GTM-XXXXXXX)
+        'tag_manager_id' => env('GOOGLE_TAG_MANAGER_ID'),
+    ],
+
+    'bing' => [
+        // Bing Webmaster Center verification code
+        'site_verification' => env('BING_SITE_VERIFICATION'),
+    ],
+
+    'yandex' => [
+        // Yandex Webmaster verification code
+        'site_verification' => env('YANDEX_SITE_VERIFICATION'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Analytics & Tracking
+    |--------------------------------------------------------------------------
+    */
+    'clarity' => [
+        // Microsoft Clarity Project ID
+        'project_id' => env('CLARITY_PROJECT_ID'),
+    ],
+
+    'facebook' => [
+        // Facebook Pixel ID
+        'pixel_id' => env('FACEBOOK_PIXEL_ID'),
+
+        // Enable automatic PageView tracking
+        'pixel_events_enabled' => env('FACEBOOK_PIXEL_EVENTS_ENABLED', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Payment Gateway
+    |--------------------------------------------------------------------------
+    */
     'midtrans' => [
 
         'server_key' => env('MIDTRANS_SERVER_KEY'),
@@ -27,6 +77,11 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Push Notifications
+    |--------------------------------------------------------------------------
+    */
     'fcm' => [
         'server_key' => env('FCM_SERVER_KEY'),
         'project_id' => env('FCM_PROJECT_ID'),

@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Admin;
 
+use App\Events\OrderAssignedToStaff;
 use App\Events\OrderStatusChanged;
 use App\Models\Order;
 use App\Models\OrderStatusLog;
+use App\Services\NotificationService;
 use App\Services\OrderStateMachine;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -42,6 +44,11 @@ class OrderManagement extends Component
     // Status change
     public bool $showStatusModal = false;
     public string $newStatus = '';
+
+    // Staff Selection
+    public bool $showStaffSelection = false;
+    public ?Order $orderForAssignment = null;
+    public string $staffSearchQuery = '';
 
     // Status options
     public array $statusOptions = [
@@ -143,6 +150,9 @@ class OrderManagement extends Component
         }
 
         $count = 0;
+        $failed = 0;
+        $failedMessages = [];
+
         foreach ($this->selectedOrders as $orderId) {
             $order = Order::find($orderId);
             if ($order) {
@@ -166,17 +176,34 @@ class OrderManagement extends Component
                         'Bulk update status oleh admin'
                     ));
                     $count++;
+                } else {
+                    $failed++;
+                    $failedMessages[] = $order->order_number . ': ' . $result['message'];
                 }
             }
         }
 
         $this->clearSelection();
 
-        $this->dispatch('showAlert', [
-            'type' => 'success',
-            'title' => 'Berhasil!',
-            'message' => "{$count} pesanan berhasil diupdate ke status '{$this->statusOptions[$status]}'"
-        ]);
+        if ($failed > 0 && $count === 0) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'Gagal!',
+                'message' => "Tidak ada pesanan yang dapat diupdate. " . implode('; ', $failedMessages)
+            ]);
+        } elseif ($failed > 0) {
+            $this->dispatch('showAlert', [
+                'type' => 'warning',
+                'title' => 'Sebagian Berhasil!',
+                'message' => "{$count} pesanan berhasil diupdate, {$failed} gagal."
+            ]);
+        } else {
+            $this->dispatch('showAlert', [
+                'type' => 'success',
+                'title' => 'Berhasil!',
+                'message' => "{$count} pesanan berhasil diupdate ke status '{$this->statusOptions[$status]}'"
+            ]);
+        }
     }
 
     public function viewOrder(Order $order)
@@ -242,9 +269,10 @@ class OrderManagement extends Component
                 'message' => 'Status pesanan berhasil diupdate!'
             ]);
         } else {
+            // Validation errors should use warning icon
             $this->dispatch('showAlert', [
-                'type' => 'error',
-                'title' => 'Gagal!',
+                'type' => 'warning',
+                'title' => 'Tidak Dapat Mengubah Status',
                 'message' => $result['message']
             ]);
         }
@@ -253,6 +281,86 @@ class OrderManagement extends Component
     public function getValidNextStatuses(Order $order): array
     {
         return OrderStateMachine::getValidNextStatuses($order);
+    }
+
+    // =====================================================
+    // STAFF ASSIGNMENT METHODS
+    // =====================================================
+
+    public function openStaffSelection(Order $order)
+    {
+        $this->orderForAssignment = $order;
+        $this->showStaffSelection = true;
+    }
+
+    public function closeStaffSelection()
+    {
+        $this->showStaffSelection = false;
+        $this->orderForAssignment = null;
+    }
+
+    public function assignStaffToOrder(Order $order, int $staffId)
+    {
+        $staff = \App\Models\User::find($staffId);
+
+        if (!$staff) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'Gagal!',
+                'message' => 'Staff tidak ditemukan.',
+            ]);
+            return;
+        }
+
+        if (!$staff->hasRole('staf')) {
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'Gagal!',
+                'message' => 'Pengguna yang dipilih bukan staff.',
+            ]);
+            return;
+        }
+
+        // Update order assignment
+        $order->update([
+            'assigned_staff_id' => $staff->id,
+            'assigned_at' => now(),
+            'assigned_by' => auth()->id(),
+        ]);
+
+        // Log status change
+        OrderStatusLog::create([
+            'order_id' => $order->id,
+            'from_status' => $order->getOriginal('status') ?? null,
+            'to_status' => $order->status,
+            'triggered_by_type' => OrderStatusLog::TRIGGER_ADMIN,
+            'triggered_by_id' => auth()->id(),
+            'notes' => "Admin menugaskan pesanan ke {$staff->name}",
+        ]);
+
+        // Fire event
+        event(new OrderAssignedToStaff(
+            $order->fresh(),
+            $staff,
+            auth()->user()
+        ));
+
+        // Send notification
+        app(NotificationService::class)->orderAssignedToStaff($staff, $order, auth()->user());
+
+        // Refresh selected order if it's the same
+        if ($this->selectedOrder && $this->selectedOrder->id === $order->id) {
+            $this->selectedOrder = $order->fresh(['items', 'user', 'statusLogs.triggeredBy', 'assignedStaff', 'assignedByUser']);
+            $this->selectedOrderTimeline = $this->selectedOrder->timeline_data;
+        }
+
+        $this->closeStaffSelection();
+
+        $this->dispatch('showAlert', [
+            'type' => 'success',
+            'title' => 'Berhasil!',
+            'message' => "Pesanan {$order->order_number} ditugaskan ke {$staff->name}.",
+        ]);
     }
 
     public function getOrderStats(): array
@@ -283,7 +391,7 @@ class OrderManagement extends Component
     protected function getOrdersQuery()
     {
         return Order::query()
-            ->with(['user', 'statusLogs'])
+            ->with(['user', 'statusLogs', 'assignedStaff'])
             ->when($this->searchQuery, function ($query) {
                 $query->where(function ($q) {
                     $q->where('order_number', 'like', '%' . $this->searchQuery . '%')

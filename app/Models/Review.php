@@ -33,6 +33,7 @@ class Review extends Model
         'content',
         'title',
         'status',
+        'is_visible',
         'admin_notes',
         'ip_address',
         'user_agent',
@@ -45,6 +46,7 @@ class Review extends Model
     {
         return [
             'rating' => 'integer',
+            'is_visible' => 'boolean',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
         ];
@@ -154,8 +156,8 @@ class Review extends Model
      */
     public function getReviewerAvatarAttribute(): ?string
     {
-        if ($this->user?->avatar) {
-            return asset('storage/' . $this->user->avatar);
+        if ($this->user?->farmProfile?->image) {
+            return asset('storage/' . $this->user->farmProfile->image);
         }
         return null;
     }
@@ -206,6 +208,11 @@ class Review extends Model
     public function scopePending($query)
     {
         return $query->where('status', self::STATUS_PENDING);
+    }
+
+    public function scopeVisible($query)
+    {
+        return $query->where('is_visible', true);
     }
 
     public function scopeForProduct($query, int $productId)

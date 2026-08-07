@@ -62,11 +62,57 @@ class MyFavorites extends Component
         Favorite::toggle(auth()->id(), Product::class, $productId);
         $this->loadFavorites();
 
+        $this->dispatch('wishlist-updated');
         $this->dispatch('notify', [
             'type' => 'success',
             'title' => 'Berhasil',
             'message' => 'Produk dihapus dari favorit.',
         ]);
+    }
+
+    public function moveToCart(int $productId): void
+    {
+        $product = Product::find($productId);
+
+        if (!$product || $product->stock <= 0) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'title' => 'Gagal',
+                'message' => 'Stok produk tidak tersedia.',
+            ]);
+            return;
+        }
+
+        $this->dispatch('add-to-cart-from-wishlist', [
+            'product_id' => $productId,
+            'name' => $product->name,
+            'price' => $product->current_price,
+            'image' => $product->image_url,
+            'type' => $product->type,
+            'max_stock' => $product->stock,
+        ]);
+
+        $this->dispatch('notify', [
+            'type' => 'success',
+            'title' => 'Berhasil',
+            'message' => 'Produk dipindahkan ke keranjang.',
+        ]);
+    }
+
+    public function bookProduct(int $productId): void
+    {
+        $product = Product::find($productId);
+
+        if (!$product) {
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'title' => 'Gagal',
+                'message' => 'Produk tidak ditemukan.',
+            ]);
+            return;
+        }
+
+        $this->redirectRoute('shop.product', $product->slug);
     }
 
     public function updatedTypeFilter(): void

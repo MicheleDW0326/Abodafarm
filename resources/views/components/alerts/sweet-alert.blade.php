@@ -1,33 +1,62 @@
 @push('scripts')
 <script>
     document.addEventListener('livewire:initialized', () => {
+        // Map type to icon for consistent styling
+        const iconMap = {
+            'success': { icon: 'success', color: '#10b981' },  // green
+            'error': { icon: 'error', color: '#ef4444' },       // red
+            'warning': { icon: 'warning', color: '#f59e0b' },  // yellow/amber
+            'info': { icon: 'info', color: '#3b82f6' },        // blue
+            'validation': { icon: 'warning', color: '#f59e0b' }, // yellow for validation errors
+        };
+
+        // Default titles per type
+        const defaultTitles = {
+            'success': 'Berhasil!',
+            'error': 'Gagal!',
+            'warning': 'Perhatian!',
+            'info': 'Informasi',
+            'validation': 'Validasi Gagal',
+        };
+
         // Listen untuk notification events dari semua komponen Livewire
-        Livewire.on('showAlert', (data) => {
-            const { title, message, type = 'success', icon = 'success', confirmText = 'OK' } = data[0];
+        Livewire.on('showAlert', (eventData) => {
+            // Handle both array and direct object format
+            const data = Array.isArray(eventData) ? eventData[0] : eventData;
+            const { title, message, type = 'success', icon, confirmText = 'OK' } = data || {};
+
+            // Determine icon based on type or explicit icon parameter
+            const iconConfig = iconMap[type] || iconMap.success;
+            const finalIcon = icon || iconConfig.icon;
+            const finalTitle = title || defaultTitles[type] || defaultTitles.success;
 
             Swal.fire({
-                title: title || (type === 'success' ? 'Berhasil!' : 'Error!'),
+                title: finalTitle,
                 text: message,
-                icon: icon || (type === 'success' ? 'success' : 'error'),
-                confirmButtonColor: '#1A7FA8',
+                icon: finalIcon,
+                confirmButtonColor: iconConfig.color,
                 confirmButtonText: confirmText,
                 allowOutsideClick: false,
                 allowEscapeKey: false,
-                timer: type === 'success' ? 2000 : null,
+                timer: type === 'success' ? 3000 : null,
                 timerProgressBar: type === 'success'
             });
         });
 
         // Listen untuk confirm dialog - call server method via wire:id
-        Livewire.on('showConfirm', (data) => {
-            const { title, message, confirmText = 'Ya', cancelText = 'Tidak', confirmAction, componentId } = data[0] || {};
+        Livewire.on('showConfirm', (eventData) => {
+            // Handle both array and direct object format
+            const data = Array.isArray(eventData) ? eventData[0] : eventData;
+            const { title, message, confirmText = 'Ya', cancelText = 'Tidak', confirmAction, componentId, type = 'warning' } = data || {};
+
+            const iconConfig = iconMap[type] || iconMap.warning;
 
             Swal.fire({
                 title: title || 'Konfirmasi',
                 text: message,
-                icon: 'warning',
+                icon: iconConfig.icon,
                 showCancelButton: true,
-                confirmButtonColor: '#dc2626',
+                confirmButtonColor: iconConfig.color,
                 cancelButtonColor: '#6b7280',
                 confirmButtonText: confirmText,
                 cancelButtonText: cancelText

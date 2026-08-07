@@ -189,8 +189,14 @@
                         <button @click="activeImage = {{ $index }}"
                                 :class="activeImage === {{ $index }} ? 'ring-2 ring-emerald-500 ring-offset-2' : 'opacity-70 hover:opacity-100'"
                                 class="shrink-0 overflow-hidden rounded-lg border-2 border-slate-200 transition">
-                            <img src="{{ $image }}" alt="Thumbnail {{ $index + 1 }}"
-                                 class="size-20 object-cover">
+                            <x-image
+                                src="{{ $image }}"
+                                alt="Thumbnail {{ $index + 1 }}"
+                                type="thumbnail"
+                                width="80"
+                                height="80"
+                                class="size-20 object-cover"
+                            />
                         </button>
                     @endforeach
                 </div>
@@ -555,12 +561,21 @@
         </section>
     @endif
 
-    <!-- Related Products -->
-    @if(count($relatedProducts) > 0)
+    <!-- Recommendations Section -->
+    @if(count($recommendations) > 0)
         <section class="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
-            <h2 class="text-xl font-bold text-slate-900">Produk Terkait</h2>
-            <div class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                @foreach($relatedProducts as $related)
+            <div class="mb-6 flex items-center gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                    <i class="fa-solid fa-thumbs-up"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">{{ $recommendationTitle }}</h2>
+                    <p class="text-sm text-slate-500">Berdasarkan histori transaksi Anda</p>
+                </div>
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                @foreach($recommendations as $related)
                     <article class="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
                         <a href="{{ route('shop.product', $related['slug']) }}" class="block">
                             <div class="aspect-square overflow-hidden bg-slate-100">
@@ -572,6 +587,19 @@
                                         <i class="fa-solid fa-box text-3xl text-slate-300"></i>
                                     </div>
                                 @endif
+
+                                <!-- Category Badge -->
+                                @if(isset($related['category_type']) && $related['category_type'])
+                                    @if($related['category_type'] === 'feed')
+                                        <span class="absolute left-2 top-2 rounded-lg bg-amber-500 px-2 py-1 text-[10px] font-bold text-white">
+                                            <i class="fa-solid fa-wheat-awn mr-1"></i>Pakan
+                                        </span>
+                                    @elseif($related['category_type'] === 'supplement')
+                                        <span class="absolute left-2 top-2 rounded-lg bg-blue-500 px-2 py-1 text-[10px] font-bold text-white">
+                                            <i class="fa-solid fa-capsules mr-1"></i>Suplemen
+                                        </span>
+                                    @endif
+                                @endif
                             </div>
                         </a>
                         <div class="p-4">
@@ -581,10 +609,15 @@
                                     {{ $related['name'] }}
                                 </h3>
                             </a>
-                            <div class="mt-2">
+                            <div class="mt-2 flex items-center justify-between">
                                 <span class="text-lg font-bold text-emerald-600">
-                                    {{ $related['formatted_current_price'] }}
+                                    {{ $related['price'] }}
                                 </span>
+                                @if($related['has_discount'])
+                                    <span class="rounded bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-600">
+                                        Sale
+                                    </span>
+                                @endif
                             </div>
                         </div>
                     </article>

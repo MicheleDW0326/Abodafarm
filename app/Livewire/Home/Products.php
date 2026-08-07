@@ -399,6 +399,9 @@ class Products extends Component
             $this->showSuccessModal = true;
             $this->closeBookingModal();
 
+            // Dispatch alert notification
+            $this->dispatch('alert', type: 'success', message: 'Booking berhasil diajukan! Kode booking: ' . $order->order_number);
+
         } catch (\Exception $e) {
             \Log::error('Booking submission error: ' . $e->getMessage(), [
                 'user_id' => auth()->id(),

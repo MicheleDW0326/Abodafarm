@@ -227,6 +227,9 @@ class MidtransService
     ): bool {
         $fromStatus = $order->status;
 
+        // Check if stock has already been decremented (idempotency)
+        $stockAlreadyDecremented = $order->order_type === Order::TYPE_CART && $payment->paid_at !== null;
+
         // Update payment
         $payment->paid_at = now();
         $payment->transaction_status = Payment::STATUS_SETTLEMENT;
@@ -245,6 +248,11 @@ class MidtransService
         );
 
         if ($paymentResult['success']) {
+            // Decrement stock only for cart orders (fresh meat) and only once
+            if (!$stockAlreadyDecremented) {
+                self::decrementOrderStock($order);
+            }
+
             // Dispatch events
             event(new PaymentReceived($order, $payment, $transactionStatus->transaction_id));
             event(new OrderStatusChanged(
@@ -260,9 +268,32 @@ class MidtransService
         Log::info('Order marked as paid via FK transition', [
             'order_id' => $order->id,
             'transaction_id' => $transactionStatus->transaction_id,
+            'stock_decremented' => !$stockAlreadyDecremented && $order->order_type === Order::TYPE_CART,
         ]);
 
         return true;
+    }
+
+    /**
+     * Decrement stock for all items in an order.
+     */
+    protected static function decrementOrderStock(Order $order): void
+    {
+        $order->load('items.product');
+
+        foreach ($order->items as $item) {
+            if ($item->product_id && $item->product) {
+                $newStock = max(0, $item->product->stock - $item->quantity);
+                $item->product->update(['stock' => $newStock]);
+
+                Log::info('Stock decremented for product', [
+                    'product_id' => $item->product_id,
+                    'quantity_ordered' => $item->quantity,
+                    'previous_stock' => $item->product->stock + $item->quantity,
+                    'new_stock' => $newStock,
+                ]);
+            }
+        }
     }
 
     /**

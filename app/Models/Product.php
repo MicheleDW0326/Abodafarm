@@ -139,6 +139,12 @@ class Product extends Model
             ->where('favoritable_type', Product::class);
     }
 
+    // Recently Viewed
+    public function productViews(): HasMany
+    {
+        return $this->hasMany(ProductView::class)->orderBy('viewed_at', 'desc');
+    }
+
     // =========================================================================
     // COMPUTED PROPERTIES - ENUMS
     // =========================================================================

@@ -163,27 +163,27 @@
 
                         {{-- Progress Steps --}}
                         <div class="flex items-center gap-2">
-                            @foreach($progress['steps'] as $index => $step)
+                            @foreach($progress['steps'] as $key => $step)
                                 <div class="flex flex-1 items-center">
                                     <div class="flex flex-1 items-center gap-2">
                                         <div class="h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold
-                                            @if($index <= $progress['currentStep'])
+                                            @if($loop->iteration - 1 <= $progress['currentStep'])
                                                 bg-emerald-500 text-white
                                             @else
                                                 bg-slate-200 text-slate-500
                                             @endif">
-                                            @if($index < $progress['currentStep'])
+                                            @if($loop->iteration - 1 < $progress['currentStep'])
                                                 <i class="fa-solid fa-check text-[10px]"></i>
                                             @else
-                                                {{ $index + 1 }}
+                                                {{ $loop->iteration }}
                                             @endif
                                         </div>
-                                        <span class="text-xs font-medium hidden sm:inline @if($index <= $progress['currentStep']) text-emerald-600 @else text-slate-400 @endif">
+                                        <span class="text-xs font-medium hidden sm:inline @if($loop->iteration - 1 <= $progress['currentStep']) text-emerald-600 @else text-slate-400 @endif">
                                             {{ $step['label'] }}
                                         </span>
                                     </div>
                                     @if(!$loop->last)
-                                        <div class="h-0.5 flex-1 @if($index < $progress['currentStep']) bg-emerald-400 @else bg-slate-200 @endif mx-1"></div>
+                                        <div class="h-0.5 flex-1 @if($loop->iteration - 1 < $progress['currentStep']) bg-emerald-400 @else bg-slate-200 @endif mx-1"></div>
                                     @endif
                                 </div>
                             @endforeach

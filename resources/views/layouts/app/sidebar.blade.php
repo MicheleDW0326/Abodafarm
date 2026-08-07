@@ -158,7 +158,7 @@
         <div x-show="!sidebarCollapsed" x-cloak class="space-y-1">
             @foreach ($menuItems as $index => $item)
                 @php($hasSubmenu = isset($item['submenu']) && is_array($item['submenu']) && count($item['submenu']) > 0)
-                @php($routePattern = isset($item['route']) ? '\/' . str_replace('.', '\/', $item['route']) : '')
+                @php($routePattern = $item['route'] ?? '')
 
                 @if ($hasSubmenu)
                     {{-- Parent menu with submenu --}}
@@ -219,7 +219,7 @@
         <div x-show="sidebarCollapsed" x-cloak class="space-y-1">
             @foreach ($menuItems as $index => $item)
                 @php($hasSubmenu = isset($item['submenu']) && is_array($item['submenu']) && count($item['submenu']) > 0)
-                @php($routePattern = isset($item['route']) ? '\/' . str_replace('.', '\/', $item['route']) : '')
+                @php($routePattern = $item['route'] ?? '')
 
                 @if ($hasSubmenu)
                     <div x-data="{ open: false }" class="relative">

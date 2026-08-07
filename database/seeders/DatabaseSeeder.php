@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             HeroSlideSeeder::class,
             FarmStatisticSeeder::class,
             DeliveryAreaSeeder::class,
+            PromotionSeeder::class,
         ]);
 
         // Create default users

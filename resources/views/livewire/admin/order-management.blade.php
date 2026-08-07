@@ -18,18 +18,34 @@
                         x-show="open"
                         @click.away="open = false"
                         @click="open = false"
-                        class="absolute right-0 top-full z-20 mt-1 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                        class="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
                     >
-                        @foreach($statusOptions as $key => $label)
-                            @if($key !== 'all')
-                                <button
-                                    wire:click="bulkUpdateStatus('{{ $key }}')"
-                                    class="w-full px-4 py-2 text-left text-xs hover:bg-slate-50"
-                                >
-                                    {{ $label }}
-                                </button>
-                            @endif
-                        @endforeach
+                        {{-- Admin can only bulk update to these statuses --}}
+                        <button
+                            wire:click="bulkUpdateStatus('processing')"
+                            class="w-full px-4 py-2 text-left text-xs hover:bg-slate-50 text-slate-700"
+                        >
+                            <i class="fa-solid fa-gear mr-2 text-blue-500"></i>Proses
+                        </button>
+                        <button
+                            wire:click="bulkUpdateStatus('approved')"
+                            class="w-full px-4 py-2 text-left text-xs hover:bg-slate-50 text-slate-700"
+                        >
+                            <i class="fa-solid fa-check mr-2 text-green-500"></i>Setujui
+                        </button>
+                        <button
+                            wire:click="bulkUpdateStatus('rejected')"
+                            class="w-full px-4 py-2 text-left text-xs hover:bg-red-50 text-red-600"
+                        >
+                            <i class="fa-solid fa-times mr-2"></i>Tolak
+                        </button>
+                        <hr class="my-1 border-slate-100">
+                        <button
+                            wire:click="bulkUpdateStatus('cancelled')"
+                            class="w-full px-4 py-2 text-left text-xs hover:bg-red-50 text-red-600"
+                        >
+                            <i class="fa-solid fa-ban mr-2"></i>Batalkan
+                        </button>
                     </div>
                 </div>
                 <button
@@ -314,46 +330,96 @@
                                         <i class="fa-solid fa-eye"></i>
                                     </button>
 
-                                    <div class="relative" x-data="{ open: false }">
-                                        <button
-                                            @click="open = !open"
-                                            class="rounded-lg p-2 text-slate-600 transition-all hover:bg-slate-100"
-                                        >
-                                            <i class="fa-solid fa-ellipsis-vertical"></i>
-                                        </button>
-                                        <div
-                                            x-show="open"
-                                            @click.away="open = false"
-                                            @click="open = false"
-                                            class="absolute right-0 top-full z-10 mt-1 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
-                                        >
+                                    @php
+                                        $validNextStatuses = \App\Services\OrderStateMachine::getValidNextStatuses($order);
+                                        $canProcess = in_array('processing', $validNextStatuses);
+                                        $canApprove = in_array('approved', $validNextStatuses);
+                                        $canReject = in_array('rejected', $validNextStatuses);
+                                        $canCancel = in_array('cancelled', $validNextStatuses);
+                                    @endphp
+
+                                    {{-- Only show dropdown if there are available actions for Admin --}}
+                                    @if($canProcess || $canApprove || $canReject || $canCancel)
+                                        <div class="relative" x-data="{ open: false }">
                                             <button
-                                                wire:click="updateStatus({{ $order->id }}, 'processing')"
-                                                class="w-full px-4 py-2 text-left text-xs hover:bg-slate-50 {{ $order->status === 'processing' ? 'bg-blue-50 text-blue-700' : 'text-slate-700' }}"
+                                                @click="open = !open"
+                                                class="rounded-lg p-2 text-slate-600 transition-all hover:bg-slate-100"
                                             >
-                                                <i class="fa-solid fa-gear mr-2 text-blue-500"></i>Proses
+                                                <i class="fa-solid fa-ellipsis-vertical"></i>
                                             </button>
-                                            <button
-                                                wire:click="updateStatus({{ $order->id }}, 'shipped')"
-                                                class="w-full px-4 py-2 text-left text-xs hover:bg-slate-50 {{ $order->status === 'shipped' ? 'bg-violet-50 text-violet-700' : 'text-slate-700' }}"
+                                            <div
+                                                x-show="open"
+                                                @click.away="open = false"
+                                                @click="open = false"
+                                                class="absolute right-0 top-full z-10 mt-1 w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
                                             >
-                                                <i class="fa-solid fa-truck mr-2 text-violet-500"></i>Kirim
-                                            </button>
-                                            <button
-                                                wire:click="updateStatus({{ $order->id }}, 'delivered')"
-                                                class="w-full px-4 py-2 text-left text-xs hover:bg-slate-50 {{ $order->status === 'delivered' ? 'bg-green-50 text-green-700' : 'text-slate-700' }}"
-                                            >
-                                                <i class="fa-solid fa-check mr-2 text-green-500"></i>Selesai
-                                            </button>
-                                            <hr class="my-1 border-slate-100">
-                                            <button
-                                                wire:click="updateStatus({{ $order->id }}, 'cancelled')"
-                                                class="w-full px-4 py-2 text-left text-xs hover:bg-red-50 text-red-600"
-                                            >
-                                                <i class="fa-solid fa-times mr-2"></i>Batal
-                                            </button>
+                                                {{-- Assign Staff (only for cart orders) --}}
+                                                @if($order->order_type === 'cart' && !$order->assigned_staff_id)
+                                                    <button
+                                                        wire:click="openStaffSelection({{ $order->id }})"
+                                                        class="w-full px-4 py-2 text-left text-xs hover:bg-emerald-50 text-emerald-700"
+                                                    >
+                                                        <i class="fa-solid fa-user-plus mr-2 text-emerald-500"></i>Tugaskan Staff
+                                                    </button>
+                                                @endif
+
+                                                {{-- Reassign Staff (if already assigned) --}}
+                                                @if($order->order_type === 'cart' && $order->assigned_staff_id)
+                                                    <button
+                                                        wire:click="openStaffSelection({{ $order->id }})"
+                                                        class="w-full px-4 py-2 text-left text-xs hover:bg-emerald-50 text-emerald-700"
+                                                    >
+                                                        <i class="fa-solid fa-user-pen mr-2 text-emerald-500"></i>Ganti Staff
+                                                    </button>
+                                                @endif
+
+                                                @if($canProcess || $canApprove || $canReject || $canCancel)
+                                                    <hr class="my-1 border-slate-100">
+                                                @endif
+
+                                                {{-- Process Order (Admin can do this) --}}
+                                                @if($canProcess)
+                                                    <button
+                                                        wire:click="updateStatus({{ $order->id }}, 'processing')"
+                                                        class="w-full px-4 py-2 text-left text-xs hover:bg-slate-50 text-slate-700"
+                                                    >
+                                                        <i class="fa-solid fa-gear mr-2 text-blue-500"></i>Proses
+                                                    </button>
+                                                @endif
+
+                                                {{-- Approve Booking (Admin can do this for inquiries) --}}
+                                                @if($canApprove)
+                                                    <button
+                                                        wire:click="updateStatus({{ $order->id }}, 'approved')"
+                                                        class="w-full px-4 py-2 text-left text-xs hover:bg-slate-50 text-slate-700"
+                                                    >
+                                                        <i class="fa-solid fa-check mr-2 text-green-500"></i>Setujui
+                                                    </button>
+                                                @endif
+
+                                                {{-- Reject Booking (Admin can do this for inquiries) --}}
+                                                @if($canReject)
+                                                    <button
+                                                        wire:click="updateStatus({{ $order->id }}, 'rejected')"
+                                                        class="w-full px-4 py-2 text-left text-xs hover:bg-red-50 text-red-600"
+                                                    >
+                                                        <i class="fa-solid fa-times mr-2"></i>Tolak
+                                                    </button>
+                                                @endif
+
+                                                {{-- Cancel Order (Admin can do this for valid statuses) --}}
+                                                @if($canCancel)
+                                                    <hr class="my-1 border-slate-100">
+                                                    <button
+                                                        wire:click="updateStatus({{ $order->id }}, 'cancelled')"
+                                                        class="w-full px-4 py-2 text-left text-xs hover:bg-red-50 text-red-600"
+                                                    >
+                                                        <i class="fa-solid fa-ban mr-2"></i>Batalkan
+                                                    </button>
+                                                @endif
+                                            </div>
                                         </div>
-                                    </div>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -499,12 +565,258 @@
                 <h4 class="mb-3 font-semibold text-slate-900">Riwayat Pesanan</h4>
                 <x-order-timeline :order="$selectedOrder" />
             </div>
+
+            {{-- Delivery Proof Section (for delivered orders) --}}
+            @if($selectedOrder->status === 'delivered' && ($selectedOrder->receiver_name || $selectedOrder->delivery_photo))
+                <div class="rounded-lg bg-emerald-50 p-4">
+                    <h4 class="mb-3 font-semibold text-emerald-900 flex items-center gap-2">
+                        <i class="fa-solid fa-clipboard-check text-emerald-600"></i>
+                        Bukti Pengiriman
+                    </h4>
+                    <div class="space-y-3">
+                        @if($selectedOrder->delivery_photo)
+                            <div>
+                                <p class="text-xs text-emerald-600 mb-1">Foto Bukti</p>
+                                <a href="{{ asset('storage/' . $selectedOrder->delivery_photo) }}"
+                                   target="_blank"
+                                   class="block overflow-hidden rounded-lg border border-emerald-200 hover:border-emerald-300 transition-colors">
+                                    <img src="{{ asset('storage/' . $selectedOrder->delivery_photo) }}"
+                                         alt="Bukti Pengiriman"
+                                         class="max-h-32 w-full object-cover" />
+                                </a>
+                            </div>
+                        @endif
+
+                        @if($selectedOrder->receiver_name)
+                            <div>
+                                <p class="text-xs text-emerald-600">Nama Penerima</p>
+                                <p class="font-medium text-emerald-900">{{ $selectedOrder->receiver_name }}</p>
+                            </div>
+                        @endif
+
+                        @if($selectedOrder->delivery_completed_at)
+                            <div>
+                                <p class="text-xs text-emerald-600">Waktu Penyelesaian</p>
+                                <p class="font-medium text-emerald-900">
+                                    {{ \Carbon\Carbon::parse($selectedOrder->delivery_completed_at)->format('d M Y, H:i') }}
+                                </p>
+                            </div>
+                        @endif
+
+                        @if($selectedOrder->delivery_note)
+                            <div>
+                                <p class="text-xs text-emerald-600">Catatan</p>
+                                <p class="text-sm text-emerald-800 whitespace-pre-line">{{ $selectedOrder->delivery_note }}</p>
+                            </div>
+                        @endif
+
+                        @if($selectedOrder->delivery_latitude && $selectedOrder->delivery_longitude)
+                            <div>
+                                <p class="text-xs text-emerald-600 mb-1">Lokasi GPS</p>
+                                <a href="https://www.google.com/maps?q={{ $selectedOrder->delivery_latitude }},{{ $selectedOrder->delivery_longitude }}"
+                                   target="_blank"
+                                   class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-800">
+                                    <i class="fa-solid fa-map-marker-alt"></i>
+                                    Lihat di Google Maps
+                                </a>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endif
+
+            {{-- Completion Section (for completed orders) --}}
+            @if($selectedOrder->status === 'completed')
+                <div class="rounded-lg bg-indigo-50 p-4 border border-indigo-100">
+                    <h4 class="mb-3 font-semibold text-indigo-900 flex items-center gap-2">
+                        <i class="fa-solid fa-flag-checkered text-indigo-600"></i>
+                        Informasi Penyelesaian
+                    </h4>
+                    <div class="space-y-3">
+                        @if($selectedOrder->completed_at)
+                            <div>
+                                <p class="text-xs text-indigo-600">Waktu Penyelesaian</p>
+                                <p class="font-medium text-indigo-900">
+                                    {{ \Carbon\Carbon::parse($selectedOrder->completed_at)->format('d M Y, H:i') }}
+                                </p>
+                            </div>
+                        @endif
+
+                        <div>
+                            <p class="text-xs text-indigo-600">Metode Penyelesaian</p>
+                            <p class="font-medium text-indigo-900 flex items-center gap-2">
+                                @if($selectedOrder->completed_automatically)
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                                        <i class="fa-solid fa-robot"></i>
+                                        Otomatis
+                                    </span>
+                                @elseif($selectedOrder->completed_by_customer)
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                                        <i class="fa-solid fa-user"></i>
+                                        Pelanggan
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                                        <i class="fa-solid fa-hand"></i>
+                                        Manual
+                                    </span>
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @endif
         </div>
 
         {{-- Footer --}}
         <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4">
             <button @click="$wire.closeDetailModal()" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-all hover:bg-slate-50">
                 Tutup
+            </button>
+        </div>
+    </div>
+</div>
+</template>
+@endif
+
+{{-- Staff Selection Modal --}}
+@if($showStaffSelection && $orderForAssignment)
+<template x-teleport="body">
+<div x-show="$wire.showStaffSelection" x-transition.opacity.duration.300ms class="fixed inset-0 z-[99999]">
+    <div class="absolute inset-0 bg-black/50" @click="$wire.closeStaffSelection()" @keydown.escape.window="$wire.closeStaffSelection()"></div>
+
+    <div class="absolute left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl bg-white shadow-xl"
+         @click.stop>
+        {{-- Header --}}
+        <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+            <div>
+                <h3 class="text-lg font-bold text-slate-900">
+                    <i class="fa-solid fa-user-plus mr-2 text-emerald-600"></i>
+                    Tugaskan Staff
+                </h3>
+                <p class="mt-1 text-sm text-slate-500">
+                    Pesanan: <span class="font-medium text-slate-700">{{ $orderForAssignment->order_number }}</span>
+                </p>
+            </div>
+            <button
+                @click="$wire.closeStaffSelection()"
+                class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+            >
+                <i class="fa-solid fa-times text-lg"></i>
+            </button>
+        </div>
+
+        {{-- Current Assignment Info --}}
+        @if($orderForAssignment->assigned_staff_id)
+            <div class="border-b border-slate-200 bg-amber-50 px-6 py-3">
+                <div class="flex items-center gap-2 text-sm text-amber-800">
+                    <i class="fa-solid fa-info-circle"></i>
+                    <span>Pesanan ini saat ini ditugaskan ke <strong>{{ $orderForAssignment->assignedStaff?->name ?? 'Staff' }}</strong>. Memilih staff baru akan mengganti penugasan.</span>
+                </div>
+            </div>
+        @endif
+
+        {{-- Search --}}
+        <div class="border-b border-slate-200 px-6 py-4">
+            <div class="relative">
+                <input
+                    type="text"
+                    wire:model.live.debounce.300ms="staffSearchQuery"
+                    placeholder="Cari staff berdasarkan nama..."
+                    class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                />
+                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            </div>
+        </div>
+
+        {{-- Staff List --}}
+        <div class="max-h-80 overflow-y-auto p-4">
+            @php
+                $availableStaff = \App\Models\User::role('staf')
+                    ->when($staffSearchQuery ?? '', function ($q, $search) {
+                        $q->where('name', 'like', '%' . $search . '%');
+                    })
+                    ->get()
+                    ->map(function ($staff) {
+                        $activeOrders = \App\Models\Order::where('assigned_staff_id', $staff->id)
+                            ->whereNotIn('status', ['completed', 'cancelled', 'rejected'])
+                            ->count();
+                        return [
+                            'id' => $staff->id,
+                            'name' => $staff->name,
+                            'phone' => $staff->phone ?? '-',
+                            'active_orders' => $activeOrders,
+                            'status' => $activeOrders >= 5 ? 'busy' : 'available',
+                            'initials' => $staff->initials(),
+                        ];
+                    });
+            @endphp
+
+            @if($availableStaff->isEmpty())
+                <div class="py-8 text-center">
+                    <div class="mb-3 inline-block rounded-full bg-slate-100 p-4 text-slate-300">
+                        <i class="fa-solid fa-users-slash text-3xl"></i>
+                    </div>
+                    <p class="text-sm text-slate-500">
+                        @if(($staffSearchQuery ?? ''))
+                            Tidak ada staff yang cocok dengan pencarian.
+                        @else
+                            Tidak ada staff yang tersedia.
+                        @endif
+                    </p>
+                </div>
+            @else
+                <div class="space-y-2">
+                    @foreach($availableStaff as $staff)
+                        <button
+                            type="button"
+                            wire:click="assignStaffToOrder({{ $orderForAssignment->id }}, {{ $staff['id'] }})"
+                            class="w-full flex items-center gap-4 rounded-xl border-2 border-slate-200 bg-white p-4 text-left transition-all hover:border-emerald-200 hover:bg-emerald-50/50"
+                        >
+                            {{-- Avatar --}}
+                            <div class="flex-shrink-0">
+                                <div class="size-12 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center text-white font-bold text-lg">
+                                    {{ $staff['initials'] }}
+                                </div>
+                            </div>
+
+                            {{-- Info --}}
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <p class="font-semibold text-slate-900">{{ $staff['name'] }}</p>
+                                </div>
+                                <p class="text-sm text-slate-500">{{ $staff['phone'] }}</p>
+                                <div class="mt-1 flex items-center gap-3 text-xs">
+                                    <span class="inline-flex items-center gap-1 text-slate-500">
+                                        <i class="fa-solid fa-list-check text-slate-400"></i>
+                                        {{ $staff['active_orders'] }} pesanan aktif
+                                    </span>
+                                </div>
+                            </div>
+
+                            {{-- Status Badge --}}
+                            <div class="flex-shrink-0">
+                                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold
+                                             {{ $staff['status'] === 'available'
+                                                 ? 'bg-emerald-100 text-emerald-700'
+                                                 : 'bg-amber-100 text-amber-700' }}">
+                                    <i class="fa-solid {{ $staff['status'] === 'available' ? 'fa-check-circle mr-1' : 'fa-clock mr-1' }}"></i>
+                                    {{ $staff['status'] === 'available' ? 'Tersedia' : 'Sibuk' }}
+                                </span>
+                            </div>
+                        </button>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+        {{-- Footer --}}
+        <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-4 bg-slate-50 rounded-b-xl">
+            <button
+                wire:click="closeStaffSelection()"
+                class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+            >
+                Batal
             </button>
         </div>
     </div>

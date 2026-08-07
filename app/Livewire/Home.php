@@ -2,7 +2,8 @@
 
 namespace App\Livewire;
 
-use App\Models\{Category, Faq, FarmStatistic, HeroSlide, Product, Testimonial};
+use App\Models\{Category, Faq, FarmStatistic, HeroSlide, Product, ProductView, Review, Testimonial};
+use App\Services\SeoService;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -35,6 +36,8 @@ class Home extends Component
 
     public array $faqs = [];
 
+    public array $recentlyViewed = [];
+
     public function mount(): void
     {
         $this->heroSlides = HeroSlide::active()
@@ -47,6 +50,8 @@ class Home extends Component
                 'button_text' => $slide->button_text,
                 'button_url' => $slide->button_url,
             ])->toArray();
+
+        $this->loadRecentlyViewed();
 
         if (empty($this->heroSlides)) {
             $this->heroSlides = [
@@ -142,6 +147,9 @@ class Home extends Component
             'price' => (int) $p->price,
             'category' => $p->category?->slug ?? '',
             'image' => $p->image_url,
+            'stock' => $p->stock,
+            'stock_status' => $p->stock_status,
+            'stock_status_label' => $p->stock_status_label,
         ])->toArray();
 
         $this->highlights = [
@@ -158,7 +166,8 @@ class Home extends Component
             ['title' => 'Pengiriman / Pengambilan', 'description' => 'Ternak dikirim atau diambil sesuai area layanan dan jadwal yang disepakati.'],
         ];
 
-        $this->testimonials = Testimonial::active()
+        // Try to get testimonials from Testimonial model first, fallback to real reviews
+        $testimonialItems = Testimonial::active()
             ->ordered()
             ->limit(6)
             ->get()
@@ -169,6 +178,28 @@ class Home extends Component
                 'avatar' => $t->avatar,
                 'rating' => $t->rating,
             ])->toArray();
+
+        // If no testimonials, use real reviews
+        if (empty($testimonialItems)) {
+            $reviews = Review::approved()
+                ->visible()
+                ->whereNotNull('content')
+                ->where('content', '!=', '')
+                ->with(['user.farmProfile'])
+                ->orderByDesc('created_at')
+                ->limit(6)
+                ->get();
+
+            $testimonialItems = $reviews->map(fn($r) => [
+                'name' => $r->user?->name ?? 'Pelanggan',
+                'role' => 'Pelanggan',
+                'quote' => $r->content,
+                'avatar' => $r->user?->farmProfile?->image ? asset('storage/' . $r->user->farmProfile->image) : null,
+                'rating' => $r->rating,
+            ])->toArray();
+        }
+
+        $this->testimonials = $testimonialItems;
 
         if (empty($this->testimonials)) {
             $this->testimonials = [
@@ -236,8 +267,32 @@ class Home extends Component
         $this->dispatch('search-updated', search: $this->search);
     }
 
+    protected function loadRecentlyViewed(): void
+    {
+        $recentViews = ProductView::getRecentProducts(10);
+
+        $this->recentlyViewed = $recentViews->map(fn($view) => [
+            'id' => $view->product->id,
+            'name' => $view->product->name,
+            'slug' => $view->product->slug,
+            'price' => $view->product->formatted_current_price,
+            'original_price' => $view->product->formatted_price,
+            'has_discount' => $view->product->has_discount,
+            'image' => $view->product->image_url,
+            'stock_status' => $view->product->stock_status,
+            'category' => $view->product->category?->name,
+            'viewed_at' => $view->viewed_at->diffForHumans(),
+        ])->toArray();
+    }
+
     public function render()
     {
-        return view('livewire.home');
+        // Generate dynamic SEO data
+        $seoService = app(SeoService::class);
+        $seo = $seoService->forHomepage();
+
+        return view('livewire.home', [
+            'seo' => $seo,
+        ]);
     }
 }
