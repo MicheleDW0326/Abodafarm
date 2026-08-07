@@ -12,7 +12,7 @@ use App\Models\Promotion;
 use App\Services\FcmService;
 use App\Services\MidtransService;
 use App\Services\OrderStateMachine;
-use App\Services\PromotionService;
+use App\Services\PromoService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Session;
@@ -91,6 +91,10 @@ class Checkout extends Component
 
     public ?float $discountAmount = null;
 
+    public ?string $promoType = null;
+
+    public ?string $promoName = null;
+
     public function mount(): void
     {
         // Restore form state from session if exists
@@ -115,14 +119,16 @@ class Checkout extends Component
 
     protected function restorePromoState(): void
     {
-        $promoService = new PromotionService();
+        $promoService = new PromoService();
         $applied = $promoService->getApplied();
 
-        if ($applied) {
-            $promotion = Promotion::findByCode($applied['code']);
-            if ($promotion && $promotion->isValid()) {
+        if ($applied && isset($applied['code'])) {
+            $promotion = Promotion::where('code', $applied['code'])->first();
+            if ($promotion && $promotion->status === 'active') {
                 $this->appliedPromoCode = $applied['code'];
-                $this->discountAmount = (float) $applied['discount_amount'];
+                $this->discountAmount = (float) ($applied['discount_amount'] ?? 0);
+                $this->promoType = $applied['type'] ?? null;
+                $this->promoName = $applied['name'] ?? null;
             } else {
                 $promoService->remove();
             }
@@ -346,31 +352,38 @@ class Checkout extends Component
         }
 
         $userId = auth()->id();
-        $subtotal = $this->cartTotal;
+        $cart = ['items' => $this->getCartItems()];
+        $shipping = 20000; // Default shipping estimate
 
-        $promoService = new PromotionService();
-        $result = $promoService->apply(trim($this->promoCode), $subtotal, $userId);
+        $promoService = new PromoService();
+        $result = $promoService->apply(trim($this->promoCode), $cart, $userId, $shipping);
 
         if (!$result['valid']) {
             $this->promoError = $result['message'];
             $this->appliedPromoCode = null;
             $this->discountAmount = null;
+            $this->promoType = null;
+            $this->promoName = null;
             return;
         }
 
-        $this->appliedPromoCode = $result['promotion']->code;
-        $this->discountAmount = $result['discount']['discount_amount'];
+        $this->appliedPromoCode = $result['promo']['code'];
+        $this->discountAmount = $result['discount'];
+        $this->promoType = $result['promo']['type'] ?? null;
+        $this->promoName = $result['promo']['name'] ?? null;
         $this->promoSuccess = $result['message'];
         $this->promoCode = '';
     }
 
     public function removePromoCode(): void
     {
-        $promoService = new PromotionService();
+        $promoService = new PromoService();
         $promoService->remove();
 
         $this->appliedPromoCode = null;
         $this->discountAmount = null;
+        $this->promoType = null;
+        $this->promoName = null;
         $this->promoSuccess = 'Kode promo dihapus.';
     }
 
@@ -402,6 +415,27 @@ class Checkout extends Component
         if (!empty($stockErrors)) {
             $this->addError('cart', implode(', ', $stockErrors));
             return;
+        }
+
+        // SERVER-SIDE VALIDATION: Re-validate promo before creating order
+        // This prevents manual manipulation from frontend
+        if ($this->appliedPromoCode) {
+            $promoService = new PromoService();
+            $cart = ['items' => $items];
+            $promoValidation = $promoService->validateBeforePayment($cart, auth()->id());
+
+            if (!$promoValidation['valid']) {
+                $this->promoError = $promoValidation['message'];
+                $this->appliedPromoCode = null;
+                $this->discountAmount = null;
+                $this->promoType = null;
+                $this->promoName = null;
+                $promoService->remove();
+                return;
+            }
+
+            // Update discount amount with recalculated value
+            $this->discountAmount = $promoValidation['discount'];
         }
 
         // Get courier notes if using saved address
@@ -895,20 +929,20 @@ class Checkout extends Component
      */
     protected function recordPromotionUsage(Order $order): void
     {
-        $promoService = new PromotionService();
+        $promoService = new PromoService();
         $applied = $promoService->getApplied();
 
-        if (!$applied || !$this->appliedPromoCode) {
+        if (!$applied || !$this->appliedPromoCode || !isset($applied['code'])) {
             return;
         }
 
-        $promotion = Promotion::findByCode($this->appliedPromoCode);
+        $promotion = Promotion::where('code', $applied['code'])->first();
 
         if (!$promotion) {
             return;
         }
 
-        $promoService->recordUsage(
+        $promoService->markAsUsed(
             $promotion->id,
             auth()->id(),
             $order->id,
@@ -919,6 +953,8 @@ class Checkout extends Component
         $promoService->remove();
         $this->appliedPromoCode = null;
         $this->discountAmount = null;
+        $this->promoType = null;
+        $this->promoName = null;
     }
 
     public function render()
