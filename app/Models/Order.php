@@ -162,6 +162,16 @@ class Order extends Model
         return $this->belongsTo(ShipmentStatus::class, 'shipment_status_id');
     }
 
+    public function delivery(): HasOne
+    {
+        return $this->hasOne(Delivery::class);
+    }
+
+    public function hasDelivery(): bool
+    {
+        return $this->delivery !== null;
+    }
+
     // =========================================================================
     // COMPUTED PROPERTIES - NEW STATUS ACCESSORS
     // =========================================================================

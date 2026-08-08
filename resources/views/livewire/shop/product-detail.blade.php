@@ -561,6 +561,51 @@
         </section>
     @endif
 
+    <!-- Frequently Bought Together Section -->
+    @if(count($frequentlyBought) > 0)
+        <section class="mx-auto max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
+            <div class="mb-6 flex items-center gap-3">
+                <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-100 text-purple-600">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Sering Dibeli Bersama</h2>
+                    <p class="text-sm text-slate-500">Produk yang sering dipesan bersamaan</p>
+                </div>
+            </div>
+
+            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                @foreach($frequentlyBought as $item)
+                    <article class="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                        <a href="{{ route('shop.product', $item['slug']) }}" class="block">
+                            <div class="aspect-square overflow-hidden bg-slate-100">
+                                @if($item['image'])
+                                    <img src="{{ $item['image'] }}" alt="{{ $item['name'] }}"
+                                         class="size-full object-cover transition-transform duration-500 group-hover:scale-105">
+                                @else
+                                    <div class="flex size-full items-center justify-center">
+                                        <i class="fa-solid fa-box text-3xl text-slate-300"></i>
+                                    </div>
+                                @endif
+                            </div>
+                        </a>
+                        <div class="p-3">
+                            <p class="text-[10px] font-medium text-emerald-600">{{ $item['category'] }}</p>
+                            <a href="{{ route('shop.product', $item['slug']) }}">
+                                <h3 class="mt-0.5 line-clamp-2 text-xs font-semibold text-slate-900 transition group-hover:text-emerald-600">
+                                    {{ $item['name'] }}
+                                </h3>
+                            </a>
+                            <div class="mt-2">
+                                <span class="text-sm font-bold text-emerald-600">{{ $item['price'] }}</span>
+                            </div>
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     <!-- Recommendations Section -->
     @if(count($recommendations) > 0)
         <section class="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">

@@ -152,7 +152,7 @@
                             <div class="p-3">
                                 <p class="line-clamp-2 text-xs font-semibold text-slate-900">{{ $item['name'] }}</p>
                                 <p class="mt-1 text-sm font-bold text-emerald-600">{{ $item['price'] }}</p>
-                                <p class="mt-1 text-[10px] text-slate-400">{{ $item['viewed_at'] }}</p>
+                                <p class="mt-1 text-[10px] text-slate-400">{{ $item['viewed_at'] ?? 'Baru dilihat' }}</p>
                             </div>
                         </div>
                     </a>
@@ -161,8 +161,100 @@
         </section>
     @endif
 
+    <!-- Continue Shopping Section -->
+    @if (count($continueShopping) > 0)
+        <livewire:home.product-carousel
+            :products="$continueShopping"
+            title="Lanjutkan Belanja"
+            subtitle="Lanjut dari produk yang pernah Anda lihat"
+            icon="fa-solid fa-cart-shopping"
+            icon-color="bg-emerald-100 text-emerald-600"
+            section-id="continue-shopping"
+            :show-view-all="false"
+            lazy-on-visible
+        />
+    @endif
+
+    <!-- Recommended For You Section (Logged in users) -->
+    @if (count($recommendedProducts) > 0)
+        <livewire:home.product-carousel
+            :products="$recommendedProducts"
+            title="Rekomendasi Untuk Anda"
+            subtitle="Berdasarkan histori belanja Anda"
+            icon="fa-solid fa-sparkles"
+            icon-color="bg-purple-100 text-purple-600"
+            section-id="recommended-for-you"
+            lazy-on-visible
+        />
+    @endif
+
+    <!-- Trending This Week -->
+    @if (count($trendingProducts) > 0)
+        <livewire:home.product-carousel
+            :products="$trendingProducts"
+            title="Trending Minggu Ini"
+            subtitle="Produk yang sedang populer"
+            icon="fa-solid fa-fire text-orange-500"
+            icon-color="bg-orange-100 text-orange-600"
+            section-id="trending"
+            lazy-on-visible
+        />
+    @endif
+
+    <!-- New Arrivals -->
+    @if (count($newArrivals) > 0)
+        <livewire:home.product-carousel
+            :products="$newArrivals"
+            title="Produk Baru"
+            subtitle="Baru hadir di AbodaFarm"
+            icon="fa-solid fa-bolt"
+            icon-color="bg-blue-100 text-blue-600"
+            section-id="new-arrivals"
+            lazy-on-visible
+        />
+    @endif
+
+    <!-- Popular Products -->
+    @if (count($popularProducts) > 0)
+        <livewire:home.product-carousel
+            :products="$popularProducts"
+            title="Populer"
+            subtitle="Paling banyak diminati"
+            icon="fa-solid fa-star"
+            icon-color="bg-amber-100 text-amber-600"
+            section-id="popular"
+            lazy-on-visible
+        />
+    @endif
+
+    <!-- Top Rated -->
+    @if (count($topRatedProducts) > 0)
+        <livewire:home.product-carousel
+            :products="$topRatedProducts"
+            title="Pilihan Terbaik"
+            subtitle="Produk dengan rating tertinggi"
+            icon="fa-solid fa-award"
+            icon-color="bg-yellow-100 text-yellow-600"
+            section-id="top-rated"
+            lazy-on-visible
+        />
+    @endif
+
+    <!-- Organic Choice -->
+    @if (count($organicProducts) > 0)
+        <livewire:home.product-carousel
+            :products="$organicProducts"
+            title="Pilihan Organik"
+            subtitle="Daging segar berkualitas premium"
+            icon="fa-solid fa-leaf"
+            icon-color="bg-green-100 text-green-600"
+            section-id="organic-choice"
+            lazy-on-visible
+        />
+    @endif
+
     <!-- Produk dengan filter yang terhubung ke Home::filteredLiveLivestockProducts -->
-    <livewire:home.products :products-live="$this->filteredLiveLivestockProducts" :products-fresh="$freshMeatProducts" lazy-on-visible />
+    <livewire:home.products :products-live="$this->filteredLiveLivestockProducts" :products-fresh="$this->freshMeatProducts" lazy-on-visible />
 
     <!-- Proses perawatan dan trust section -->
     <section id="perawatan" class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">

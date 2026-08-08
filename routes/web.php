@@ -57,6 +57,10 @@ use App\Livewire\Location\RegencyPage;
 use App\Livewire\Location\CategoryLocationPage;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Admin\TemplateController;
+use App\Http\Controllers\Admin\ExportController;
+use App\Http\Controllers\Farmer\ExportController as FarmerExportController;
+use App\Livewire\Admin\Analytics\Dashboard as AdminAnalyticsDashboard;
+use App\Livewire\Farmer\Analytics\Dashboard as FarmerAnalyticsDashboard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -237,6 +241,8 @@ Route::middleware(['auth', 'verified', 'check.admin'])
         Route::get('/promo', \App\Livewire\Admin\PromotionManagement::class)->name('promotions');
         Route::get('/kampanye', CampaignManagement::class)->name('campaigns');
         Route::get('/kampanye/analisis', CampaignAnalytics::class)->name('campaigns.analytics');
+        Route::get('/analitik', AdminAnalyticsDashboard::class)->name('analytics');
+        Route::get('/analitik/ekspor', [ExportController::class, 'analytics'])->name('analytics.export');
     });
 
 Route::middleware(['auth', 'verified', 'check.staff'])
@@ -282,6 +288,8 @@ Route::middleware(['auth', 'verified', 'check.peternak'])
         Route::get('/notifikasi', Notifications::class)->name('notifications');
         Route::get('/pengaturan', AccountSettings::class)->name('settings');
         Route::get('/pengaturan/password', AccountSettings::class)->name('settings.password');
+        Route::get('/analitik', FarmerAnalyticsDashboard::class)->name('analytics');
+        Route::get('/analitik/ekspor', [FarmerExportController::class, 'analytics'])->name('analytics.export');
     });
 
 Route::middleware(['auth', 'verified', 'check.pelanggan'])

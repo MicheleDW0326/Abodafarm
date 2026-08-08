@@ -5,7 +5,7 @@ namespace App\Livewire\Shop;
 use App\Models\Product;
 use App\Models\ProductView;
 use App\Models\Review;
-use App\Services\ProductRecommendationService;
+use App\Services\RecommendationService;
 use App\Services\SeoService;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -27,10 +27,16 @@ class ProductDetail extends Component
 
     public array $recommendations = [];
 
+    public array $frequentlyBought = [];
+
     public string $recommendationTitle = 'Produk Lainnya';
 
-    public function mount(Product $product)
+    protected RecommendationService $recommendationService;
+
+    public function mount(Product $product, RecommendationService $recommendationService)
     {
+        $this->recommendationService = $recommendationService;
+
         $this->product = $product->load(['category', 'reviews' => function ($query) {
             $query->where('status', Review::STATUS_APPROVED)
                 ->orderByDesc('created_at')
@@ -42,17 +48,42 @@ class ProductDetail extends Component
         // Track this product view
         ProductView::track($product->id);
 
-        // Load recommendations
+        // Load recommendations and frequently bought together
         $this->loadRecommendations();
     }
 
     protected function loadRecommendations(): void
     {
-        $recommendationService = new ProductRecommendationService();
-
         $userId = auth()->id();
-        $this->recommendationTitle = $recommendationService->getSectionTitle($userId);
-        $this->recommendations = $recommendationService->getRecommendations($userId, $this->product, 8);
+
+        // Recommendations based on user's history
+        if ($userId) {
+            $this->recommendationTitle = 'Mungkin Anda Suka';
+            $recommended = $this->recommendationService->getRecommendedForUser($userId, 8);
+            $this->recommendations = $this->recommendationService->formatProducts($recommended);
+        }
+
+        // If not enough personalized recommendations, add related products
+        if (count($this->recommendations) < 4) {
+            $related = $this->recommendationService->getRelatedProducts($this->product, 8 - count($this->recommendations));
+            $formattedRelated = $this->recommendationService->formatProducts($related);
+
+            // Merge without duplicates
+            $existingIds = array_column($this->recommendations, 'id');
+            foreach ($formattedRelated as $item) {
+                if (!in_array($item['id'], $existingIds)) {
+                    $this->recommendations[] = $item;
+                }
+            }
+
+            if (!$userId) {
+                $this->recommendationTitle = 'Produk Serupa';
+            }
+        }
+
+        // Frequently bought together
+        $frequentlyBought = $this->recommendationService->getFrequentlyBoughtTogether($this->product, 6);
+        $this->frequentlyBought = $this->recommendationService->formatProducts($frequentlyBought);
     }
 
     protected function buildImageGallery(): void

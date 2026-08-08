@@ -80,6 +80,21 @@ class Review extends Model
         return $this->hasMany(ReviewPhoto::class)->orderBy('sort_order');
     }
 
+    public function videos(): HasMany
+    {
+        return $this->hasMany(ReviewVideo::class)->orderBy('sort_order');
+    }
+
+    public function likes(): HasMany
+    {
+        return $this->hasMany(ReviewLike::class);
+    }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(ReviewReport::class);
+    }
+
     // =========================================================================
     // COMPUTED PROPERTIES
     // =========================================================================
@@ -162,6 +177,39 @@ class Review extends Model
         return null;
     }
 
+    /**
+     * Get like count.
+     */
+    public function getLikeCountAttribute(): int
+    {
+        return $this->likes()->count();
+    }
+
+    /**
+     * Check if liked by user.
+     */
+    public function isLikedBy(?int $userId): bool
+    {
+        if (!$userId) return false;
+        return $this->likes()->where('user_id', $userId)->exists();
+    }
+
+    /**
+     * Get report count.
+     */
+    public function getReportCountAttribute(): int
+    {
+        return $this->reports()->count();
+    }
+
+    /**
+     * Get media (photos + videos) count.
+     */
+    public function getMediaCountAttribute(): int
+    {
+        return $this->photos()->count() + $this->videos()->count();
+    }
+
     // =========================================================================
     // BOOLEAN HELPERS
     // =========================================================================
@@ -196,6 +244,26 @@ class Review extends Model
         return $this->created_at->diffInDays(now()) <= 30;
     }
 
+    public function canBeDeleted(): bool
+    {
+        return $this->created_at->diffInDays(now()) <= 30;
+    }
+
+    public function hasMedia(): bool
+    {
+        return $this->media_count > 0;
+    }
+
+    public function hasPhotos(): bool
+    {
+        return $this->photos()->count() > 0;
+    }
+
+    public function hasVideos(): bool
+    {
+        return $this->videos()->count() > 0;
+    }
+
     // =========================================================================
     // SCOPES
     // =========================================================================
@@ -225,5 +293,15 @@ class Review extends Model
     {
         return $query->where('review_type', self::TYPE_FARMER)
             ->where('farmer_id', $farmerId);
+    }
+
+    public function scopeWithMedia($query)
+    {
+        return $query->whereHas('photos')->orWhereHas('videos');
+    }
+
+    public function scopeOrderedByLikes($query)
+    {
+        return $query->withCount('likes')->orderByDesc('likes_count');
     }
 }

@@ -3,9 +3,9 @@
 namespace App\Livewire;
 
 use App\Models\{Category, Faq, FarmStatistic, HeroSlide, Product, ProductView, Review, Testimonial};
+use App\Services\RecommendationService;
 use App\Services\SeoService;
 use Illuminate\Support\Str;
-use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -15,43 +15,53 @@ class Home extends Component
     public string $search = '';
 
     public array $heroSlides = [];
-
     public array $farmStats = [];
-
     public array $categories = [];
-
-    public array $liveLivestockProducts = [];
-
-    public array $freshMeatProducts = [];
-
-    public array $products = [];
-
     public array $highlights = [];
-
     public array $deliverySteps = [];
-
     public array $careStages = [];
-
     public array $testimonials = [];
-
     public array $faqs = [];
 
+    // Products for main section
+    public array $filteredLiveLivestockProducts = [];
+    public array $freshMeatProducts = [];
+
+    // Recommendation Sections
+    public array $newArrivals = [];
+    public array $popularProducts = [];
+    public array $trendingProducts = [];
+    public array $topRatedProducts = [];
+    public array $organicProducts = [];
+    public array $recommendedProducts = [];
     public array $recentlyViewed = [];
+    public array $continueShopping = [];
 
-    public function mount(): void
+    protected RecommendationService $recommendationService;
+
+    public function mount(RecommendationService $recommendationService): void
     {
-        $this->heroSlides = HeroSlide::active()
-            ->ordered()
-            ->get()
-            ->map(fn($slide) => [
-                'title' => $slide->title,
-                'description' => $slide->subtitle ?? '',
-                'image' => $slide->image_url,
-                'button_text' => $slide->button_text,
-                'button_url' => $slide->button_url,
-            ])->toArray();
+        $this->recommendationService = $recommendationService;
 
-        $this->loadRecentlyViewed();
+        $this->loadHeroSlides();
+        $this->loadFarmStats();
+        $this->loadCategories();
+        $this->loadStaticContent();
+        $this->loadProducts();
+        $this->loadRecommendations();
+    }
+
+    protected function loadHeroSlides(): void
+    {
+        $slides = HeroSlide::active()->ordered()->get();
+
+        $this->heroSlides = $slides->map(fn($slide) => [
+            'title' => $slide->title,
+            'description' => $slide->subtitle ?? '',
+            'image' => $slide->image_url,
+            'button_text' => $slide->button_text,
+            'button_url' => $slide->button_url,
+        ])->toArray();
 
         if (empty($this->heroSlides)) {
             $this->heroSlides = [
@@ -72,20 +82,23 @@ class Home extends Component
                 [
                     'title' => 'Siap Kirim untuk Rumah, Resto, dan Mitra Usaha',
                     'description' => 'Booking jadi lebih mudah dengan alur yang jelas dari pemilihan ternak hingga pengiriman atau pengambilan.',
-                    'image' => 'https://images.unsplash.com/photo-1547487704-5f9f3fcb6b0d?auto=format&fit=crop&w=1600&q=80',
+                    'image' => 'https://images.unsplash.com/photo-1547487704-5f9f3fc7b6b0?auto=format&fit=crop&w=1600&q=80',
                     'button_text' => null,
                     'button_url' => null,
                 ],
             ];
         }
+    }
 
-        $this->farmStats = FarmStatistic::ordered()
-            ->get()
-            ->map(fn($stat) => [
-                'value' => $stat->value,
-                'label' => $stat->label,
-                'icon' => $stat->icon,
-            ])->toArray();
+    protected function loadFarmStats(): void
+    {
+        $stats = FarmStatistic::ordered()->get();
+
+        $this->farmStats = $stats->map(fn($stat) => [
+            'value' => $stat->value,
+            'label' => $stat->label,
+            'icon' => $stat->icon,
+        ])->toArray();
 
         if (empty($this->farmStats)) {
             $this->farmStats = [
@@ -95,46 +108,56 @@ class Home extends Component
                 ['value' => '98%', 'label' => 'Kepuasan Pelanggan', 'icon' => '⭐'],
             ];
         }
+    }
 
-        $this->categories = Category::active()
-            ->ordered()
-            ->get()
-            ->map(fn($cat) => [
-                'id' => $cat->id,
-                'name' => $cat->name,
-                'description' => $cat->description ?? '',
-                'image' => $cat->image_url,
-                'icon' => $cat->icon ?? '',
-                'search' => Str::slug($cat->name),
-            ])->toArray();
+    protected function loadCategories(): void
+    {
+        $categories = Category::active()->ordered()->get();
+
+        $this->categories = $categories->map(fn($cat) => [
+            'id' => $cat->id,
+            'name' => $cat->name,
+            'description' => $cat->description ?? '',
+            'image' => $cat->image_url,
+            'icon' => $cat->icon ?? '',
+            'search' => Str::slug($cat->name),
+        ])->toArray();
 
         if (empty($this->categories)) {
             $this->categories = [
                 ['id' => 1, 'name' => 'Sapi', 'description' => 'Sapi organik siap jual dengan informasi bobot dan kondisi yang jelas.', 'image' => 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80', 'icon' => '🐄', 'search' => 'sapi'],
-                ['id' => 2, 'name' => 'Kambing', 'description' => 'Kambing sehat untuk aqiqah, kurban, atau kebutuhan usaha.', 'image' => 'https://images.unsplash.com/photo-1516291076093-5a6c5f5f4a1a?auto=format&fit=crop&w=800&q=80', 'icon' => '🐐', 'search' => 'kambing'],
+                ['id' => 2, 'name' => 'Kambing', 'description' => 'Kambing sehat untuk aqiqah, kurban, atau kebutuhan usaha.', 'image' => 'https://images.unsplash.com/photo-1516291073093-5a6c5f5f4a1a?auto=format&fit=crop&w=800&q=80', 'icon' => '🐐', 'search' => 'kambing'],
                 ['id' => 3, 'name' => 'Ayam', 'description' => 'Ayam organik dengan perawatan berkala dan pakan terkontrol.', 'image' => 'https://images.unsplash.com/photo-1511823794984-b87716139b88?auto=format&fit=crop&w=800&q=80', 'icon' => '🐔', 'search' => 'ayam'],
                 ['id' => 4, 'name' => 'Bebek', 'description' => 'Bebek sehat untuk kebutuhan rumah tangga dan kuliner.', 'image' => 'https://images.unsplash.com/photo-1507358522600-9f71e620c44e?auto=format&fit=crop&w=800&q=80', 'icon' => '🦆', 'search' => 'bebek'],
             ];
         }
+    }
 
+    protected function loadProducts(): void
+    {
+        // Live livestock products (inquiry type)
         $liveProducts = Product::live()
             ->availableWithStatus()
             ->with('category')
             ->get();
 
-        $this->liveLivestockProducts = $liveProducts->map(fn($p) => [
+        $this->filteredLiveLivestockProducts = $liveProducts->map(fn($p) => [
             'id' => $p->id,
             'name' => $p->name,
             'price' => (int) $p->price,
             'category' => $p->category?->slug ?? '',
+            'category_name' => $p->category?->name ?? '',
             'image' => $p->image_url,
             'weight' => $p->weight ? $p->weight . ' Kg' : '',
             'age' => $p->age ?? '',
             'sex' => $p->sex_label,
+            'sex_label' => $p->sex_label,
             'location' => $p->origin ?? '',
             'status' => $p->status_label,
+            'status_label' => $p->status_label,
         ])->toArray();
 
+        // Fresh meat products (cart type with stock)
         $freshProducts = Product::freshType()
             ->available()
             ->inStock()
@@ -146,12 +169,17 @@ class Home extends Component
             'name' => $p->name,
             'price' => (int) $p->price,
             'category' => $p->category?->slug ?? '',
+            'category_name' => $p->category?->name ?? '',
             'image' => $p->image_url,
             'stock' => $p->stock,
             'stock_status' => $p->stock_status,
             'stock_status_label' => $p->stock_status_label,
         ])->toArray();
+    }
 
+    protected function loadStaticContent(): void
+    {
+        // Highlights
         $this->highlights = [
             ['title' => 'Organik', 'description' => 'Ternak dipelihara secara alami dan sehat dengan pakan yang terkontrol.'],
             ['title' => 'Pemeriksaan Kesehatan', 'description' => 'Seluruh ternak diperiksa secara berkala oleh tenaga berpengalaman.'],
@@ -159,6 +187,7 @@ class Home extends Component
             ['title' => 'Transparansi', 'description' => 'Data bobot, umur, dan kondisi ternak tersedia sebelum booking.'],
         ];
 
+        // Delivery Steps
         $this->deliverySteps = [
             ['title' => 'Pilih Ternak', 'description' => 'Gunakan katalog dan filter untuk menemukan ternak yang paling sesuai.'],
             ['title' => 'Lakukan Booking', 'description' => 'Ajukan booking atau pre-order sesuai status ternak yang dipilih.'],
@@ -166,11 +195,16 @@ class Home extends Component
             ['title' => 'Pengiriman / Pengambilan', 'description' => 'Ternak dikirim atau diambil sesuai area layanan dan jadwal yang disepakati.'],
         ];
 
-        // Try to get testimonials from Testimonial model first, fallback to real reviews
-        $testimonialItems = Testimonial::active()
-            ->ordered()
-            ->limit(6)
-            ->get()
+        // Care Stages
+        $this->careStages = [
+            ['title' => 'Pakan Organik', 'description' => 'Pakan alami dipantau agar pertumbuhan ternak tetap sehat dan stabil.'],
+            ['title' => 'Pemeriksaan Rutin', 'description' => 'Pengecekan kondisi fisik dan bobot dilakukan secara berkala.'],
+            ['title' => 'Vaksinasi', 'description' => 'Program kesehatan mengikuti jadwal vaksin dan rekomendasi dokter hewan.'],
+            ['title' => 'Siap Jual', 'description' => 'Ternak yang lolos standar kesehatan ditandai siap untuk booking.'],
+        ];
+
+        // Testimonials
+        $testimonialItems = Testimonial::active()->ordered()->limit(6)->get()
             ->map(fn($t) => [
                 'name' => $t->name,
                 'role' => $t->role,
@@ -179,10 +213,8 @@ class Home extends Component
                 'rating' => $t->rating,
             ])->toArray();
 
-        // If no testimonials, use real reviews
         if (empty($testimonialItems)) {
-            $reviews = Review::approved()
-                ->visible()
+            $reviews = Review::approved()->visible()
                 ->whereNotNull('content')
                 ->where('content', '!=', '')
                 ->with(['user.farmProfile'])
@@ -209,14 +241,14 @@ class Home extends Component
             ];
         }
 
-        $this->faqs = Faq::active()
-            ->ordered()
-            ->limit(8)
-            ->get()
+        // FAQs
+        $faqs = Faq::active()->ordered()->limit(8)->get()
             ->map(fn($f) => [
                 'question' => $f->question,
                 'answer' => $f->answer,
             ])->toArray();
+
+        $this->faqs = $faqs;
 
         if (empty($this->faqs)) {
             $this->faqs = [
@@ -226,40 +258,45 @@ class Home extends Component
                 ['question' => 'Apakah ada sertifikat kesehatan?', 'answer' => 'Untuk ternak tertentu, sertifikat kesehatan dan hasil pemeriksaan dapat diminta saat booking.'],
             ];
         }
-
-        $this->careStages = [
-            ['title' => 'Pakan Organik', 'description' => 'Pakan alami dipantau agar pertumbuhan ternak tetap sehat dan stabil.'],
-            ['title' => 'Pemeriksaan Rutin', 'description' => 'Pengecekan kondisi fisik dan bobot dilakukan secara berkala.'],
-            ['title' => 'Vaksinasi', 'description' => 'Program kesehatan mengikuti jadwal vaksin dan rekomendasi dokter hewan.'],
-            ['title' => 'Siap Jual', 'description' => 'Ternak yang lolos standar kesehatan ditandai siap untuk booking.'],
-        ];
     }
 
-    #[Computed]
-    public function filteredLiveLivestockProducts(): array
+    protected function loadRecommendations(): void
     {
-        $term = trim(mb_strtolower($this->search));
+        $userId = auth()->id();
 
-        if ($term === '') {
-            return $this->liveLivestockProducts;
+        // New Arrivals
+        $newArrivals = $this->recommendationService->getNewest(12);
+        $this->newArrivals = $this->recommendationService->formatProducts($newArrivals);
+
+        // Popular Products
+        $popular = $this->recommendationService->getPopular(12);
+        $this->popularProducts = $this->recommendationService->formatProducts($popular);
+
+        // Trending This Week
+        $trending = $this->recommendationService->getTrending(12);
+        $this->trendingProducts = $this->recommendationService->formatProducts($trending);
+
+        // Top Rated
+        $topRated = $this->recommendationService->getTopRated(12);
+        $this->topRatedProducts = $this->recommendationService->formatProducts($topRated);
+
+        // Organic Choice
+        $organic = $this->recommendationService->getOrganicChoice(12);
+        $this->organicProducts = $this->recommendationService->formatProducts($organic);
+
+        // Recently Viewed
+        $recentlyViewed = $this->recommendationService->getRecentlyViewed($userId, 12);
+        $this->recentlyViewed = $this->recommendationService->formatProducts($recentlyViewed);
+
+        // Continue Shopping (same as recently viewed but different display)
+        $continueShopping = $this->recommendationService->getContinueShopping($userId, 6);
+        $this->continueShopping = $this->recommendationService->formatProducts($continueShopping);
+
+        // Personalized Recommendations (for logged in users)
+        if ($userId) {
+            $recommended = $this->recommendationService->getRecommendedForUser($userId, 12);
+            $this->recommendedProducts = $this->recommendationService->formatProducts($recommended);
         }
-
-        return array_values(array_filter(
-            $this->liveLivestockProducts,
-            function (array $product) use ($term): bool {
-                $haystack = mb_strtolower(implode(' ', [
-                    $product['name'] ?? '',
-                    $product['category'] ?? '',
-                    $product['location'] ?? '',
-                    $product['status'] ?? '',
-                    $product['weight'] ?? '',
-                    $product['age'] ?? '',
-                    $product['sex'] ?? '',
-                ]));
-
-                return str_contains($haystack, $term);
-            }
-        ));
     }
 
     public function updatedSearch(): void
@@ -267,27 +304,8 @@ class Home extends Component
         $this->dispatch('search-updated', search: $this->search);
     }
 
-    protected function loadRecentlyViewed(): void
-    {
-        $recentViews = ProductView::getRecentProducts(10);
-
-        $this->recentlyViewed = $recentViews->map(fn($view) => [
-            'id' => $view->product->id,
-            'name' => $view->product->name,
-            'slug' => $view->product->slug,
-            'price' => $view->product->formatted_current_price,
-            'original_price' => $view->product->formatted_price,
-            'has_discount' => $view->product->has_discount,
-            'image' => $view->product->image_url,
-            'stock_status' => $view->product->stock_status,
-            'category' => $view->product->category?->name,
-            'viewed_at' => $view->viewed_at->diffForHumans(),
-        ])->toArray();
-    }
-
     public function render()
     {
-        // Generate dynamic SEO data
         $seoService = app(SeoService::class);
         $seo = $seoService->forHomepage();
 

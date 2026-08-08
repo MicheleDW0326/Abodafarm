@@ -31,6 +31,25 @@
              class="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
 
             <div class="max-h-[70vh] overflow-y-auto overscroll-contain">
+                @if(count($quickFilters) > 0)
+                    <!-- Quick Filters -->
+                    <div class="border-b border-slate-100">
+                        <div class="flex items-center gap-2 px-4 py-2.5 bg-amber-50">
+                            <i class="fa-solid fa-bolt text-xs text-amber-500"></i>
+                            <span class="text-xs font-semibold uppercase tracking-wide text-amber-600">Filter Cepat</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2 p-3">
+                            @foreach($quickFilters as $filter)
+                                <a href="{{ $filter['url'] }}"
+                                   class="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-slate-700 border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
+                                    <i class="{{ $filter['icon'] }} text-amber-500"></i>
+                                    {{ $filter['name'] }}
+                                </a>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
                 @if(count($categories) > 0 || count($products) > 0 || count($farms) > 0)
                     <!-- Categories Section -->
                     @if(count($categories) > 0)

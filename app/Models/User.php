@@ -33,6 +33,12 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            // Loyalty
+            'loyalty_points' => 'integer',
+            'total_orders' => 'integer',
+            'total_spent' => 'decimal:2',
+            'total_reviews' => 'integer',
+            'last_order_at' => 'datetime',
         ];
     }
 
@@ -163,5 +169,61 @@ class User extends Authenticatable
             ->withPivot('viewed_at')
             ->orderByPivot('viewed_at', 'desc')
             ->limit(20);
+    }
+
+    // =========================================================================
+    // LOYALTY & CUSTOMER LEVEL
+    // =========================================================================
+
+    public function customerLevel(): BelongsTo
+    {
+        return $this->belongsTo(CustomerLevel::class, 'customer_level_id');
+    }
+
+    public function farmerBadges(): HasMany
+    {
+        return $this->hasMany(FarmerBadge::class);
+    }
+
+    public function following(): HasMany
+    {
+        return $this->hasMany(FarmerFollower::class, 'follower_id');
+    }
+
+    public function followers(): HasMany
+    {
+        return $this->hasMany(FarmerFollower::class, 'farmer_id');
+    }
+
+    /**
+     * Check if user is following a farmer.
+     */
+    public function isFollowing(int $farmerId): bool
+    {
+        return $this->following()->where('farmer_id', $farmerId)->exists();
+    }
+
+    /**
+     * Get customer level name.
+     */
+    public function getLevelNameAttribute(): string
+    {
+        return $this->customerLevel?->display_name ?? 'Bronze';
+    }
+
+    /**
+     * Get customer level color.
+     */
+    public function getLevelColorAttribute(): string
+    {
+        return $this->customerLevel?->color ?? '#CD7F32';
+    }
+
+    /**
+     * Get formatted loyalty points.
+     */
+    public function getFormattedLoyaltyPointsAttribute(): string
+    {
+        return number_format($this->loyalty_points ?? 0);
     }
 }

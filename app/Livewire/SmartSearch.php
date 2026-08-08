@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\RecommendationService;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -17,6 +18,13 @@ class SmartSearch extends Component
     private const MIN_QUERY_LENGTH = 2;
 
     private const MAX_RESULTS = 5;
+
+    protected RecommendationService $recommendationService;
+
+    public function boot(RecommendationService $recommendationService): void
+    {
+        $this->recommendationService = $recommendationService;
+    }
 
     public function updatedQuery(): void
     {
@@ -44,8 +52,6 @@ class SmartSearch extends Component
 
     public function selectFarm(int $id): void
     {
-        // Redirect to shop with search query for now
-        // Farm profile page can be implemented separately
         $this->query = '';
         $this->isOpen = false;
         $this->redirect(route('shop') . '?q=' . urlencode('peternak:' . $id));
@@ -114,7 +120,8 @@ class SmartSearch extends Component
                 'price' => $p->formatted_current_price,
                 'image' => $p->image_url,
                 'category' => $p->category?->name,
-                'type' => 'product',
+                'type' => $p->type,
+                'type_label' => $p->type_label,
             ])
             ->toArray();
     }
@@ -143,11 +150,81 @@ class SmartSearch extends Component
             ->toArray();
     }
 
+    #[Computed]
+    public function quickFilters(): array
+    {
+        if (strlen($this->query) < self::MIN_QUERY_LENGTH) {
+            return [];
+        }
+
+        $term = mb_strtolower($this->query);
+        $filters = [];
+
+        // Check for feed-related keywords
+        $feedKeywords = ['pakan', 'feed', 'makanan', 'pakan ternak', 'konsentrat'];
+        foreach ($feedKeywords as $keyword) {
+            if (str_contains($term, $keyword)) {
+                $filters[] = [
+                    'name' => 'Pakan Ternak',
+                    'url' => route('shop') . '?type=supply&category=pakan',
+                    'icon' => 'fa-solid fa-wheat-awn',
+                    'type' => 'filter',
+                ];
+                break;
+            }
+        }
+
+        // Check for medicine/vitamin keywords
+        $medicineKeywords = ['obat', 'vitamin', 'suplemen', 'medicine', 'vaksin'];
+        foreach ($medicineKeywords as $keyword) {
+            if (str_contains($term, $keyword)) {
+                $filters[] = [
+                    'name' => 'Obat & Vitamin',
+                    'url' => route('shop') . '?type=supply&category=obat',
+                    'icon' => 'fa-solid fa-capsules',
+                    'type' => 'filter',
+                ];
+                break;
+            }
+        }
+
+        // Check for livestock keywords
+        $livestockKeywords = ['sapi', 'kambing', 'ayam', 'bebek', 'ternak'];
+        foreach ($livestockKeywords as $keyword) {
+            if (str_contains($term, $keyword)) {
+                $filters[] = [
+                    'name' => 'Ternak Hidup',
+                    'url' => route('shop') . '?type=live',
+                    'icon' => 'fa-solid fa-cow',
+                    'type' => 'filter',
+                ];
+                break;
+            }
+        }
+
+        // Check for fresh meat keywords
+        $meatKeywords = ['daging', 'meat', 'segar'];
+        foreach ($meatKeywords as $keyword) {
+            if (str_contains($term, $keyword)) {
+                $filters[] = [
+                    'name' => 'Daging Segar',
+                    'url' => route('shop') . '?type=fresh',
+                    'icon' => 'fa-solid fa-drumstick-bite',
+                    'type' => 'filter',
+                ];
+                break;
+            }
+        }
+
+        return $filters;
+    }
+
     public function getHasResultsProperty(): bool
     {
         return !empty($this->categories)
             || !empty($this->products)
-            || !empty($this->farms);
+            || !empty($this->farms)
+            || !empty($this->quickFilters);
     }
 
     public function highlight(string $text, ?string $keyword = null): string

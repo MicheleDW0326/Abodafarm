@@ -30,6 +30,28 @@ class FarmProfile extends Model
         'google_place_id',
         'latitude',
         'longitude',
+        // Trust & Reputation
+        'trust_score',
+        'response_rate',
+        'response_time_hours',
+        'cancellation_rate',
+        // Statistics
+        'products_sold',
+        'livestock_sold',
+        'total_revenue',
+        'completed_bookings',
+        'completed_orders',
+        'repeat_customers',
+        // Badges
+        'badge_top_seller',
+        'badge_fast_response',
+        'badge_trusted_farmer',
+        'badge_organic_certified',
+        'badge_excellent_rating',
+        // Followers
+        'followers_count',
+        'last_response_at',
+        'badges_updated_at',
     ];
 
     protected $casts = [
@@ -38,6 +60,27 @@ class FarmProfile extends Model
         'total_reviews' => 'integer',
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8',
+        // Trust fields
+        'trust_score' => 'decimal:2',
+        'response_rate' => 'decimal:2',
+        'response_time_hours' => 'integer',
+        'cancellation_rate' => 'decimal:2',
+        'products_sold' => 'integer',
+        'livestock_sold' => 'integer',
+        'total_revenue' => 'decimal:2',
+        'completed_bookings' => 'integer',
+        'completed_orders' => 'integer',
+        'repeat_customers' => 'integer',
+        // Badge fields
+        'badge_top_seller' => 'boolean',
+        'badge_fast_response' => 'boolean',
+        'badge_trusted_farmer' => 'boolean',
+        'badge_organic_certified' => 'boolean',
+        'badge_excellent_rating' => 'boolean',
+        // Followers
+        'followers_count' => 'integer',
+        'last_response_at' => 'datetime',
+        'badges_updated_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
@@ -48,6 +91,16 @@ class FarmProfile extends Model
     public function galleries(): HasMany
     {
         return $this->hasMany(FarmGallery::class)->orderBy('sort_order');
+    }
+
+    public function badges(): HasMany
+    {
+        return $this->hasMany(FarmerBadge::class, 'user_id', 'user_id');
+    }
+
+    public function followers(): HasMany
+    {
+        return $this->hasMany(FarmerFollower::class, 'farmer_id', 'user_id');
     }
 
     public function getProfileCompletionAttribute(): int
@@ -162,23 +215,170 @@ class FarmProfile extends Model
         $this->update(['is_verified' => !$this->is_verified]);
     }
 
+    // =========================================================================
+    // TRUST & REPUTATION HELPERS
+    // =========================================================================
+
+    /**
+     * Get trust score label.
+     */
+    public function getTrustScoreLabelAttribute(): string
+    {
+        $score = $this->trust_score ?? 50;
+        if ($score >= 90) return 'Sangat Baik';
+        if ($score >= 75) return 'Baik';
+        if ($score >= 50) return 'Cukup';
+        if ($score >= 25) return 'Kurang';
+        return 'Buruk';
+    }
+
+    /**
+     * Get trust score color.
+     */
+    public function getTrustScoreColorAttribute(): string
+    {
+        $score = $this->trust_score ?? 50;
+        if ($score >= 90) return 'emerald';
+        if ($score >= 75) return 'blue';
+        if ($score >= 50) return 'amber';
+        return 'red';
+    }
+
+    /**
+     * Get all active badges.
+     */
+    public function getActiveBadgesAttribute(): array
+    {
+        $badges = [];
+
+        if ($this->is_verified) {
+            $badges[] = [
+                'type' => 'verified',
+                'name' => 'Terverifikasi',
+                'icon' => 'fa-solid fa-circle-check',
+                'color' => '#3B82F6',
+            ];
+        }
+
+        if ($this->badge_top_seller) {
+            $badges[] = [
+                'type' => 'top_seller',
+                'name' => 'Top Seller',
+                'icon' => 'fa-solid fa-trophy',
+                'color' => '#F59E0B',
+            ];
+        }
+
+        if ($this->badge_fast_response) {
+            $badges[] = [
+                'type' => 'fast_response',
+                'name' => 'Respon Cepat',
+                'icon' => 'fa-solid fa-bolt',
+                'color' => '#10B981',
+            ];
+        }
+
+        if ($this->badge_trusted_farmer) {
+            $badges[] = [
+                'type' => 'trusted_farmer',
+                'name' => 'Peternak Terpercaya',
+                'icon' => 'fa-solid fa-shield-check',
+                'color' => '#6366F1',
+            ];
+        }
+
+        if ($this->badge_organic_certified) {
+            $badges[] = [
+                'type' => 'organic_certified',
+                'name' => 'Sertifikat Organik',
+                'icon' => 'fa-solid fa-leaf',
+                'color' => '#22C55E',
+            ];
+        }
+
+        if ($this->badge_excellent_rating) {
+            $badges[] = [
+                'type' => 'excellent_rating',
+                'name' => 'Rating Excellent',
+                'icon' => 'fa-solid fa-star',
+                'color' => '#EAB308',
+            ];
+        }
+
+        return $badges;
+    }
+
+    /**
+     * Check if farmer has specific badge.
+     */
+    public function hasBadge(string $type): bool
+    {
+        return match($type) {
+            'verified' => $this->is_verified,
+            'top_seller' => $this->badge_top_seller,
+            'fast_response' => $this->badge_fast_response,
+            'trusted_farmer' => $this->badge_trusted_farmer,
+            'organic_certified' => $this->badge_organic_certified,
+            'excellent_rating' => $this->badge_excellent_rating,
+            default => false,
+        };
+    }
+
+    /**
+     * Get formatted response time.
+     */
+    public function getFormattedResponseTimeAttribute(): string
+    {
+        $hours = $this->response_time_hours ?? 0;
+        if ($hours === 0) return 'Baru';
+        if ($hours < 1) return '< 1 jam';
+        if ($hours < 24) return "{$hours} jam";
+        $days = floor($hours / 24);
+        return "{$days} hari";
+    }
+
+    /**
+     * Get formatted revenue.
+     */
+    public function getFormattedRevenueAttribute(): string
+    {
+        return 'Rp ' . number_format($this->total_revenue ?? 0, 0, ',', '.');
+    }
+
     public function getStatsAttribute(): array
     {
         $user = $this->user;
 
         return [
-            // Note: Removed is_active filter as products table doesn't have this column
+            // Products
             'active_products' => $user?->products()->count() ?? 0,
             'total_products' => $user?->products()->count() ?? 0,
-            'completed_bookings' => $user?->orders()
-                ->whereIn('status', ['completed', 'delivered'])
-                ->where('order_type', 'inquiry')
-                ->count() ?? 0,
+            'products_sold' => $this->products_sold ?? 0,
+            'livestock_sold' => $this->livestock_sold ?? 0,
+            // Orders & Bookings
+            'completed_bookings' => $this->completed_bookings ?? 0,
+            'completed_orders' => $this->completed_orders ?? 0,
             'total_bookings' => $user?->orders()
                 ->where('order_type', 'inquiry')
                 ->count() ?? 0,
+            'cancellation_rate' => $this->cancellation_rate ?? 0,
+            // Reviews & Rating
             'rating' => $this->rating ?? 0,
             'total_reviews' => $this->total_reviews ?? 0,
+            // Trust
+            'trust_score' => $this->trust_score ?? 50,
+            'trust_score_label' => $this->trust_score_label,
+            'response_rate' => $this->response_rate ?? 0,
+            'response_time' => $this->formatted_response_time,
+            // Revenue
+            'total_revenue' => $this->total_revenue ?? 0,
+            'formatted_revenue' => $this->formatted_revenue,
+            // Customers
+            'repeat_customers' => $this->repeat_customers ?? 0,
+            'followers_count' => $this->followers_count ?? 0,
+            // Badges
+            'badges' => $this->active_badges,
+            // Other
             'galleries_count' => $this->galleries()->count(),
         ];
     }
