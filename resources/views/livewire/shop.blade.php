@@ -117,6 +117,11 @@
             event.stopPropagation();
         }
 
+        // Get product type (fresh, supply, live)
+        const productType = product.type || 'supply';
+        const key = 'product_' + product.id + '_' + productType;
+        const isNewItem = !this.cartItems.find(item => item.key === key);
+
         // Validate stock via server
         try {
             const response = await fetch('/shop/check-stock/' + product.id);
@@ -127,7 +132,6 @@
                 return;
             }
 
-            const key = 'product_' + product.id + '_supply';
             const existing = this.cartItems.find(item => item.key === key);
 
             if (existing) {
@@ -143,21 +147,30 @@
                     key: key,
                     product_id: product.id,
                     name: product.name,
-                    price: product.current_price,
+                    price: product.current_price || product.price,
                     image: product.image,
-                    type: 'supply',
+                    type: productType,
                     qty: 1,
-                    max_stock: stockData.stock
+                    max_stock: stockData.stock,
+                    added_at: new Date().toISOString()
                 });
             }
 
             this.persistCart();
             this.showAddToast(product.name + ' ditambahkan ke keranjang');
             this.$dispatch('cart-updated');
+
+            // Dispatch specific event for new items (for floating cart button animation)
+            if (isNewItem) {
+                this.$dispatch('cart-item-added', {
+                    name: product.name,
+                    key: key,
+                    image: product.image
+                });
+            }
         } catch (error) {
             console.error('Error checking stock:', error);
             // Fallback to client-side only
-            const key = 'product_' + product.id + '_supply';
             const existing = this.cartItems.find(item => item.key === key);
 
             if (existing) {
@@ -167,16 +180,26 @@
                     key: key,
                     product_id: product.id,
                     name: product.name,
-                    price: product.current_price,
+                    price: product.current_price || product.price,
                     image: product.image,
-                    type: 'supply',
-                    qty: 1
+                    type: productType,
+                    qty: 1,
+                    added_at: new Date().toISOString()
                 });
             }
 
             this.persistCart();
             this.showAddToast(product.name + ' ditambahkan ke keranjang');
             this.$dispatch('cart-updated');
+
+            // Dispatch specific event for new items
+            if (isNewItem) {
+                this.$dispatch('cart-item-added', {
+                    name: product.name,
+                    key: key,
+                    image: product.image
+                });
+            }
         }
     },
 
@@ -384,20 +407,29 @@
 
                             <!-- Action Buttons -->
                             <div class="mt-8 flex flex-col gap-3">
-                                <a :href=\"'/shop/' + quickViewProduct.slug\"
+                                <a :href="'/shop/' + quickViewProduct.slug"
                                    class="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-emerald-600 bg-white px-6 py-3.5 text-sm font-bold text-emerald-600 transition-all hover:bg-emerald-50 active:scale-[0.98]">
                                     <i class="fa-solid fa-eye"></i>
                                     Lihat Detail Produk
                                 </a>
-                                <button @click="addToCart(quickViewProduct)"
-                                        :disabled="!quickViewProduct.stock || quickViewProduct.stock <= 0"
-                                        class="flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold transition-all"
-                                        :class="quickViewProduct.stock && quickViewProduct.stock > 0
-                                            ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.98]'
-                                            : 'bg-slate-100 text-slate-400 cursor-not-allowed'">
-                                    <i class="fa-solid fa-cart-plus"></i>
-                                    <span x-text="quickViewProduct.stock && quickViewProduct.stock > 0 ? 'Tambah ke Keranjang' : 'Stok Habis'"></span>
-                                </button>
+                                <template x-if="quickViewProduct.type === 'live'">
+                                    <a :href="'/shop/' + quickViewProduct.slug"
+                                       class="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-green-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-green-500/30 hover:shadow-xl hover:shadow-green-500/40 hover:from-green-600 hover:to-green-700 active:scale-[0.98]">
+                                        <i class="fa-solid fa-calendar-check"></i>
+                                        <span x-text="quickViewProduct.stock && quickViewProduct.stock > 0 ? 'Booking Ternak' : 'Stok Habis'"></span>
+                                    </a>
+                                </template>
+                                <template x-if="quickViewProduct.type !== 'live'">
+                                    <button @click="addToCart(quickViewProduct)"
+                                            :disabled="!quickViewProduct.stock || quickViewProduct.stock <= 0"
+                                            class="flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold transition-all"
+                                            :class="quickViewProduct.stock && quickViewProduct.stock > 0
+                                                ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.98]'
+                                                : 'bg-slate-100 text-slate-400 cursor-not-allowed'">
+                                        <i class="fa-solid fa-cart-plus"></i>
+                                        <span x-text="quickViewProduct.stock && quickViewProduct.stock > 0 ? 'Tambah ke Keranjang' : 'Stok Habis'"></span>
+                                    </button>
+                                </template>
                             </div>
                         </div>
                     </div>
@@ -760,11 +792,70 @@
         </div>
     </section>
 
-    <!-- Categories -->
+    <!-- Product Type Tabs -->
     <section class="mx-auto mt-10 max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div class="flex size-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                    <i class="fa-solid fa-tags"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Tipe Produk</h2>
+                    <p class="text-sm text-slate-500">Filter berdasarkan tipe produk</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Type Tabs -->
+        <div class="mt-5 flex flex-wrap items-center gap-3">
+            <button wire:click="setProductType('all')"
+                    :class="$wire.productType === 'all' ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200/50 border-transparent' : 'bg-white text-slate-700 hover:bg-emerald-50 border-slate-200'"
+                    class="group flex items-center gap-2.5 rounded-xl border px-5 py-3 text-sm font-semibold shadow-sm transition-all duration-300">
+                <i class="fa-solid fa-border-all transition-transform group-hover:scale-110"></i>
+                Semua
+                <span class="rounded-full px-2 py-0.5 text-xs font-bold"
+                      :class="$wire.productType === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'">
+                    {{ $typeCounts['all'] ?? 0 }}
+                </span>
+            </button>
+            <button wire:click="setProductType('live')"
+                    :class="$wire.productType === 'live' ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg shadow-green-200/50 border-transparent' : 'bg-white text-slate-700 hover:bg-green-50 border-slate-200'"
+                    class="group flex items-center gap-2.5 rounded-xl border px-5 py-3 text-sm font-semibold shadow-sm transition-all duration-300">
+                <i class="fa-solid fa-cow transition-transform group-hover:scale-110"></i>
+                Ternak
+                <span class="rounded-full px-2 py-0.5 text-xs font-bold"
+                      :class="$wire.productType === 'live' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'">
+                    {{ $typeCounts['live'] ?? 0 }}
+                </span>
+            </button>
+            <button wire:click="setProductType('fresh')"
+                    :class="$wire.productType === 'fresh' ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-200/50 border-transparent' : 'bg-white text-slate-700 hover:bg-red-50 border-slate-200'"
+                    class="group flex items-center gap-2.5 rounded-xl border px-5 py-3 text-sm font-semibold shadow-sm transition-all duration-300">
+                <i class="fa-solid fa-drumstick-bite transition-transform group-hover:scale-110"></i>
+                Daging Segar
+                <span class="rounded-full px-2 py-0.5 text-xs font-bold"
+                      :class="$wire.productType === 'fresh' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'">
+                    {{ $typeCounts['fresh'] ?? 0 }}
+                </span>
+            </button>
+            <button wire:click="setProductType('supply')"
+                    :class="$wire.productType === 'supply' ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-200/50 border-transparent' : 'bg-white text-slate-700 hover:bg-blue-50 border-slate-200'"
+                    class="group flex items-center gap-2.5 rounded-xl border px-5 py-3 text-sm font-semibold shadow-sm transition-all duration-300">
+                <i class="fa-solid fa-wheat-awn transition-transform group-hover:scale-110"></i>
+                Pakan & Perlengkapan
+                <span class="rounded-full px-2 py-0.5 text-xs font-bold"
+                      :class="$wire.productType === 'supply' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'">
+                    {{ $typeCounts['supply'] ?? 0 }}
+                </span>
+            </button>
+        </div>
+    </section>
+
+    <!-- Categories -->
+    <section class="mx-auto mt-8 max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="flex size-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
                     <i class="fa-solid fa-layer-group"></i>
                 </div>
                 <div>
@@ -780,7 +871,7 @@
                     :class="!$wire.selectedCategory ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200/50 border-transparent' : 'bg-white text-slate-700 hover:bg-emerald-50 border-slate-200'"
                     class="group flex items-center gap-2.5 rounded-xl border px-5 py-3 text-sm font-semibold shadow-sm transition-all duration-300">
                 <i class="fa-solid fa-border-all transition-transform group-hover:scale-110"></i>
-                Semua Produk
+                Semua Kategori
             </button>
             @foreach($categories as $category)
                 <button wire:click="selectCategory({{ $category['id'] }})"
@@ -820,6 +911,7 @@
                                 'id' => $product->id,
                                 'name' => $product->name,
                                 'slug' => $product->slug,
+                                'type' => $product->type,
                                 'description' => $product->description,
                                 'price' => $product->price,
                                 'current_price' => $product->current_price,
@@ -854,6 +946,19 @@
 
                             <!-- Badges -->
                             <div class="absolute left-3 top-3 flex flex-col gap-2">
+                                @if($product->type === 'live')
+                                    <span class="rounded-xl bg-gradient-to-r from-green-500 to-green-600 px-2.5 py-1 text-xs font-bold text-white shadow-lg">
+                                        <i class="fa-solid fa-cow mr-1"></i>Ternak
+                                    </span>
+                                @elseif($product->type === 'fresh')
+                                    <span class="rounded-xl bg-gradient-to-r from-red-500 to-red-600 px-2.5 py-1 text-xs font-bold text-white shadow-lg">
+                                        <i class="fa-solid fa-drumstick-bite mr-1"></i>Daging Segar
+                                    </span>
+                                @elseif($product->type === 'supply')
+                                    <span class="rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 px-2.5 py-1 text-xs font-bold text-white shadow-lg">
+                                        <i class="fa-solid fa-wheat-awn mr-1"></i>Pakan
+                                    </span>
+                                @endif
                                 @if($product->has_discount)
                                     <span class="rounded-xl bg-gradient-to-r from-red-500 to-rose-500 px-2.5 py-1 text-xs font-bold text-white shadow-lg">
                                         -{{ $product->discount_percentage }}%
@@ -885,6 +990,7 @@
                                     'id' => $product->id,
                                     'name' => $product->name,
                                     'slug' => $product->slug,
+                                    'type' => $product->type,
                                     'description' => $product->description,
                                     'price' => $product->price,
                                     'current_price' => $product->current_price,
@@ -908,12 +1014,13 @@
 
                             <!-- Wishlist Button -->
                             <button
-                                x-data="{ isWishlist: {{ auth()->check() && auth()->user()->favoriteProducts()->where('id', $product->id)->exists() ? 'true' : 'false' }}"
+                                x-data="{ isWishlist: {{ auth()->check() && auth()->user()->favoriteProducts()->where('products.id', $product->id)->exists() ? 'true' : 'false' }} }"
+                                x-init="$watch('wishlistProductIds', value => { isWishlist = value.includes({{ $product->id }}) })"
                                 @click="toggleWishlist({{ $product->id }}, $event)"
-                                :class="isWishlist ? 'text-rose-500' : 'text-slate-400'"
+                                :class="isWishlist === 'true' || isWishlist === true ? 'text-rose-500' : 'text-slate-400'"
                                 class="absolute bottom-3 right-3 flex size-10 items-center justify-center rounded-full bg-white/95 shadow-lg backdrop-blur-sm transition-all hover:scale-110 opacity-0 group-hover:opacity-100"
                             >
-                                <i :class="isWishlist ? 'fa-solid fa-heart' : 'fa-regular fa-heart'"></i>
+                                <i :class="isWishlist === 'true' || isWishlist === true ? 'fa-solid fa-heart' : 'fa-regular fa-heart'"></i>
                             </button>
                         </div>
 
@@ -960,20 +1067,46 @@
                                 @endif
                             </div>
 
-                            <!-- Add to Cart Button -->
-                            <button
-                                @click="addToCart({{ json_encode([
-                                    'id' => $product->id,
-                                    'name' => $product->name,
-                                    'price' => $product->current_price,
-                                    'image' => $product->image_url,
-                                    'type' => 'supply'
-                                ]) }}, $event)"
-                                @if($product->stock <= 0) disabled @endif
-                                class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all {{ $product->stock > 0 ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200/50 hover:shadow-xl hover:shadow-emerald-200/50 hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.98]' : 'bg-slate-100 text-slate-400 cursor-not-allowed' }}">
-                                <i class="fa-solid fa-cart-plus"></i>
-                                {{ $product->stock > 0 ? 'Tambah ke Keranjang' : 'Stok Habis' }}
-                            </button>
+                            <!-- Action Button (Different for each product type) -->
+                            @if($product->type === 'live')
+                                {{-- Livestock: Booking button --}}
+                                <a href="{{ route('shop.product', $product->slug) }}"
+                                   @click.stop
+                                   class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg shadow-green-200/50 hover:shadow-xl hover:shadow-green-200/50 hover:from-green-600 hover:to-green-700 active:scale-[0.98]">
+                                    <i class="fa-solid fa-calendar-check"></i>
+                                    Booking Ternak
+                                </a>
+                            @elseif($product->type === 'fresh')
+                                {{-- Fresh meat: Add to cart --}}
+                                <button
+                                    @click="addToCart({{ json_encode([
+                                        'id' => $product->id,
+                                        'name' => $product->name,
+                                        'price' => $product->current_price,
+                                        'image' => $product->image_url,
+                                        'type' => 'fresh'
+                                    ]) }}, $event)"
+                                    @if($product->stock <= 0) disabled @endif
+                                    class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all {{ $product->stock > 0 ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-lg shadow-red-200/50 hover:shadow-xl hover:shadow-red-200/50 hover:from-red-600 hover:to-red-700 active:scale-[0.98]' : 'bg-slate-100 text-slate-400 cursor-not-allowed' }}">
+                                    <i class="fa-solid fa-cart-plus"></i>
+                                    {{ $product->stock > 0 ? 'Tambah ke Keranjang' : 'Stok Habis' }}
+                                </button>
+                            @else
+                                {{-- Supply: Add to cart --}}
+                                <button
+                                    @click="addToCart({{ json_encode([
+                                        'id' => $product->id,
+                                        'name' => $product->name,
+                                        'price' => $product->current_price,
+                                        'image' => $product->image_url,
+                                        'type' => 'supply'
+                                    ]) }}, $event)"
+                                    @if($product->stock <= 0) disabled @endif
+                                    class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all {{ $product->stock > 0 ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200/50 hover:shadow-xl hover:shadow-emerald-200/50 hover:from-emerald-600 hover:to-emerald-700 active:scale-[0.98]' : 'bg-slate-100 text-slate-400 cursor-not-allowed' }}">
+                                    <i class="fa-solid fa-cart-plus"></i>
+                                    {{ $product->stock > 0 ? 'Tambah ke Keranjang' : 'Stok Habis' }}
+                                </button>
+                            @endif
                         </div>
                     </article>
                 @endforeach
@@ -1151,7 +1284,7 @@
                         </a></li>
                         <li><a href="{{ route('shop') }}" class="group flex items-center gap-2 transition hover:text-emerald-600">
                             <i class="fa-solid fa-chevron-right text-xs text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-emerald-500"></i>
-                            Toko
+                            Produk
                         </a></li>
                         <li><a href="{{ route('about') }}" class="group flex items-center gap-2 transition hover:text-emerald-600">
                             <i class="fa-solid fa-chevron-right text-xs text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-emerald-500"></i>
@@ -1213,4 +1346,7 @@
             </div>
         </div>
     </footer>
+
+    <!-- Floating Cart Button -->
+    <x-floating-cart-button />
 </div>

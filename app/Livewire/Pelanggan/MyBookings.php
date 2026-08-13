@@ -174,10 +174,13 @@ class MyBookings extends Component
             }
         }
 
+        // Convert string keys to integer keys for proper iteration in blade
+        $stepsWithIntKeys = array_values($this->bookingSteps);
+
         // Handle terminal states
         if (in_array($status, ['rejected', 'cancelled'])) {
             return [
-                'steps' => $this->bookingSteps,
+                'steps' => $stepsWithIntKeys,
                 'currentStep' => -1,
                 'isRejected' => true,
                 'isCancelled' => $status === 'cancelled',
@@ -186,7 +189,7 @@ class MyBookings extends Component
         }
 
         return [
-            'steps' => $this->bookingSteps,
+            'steps' => $stepsWithIntKeys,
             'currentStep' => $currentIndex,
             'isRejected' => false,
             'isCancelled' => false,

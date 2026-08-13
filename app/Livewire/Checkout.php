@@ -195,9 +195,11 @@ class Checkout extends Component
             return;
         }
 
+        // OPTIMIZED: Added limit to prevent loading too many addresses
         $this->userAddresses = Address::where('user_id', auth()->id())
             ->orderByDesc('is_default')
             ->orderBy('created_at', 'desc')
+            ->limit(10) // Limit to 10 most recent addresses for performance
             ->get()
             ->toArray();
 
@@ -373,6 +375,14 @@ class Checkout extends Component
         $this->promoName = $result['promo']['name'] ?? null;
         $this->promoSuccess = $result['message'];
         $this->promoCode = '';
+
+        // Dispatch browser event to update Alpine state
+        $this->dispatch('promo-applied', [
+            'discount' => $this->discountAmount,
+            'type' => $this->promoType,
+            'code' => $this->appliedPromoCode,
+            'name' => $this->promoName,
+        ]);
     }
 
     public function removePromoCode(): void
@@ -385,9 +395,12 @@ class Checkout extends Component
         $this->promoType = null;
         $this->promoName = null;
         $this->promoSuccess = 'Kode promo dihapus.';
+
+        // Dispatch browser event to update Alpine state
+        $this->dispatch('promo-removed');
     }
 
-    public function placeOrder(): void
+    public function placeOrder(?string $cartJson = null): void
     {
         $this->validate([
             'name' => ['required', 'string', 'max:100'],
@@ -402,8 +415,14 @@ class Checkout extends Component
             // In production, you might want to block this
         }
 
-        // Get cart items - prioritize cartData from hidden input
-        $items = $this->getCartItems();
+        // Get cart items - use passed JSON or fallback to stored cartData
+        $items = [];
+        if ($cartJson) {
+            $items = json_decode($cartJson, true);
+        }
+        if (empty($items)) {
+            $items = $this->getCartItems();
+        }
 
         if (empty($items)) {
             $this->addError('cart', 'Keranjang kosong. Tambahkan produk terlebih dahulu.');
@@ -449,9 +468,10 @@ class Checkout extends Component
 
         $order = DB::transaction(function () use ($items): Order {
             // Calculate final total with discount
-            $subtotal = $this->cartTotal;
+            $subtotal = $this->cartTotal();
+            $shippingCost = $this->shippingCost();
             $discount = $this->discountAmount ?? 0;
-            $finalTotal = max(0, $subtotal - $discount);
+            $finalTotal = max(0, $subtotal + $shippingCost - $discount);
 
             $order = Order::create([
                 'order_number' => 'FG-' . now()->format('YmdHis') . '-' . str_pad((string) random_int(0, 999), 3, '0', STR_PAD_LEFT),
@@ -460,8 +480,8 @@ class Checkout extends Component
                 'customer_phone' => $this->phone,
                 'customer_address' => $this->address,
                 'notes' => $this->notes,
-                'total_items' => $this->cartCount,
-                'total_amount' => $finalTotal, // Use discounted total
+                'total_items' => $this->cartCount(),
+                'total_amount' => $finalTotal, // Use discounted total with shipping
                 'status' => 'pending',
                 'placed_at' => now(),
                 'order_type' => Order::TYPE_CART,
@@ -526,25 +546,22 @@ class Checkout extends Component
             return;
         }
 
-        // Check if order still exists
-        $order = Order::find($this->currentOrderId);
-        if (!$order) {
-            $this->errorMessage = 'Order tidak ditemukan.';
-            return;
-        }
-
         $this->isLoadingPayment = true;
         $this->errorMessage = null;
         $this->snapToken = null;
 
         try {
-            $order = Order::with('items.product')->find($this->currentOrderId);
+            // OPTIMIZED: Single query with eager loading instead of duplicate queries
+            $order = Order::with(['items.product', 'payment'])->find($this->currentOrderId);
 
             if (!$order) {
                 $this->errorMessage = 'Order tidak ditemukan.';
                 $this->isLoadingPayment = false;
                 return;
             }
+
+            // Check if payment already exists - use eager loaded relation
+            $existingPayment = $order->payment;
 
             // Check if payment already exists
             $existingPayment = $order->payment;
@@ -719,7 +736,6 @@ class Checkout extends Component
         ];
     }
 
-    #[Computed]
     public function cartItems(): array
     {
         return $this->getCartItems();
@@ -738,7 +754,16 @@ class Checkout extends Component
             }
         }
 
-        // Priority 2: session cart
+        // Priority 2: cart data from request (Livewire wire:model)
+        $requestCartData = request()->input('cartData');
+        if (!empty($requestCartData)) {
+            $decoded = json_decode($requestCartData, true);
+            if (is_array($decoded) && !empty($decoded)) {
+                return $decoded;
+            }
+        }
+
+        // Priority 3: session cart
         $sessionCart = session(self::CART_SESSION_KEY, []);
         if (!empty($sessionCart)) {
             return array_values($sessionCart);
@@ -747,14 +772,12 @@ class Checkout extends Component
         return [];
     }
 
-    #[Computed]
     public function cartCount(): int
     {
         $items = $this->getCartItems();
         return array_sum(array_column($items, 'qty'));
     }
 
-    #[Computed]
     public function cartTotal(): int
     {
         $items = $this->getCartItems();
@@ -764,34 +787,61 @@ class Checkout extends Component
         ));
     }
 
-    #[Computed]
     public function discountAmountValue(): float
     {
         return $this->discountAmount ?? 0;
     }
 
-    #[Computed]
-    public function discountedTotal(): int
+    public function shippingCost(): int
     {
-        return max(0, $this->cartTotal - ($this->discountAmount ?? 0));
+        // Free shipping if promo type is 'free_shipping'
+        if ($this->promoType === 'free_shipping') {
+            return 0;
+        }
+        return 20000; // Default shipping cost
     }
 
-    #[Computed]
+    public function discountedTotal(): int
+    {
+        // Total = subtotal + shipping - discount
+        $subtotal = $this->cartTotal();
+        $shipping = $this->shippingCost();
+        $discount = $this->discountAmount ?? 0;
+
+        return max(0, $subtotal + $shipping - $discount);
+    }
+
+    public function totalSavings(): int
+    {
+        // Total savings = discount amount + shipping (if free shipping)
+        $discount = $this->discountAmount ?? 0;
+        if ($this->promoType === 'free_shipping') {
+            $discount += 20000; // Add shipping cost as savings
+        }
+        return $discount;
+    }
+
     public function formattedDiscount(): string
     {
         return 'Rp ' . number_format($this->discountAmount ?? 0, 0, ',', '.');
     }
 
-    #[Computed]
     public function formattedSubtotal(): string
     {
-        return 'Rp ' . number_format($this->cartTotal, 0, ',', '.');
+        return 'Rp ' . number_format($this->cartTotal(), 0, ',', '.');
     }
 
-    #[Computed]
+    public function formattedShipping(): string
+    {
+        if ($this->shippingCost() === 0) {
+            return 'GRATIS';
+        }
+        return 'Rp ' . number_format($this->shippingCost(), 0, ',', '.');
+    }
+
     public function formattedFinalTotal(): string
     {
-        return 'Rp ' . number_format($this->discountedTotal, 0, ',', '.');
+        return 'Rp ' . number_format($this->discountedTotal(), 0, ',', '.');
     }
 
     /**
@@ -836,11 +886,14 @@ class Checkout extends Component
     }
 
     /**
-     * Refresh cart from session (called from frontend after localStorage sync).
+     * Refresh cart from hidden input (called from frontend after localStorage sync).
      */
     public function refreshCart(): void
     {
-        // Force Livewire to re-render by toggling a dummy property
+        // Re-read cartData from request (hidden input)
+        $this->cartData = request()->input('cartData', '');
+
+        // Force Livewire to re-render
         $this->dispatch('cart-refreshed');
     }
 

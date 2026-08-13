@@ -11,6 +11,7 @@
             ['route' => 'admin.products', 'label' => 'Produk', 'icon' => 'tag', 'submenu' => null],
             ['route' => 'admin.products.import', 'label' => 'Import Produk', 'icon' => 'file-import', 'submenu' => null],
             ['route' => 'admin.orders', 'label' => 'Pesanan', 'icon' => 'shoping-bag', 'submenu' => null],
+            ['route' => 'admin.promotions', 'label' => 'Promo & Diskon', 'icon' => 'badge-dolar-sign', 'submenu' => null],
             ['route' => 'admin.customers', 'label' => 'Pelanggan', 'icon' => 'users-round', 'submenu' => null],
             ['route' => 'admin.finance', 'label' => 'Keuangan', 'icon' => 'circle-dolar-sign', 'submenu' => null],
             ['route' => 'admin.staff', 'label' => 'Pengguna', 'icon' => 'user-round-cog', 'submenu' => null],

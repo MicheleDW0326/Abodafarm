@@ -1,5 +1,13 @@
 <header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-lg"
-    x-data="{ activeRoute: '', mobileOpen: false, cartOpen: false }"
+    x-data="{
+        activeRoute: '',
+        mobileOpen: false,
+        cartOpen: false,
+        get cartCount() {
+            const cart = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+            return cart.reduce((sum, item) => sum + (item.qty || 0), 0);
+        }
+    }"
     x-init="activeRoute = window.location.pathname; window.addEventListener('livewire:navigated', () => activeRoute = window.location.pathname)">
 
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -20,24 +28,19 @@
                     :class="activeRoute === '/' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
                     Beranda
                 </a>
-                <a href="{{ route('gallery') }}"
-                    class="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
-                    :class="activeRoute.includes('/galeri') ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
-                    Galeri
-                </a>
                 <a href="{{ route('shop') }}"
                     class="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
-                    :class="activeRoute.includes('/shop') ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
-                    Toko
+                    :class="activeRoute.includes('/shop') || activeRoute.includes('/produk') ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
+                    Produk
                 </a>
                 <a href="{{ route('about') }}"
                     class="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
-                    :class="activeRoute.includes('/about') ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
-                    Tentang
+                    :class="activeRoute.includes('/about') || activeRoute.includes('/tentang-kami') ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
+                    Tentang Kami
                 </a>
                 <a href="{{ route('contact') }}"
                     class="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
-                    :class="activeRoute.includes('/contact') ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
+                    :class="activeRoute.includes('/contact') || activeRoute.includes('/kontak') ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
                     Kontak
                 </a>
             </nav>
@@ -68,7 +71,7 @@
                     </a>
 
                     <!-- Cart -->
-                    <button @click="$dispatch('toggle-cart')"
+                    <button @click="window.dispatchEvent(new CustomEvent('toggle-cart'))"
                         class="relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-all hover:bg-white hover:text-emerald-600 hover:shadow-sm"
                         title="Keranjang">
                         <x-icon name="svg-cart" class="w-[18px] h-[18px]" />
@@ -143,27 +146,21 @@
                 <x-icon name="home" class="w-5 h-5" />
                 Beranda
             </a>
-            <a href="{{ route('gallery') }}" @click="mobileOpen = false"
-                class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition"
-                :class="activeRoute.includes('/galeri') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
-                <x-icon name="images" class="w-5 h-5" />
-                Galeri
-            </a>
             <a href="{{ route('shop') }}" @click="mobileOpen = false"
                 class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition"
-                :class="activeRoute.includes('/shop') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
+                :class="activeRoute.includes('/shop') || activeRoute.includes('/produk') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
                 <x-icon name="store" class="w-5 h-5" />
-                Toko
+                Produk
             </a>
             <a href="{{ route('about') }}" @click="mobileOpen = false"
                 class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition"
-                :class="activeRoute.includes('/about') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
+                :class="activeRoute.includes('/about') || activeRoute.includes('/tentang-kami') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
                 <x-icon name="info" class="w-5 h-5" />
                 Tentang Kami
             </a>
             <a href="{{ route('contact') }}" @click="mobileOpen = false"
                 class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition"
-                :class="activeRoute.includes('/contact') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
+                :class="activeRoute.includes('/contact') || activeRoute.includes('/kontak') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
                 <x-icon name="mail" class="w-5 h-5" />
                 Kontak
             </a>
@@ -195,7 +192,7 @@
                     <x-icon name="svg-wishlist" class="w-[18px] h-[18px] text-rose-500" />
                     Wishlist
                 </a>
-                <button @click="mobileOpen = false; $dispatch('toggle-cart')"
+                <button @click="mobileOpen = false; window.dispatchEvent(new CustomEvent('toggle-cart'))"
                     class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
                     <x-icon name="svg-cart" class="w-[18px] h-[18px]" />
                     Keranjang

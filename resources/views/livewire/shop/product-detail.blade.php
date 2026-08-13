@@ -119,7 +119,7 @@
             <nav class="flex items-center gap-2 text-sm">
                 <a href="{{ route('home') }}" class="text-slate-500 hover:text-emerald-600">Beranda</a>
                 <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
-                <a href="{{ route('shop') }}" class="text-slate-500 hover:text-emerald-600">Toko</a>
+                <a href="{{ route('shop') }}" class="text-slate-500 hover:text-emerald-600">Produk</a>
                 <i class="fa-solid fa-chevron-right text-xs text-slate-400"></i>
                 <a href="{{ route('shop') }}?category={{ $product->category?->slug }}" class="text-slate-500 hover:text-emerald-600">
                     {{ $product->category?->name ?? 'Kategori' }}
@@ -148,13 +148,13 @@
                 </div>
 
                 <!-- Image Navigation -->
-                <button @click="activeImage = activeImage > 0 ? activeImage - 1 : {{ count($allImages) - 1 }}"
+                <button @click="activeImage = activeImage > 0 ? activeImage - 1 : {{ max(0, count($allImages ?? []) - 1) }}"
                         class="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-md backdrop-blur-sm transition hover:bg-white">
                     <svg class="size-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
                     </svg>
                 </button>
-                <button @click="activeImage = activeImage < {{ count($allImages) - 1 }} ? activeImage + 1 : 0"
+                <button @click="activeImage = activeImage < {{ max(0, count($allImages ?? []) - 1) }} ? activeImage + 1 : 0"
                         class="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 shadow-md backdrop-blur-sm transition hover:bg-white">
                     <svg class="size-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -183,7 +183,7 @@
             </div>
 
             <!-- Thumbnail Gallery -->
-            @if(count($allImages) > 1)
+            @if(($allImages && count($allImages)) > 1)
                 <div class="mt-4 flex gap-3 overflow-x-auto pb-2">
                     @foreach($allImages as $index => $image)
                         <button @click="activeImage = {{ $index }}"
@@ -281,64 +281,95 @@
             <!-- Quantity Selector & Add to Cart -->
             <div class="mt-6">
                 @if($product->stock > 0)
-                    <!-- Quantity -->
-                    <div class="flex items-center gap-4">
-                        <span class="text-sm font-medium text-slate-700">Jumlah:</span>
-                        <div class="flex items-center overflow-hidden rounded-xl border border-slate-300">
-                            <button wire:click="decrementQuantity"
-                                    class="flex size-10 items-center justify-center text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                    @if($quantity <= 1) disabled @endif>
-                                <i class="fa-solid fa-minus text-sm"></i>
+                    @if($product->type === 'live')
+                        {{-- LIVESTOCK: Show Booking Button --}}
+                        <div class="mb-4 rounded-xl bg-green-50 p-4 border border-green-200">
+                            <div class="flex items-start gap-3">
+                                <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+                                    <i class="fa-solid fa-cow text-green-600"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-green-800">Ternak Hidup</h4>
+                                    <p class="mt-1 text-sm text-green-700">Produk ternak dapat dipesan melalui sistem booking. Tim kami akan menghubungi Anda untuk konfirmasi.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons for Livestock -->
+                        <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+                            <a href="{{ route('pelanggan.booking') }}?product={{ $product->id }}"
+                               class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-green-200 transition-all hover:bg-green-700 active:scale-[0.98]">
+                                <i class="fa-solid fa-calendar-check"></i>
+                                Booking Ternak
+                            </a>
+                            <a href="https://wa.me/6281234567890?text=Halo, saya interesado dengan {{ urlencode($product->name) }} ({{ route('shop.product', $product->slug) }})"
+                               target="_blank"
+                               class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-600 active:scale-[0.98]">
+                                <i class="fa-brands fa-whatsapp"></i>
+                                Hubungi via WhatsApp
+                            </a>
+                        </div>
+                    @else
+                        {{-- NORMAL PRODUCTS: Show Cart/Checkout Buttons --}}
+                        <!-- Quantity -->
+                        <div class="flex items-center gap-4">
+                            <span class="text-sm font-medium text-slate-700">Jumlah:</span>
+                            <div class="flex items-center overflow-hidden rounded-xl border border-slate-300">
+                                <button wire:click="decrementQuantity"
+                                        class="flex size-10 items-center justify-center text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                        @if($quantity <= 1) disabled @endif>
+                                    <i class="fa-solid fa-minus text-sm"></i>
+                                </button>
+                                <input type="number" wire:model.live="quantity" min="1" max="{{ $product->stock }}"
+                                       class="size-14 w-full border-x border-slate-300 text-center text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                       readonly>
+                                <button wire:click="incrementQuantity"
+                                        class="flex size-10 items-center justify-center text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                                        @if($quantity >= $product->stock) disabled @endif>
+                                    <i class="fa-solid fa-plus text-sm"></i>
+                                </button>
+                            </div>
+                            @if($product->unit)
+                                <span class="text-sm text-slate-500">/ {{ $product->unit }}</span>
+                            @endif
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="mt-6 flex flex-col gap-3 sm:flex-row">
+                            <button
+                                x-data="{}"
+                                @click="addToCart({{ json_encode([
+                                    'id' => $product->id,
+                                    'name' => $product->name,
+                                    'price' => $product->current_price,
+                                    'image' => $product->image_url,
+                                    'type' => $product->type,
+                                    'qty' => $quantity
+                                ]) }}, {{ $quantity }})"
+                                class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 active:scale-[0.98]">
+                                <i class="fa-solid fa-cart-plus"></i>
+                                Tambah ke Keranjang
                             </button>
-                            <input type="number" wire:model.live="quantity" min="1" max="{{ $product->stock }}"
-                                   class="size-14 w-full border-x border-slate-300 text-center text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                                   readonly>
-                            <button wire:click="incrementQuantity"
-                                    class="flex size-10 items-center justify-center text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                                    @if($quantity >= $product->stock) disabled @endif>
-                                <i class="fa-solid fa-plus text-sm"></i>
+                            <button
+                                @click="buyNow({{ json_encode([
+                                    'id' => $product->id,
+                                    'name' => $product->name,
+                                    'price' => $product->current_price,
+                                    'image' => $product->image_url,
+                                    'type' => $product->type
+                                ]) }}, {{ $quantity }})"
+                                class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 py-3.5 text-sm font-semibold text-white shadow-lg shadow-amber-200 transition-all hover:bg-amber-600 active:scale-[0.98]">
+                                <i class="fa-solid fa-bolt"></i>
+                                Beli Sekarang
                             </button>
                         </div>
-                        @if($product->unit)
-                            <span class="text-sm text-slate-500">/ {{ $product->unit }}</span>
-                        @endif
-                    </div>
 
-                    <!-- Action Buttons -->
-                    <div class="mt-6 flex flex-col gap-3 sm:flex-row">
-                        <button
-                            x-data="{}"
-                            @click="addToCart({{ json_encode([
-                                'id' => $product->id,
-                                'name' => $product->name,
-                                'price' => $product->current_price,
-                                'image' => $product->image_url,
-                                'type' => 'supply',
-                                'qty' => $quantity
-                            ]) }}, {{ $quantity }})"
-                            class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 active:scale-[0.98]">
-                            <i class="fa-solid fa-cart-plus"></i>
-                            Tambah ke Keranjang
+                        <!-- Wishlist Button -->
+                        <button class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 py-3 text-sm font-medium text-slate-600 transition hover:border-red-300 hover:text-red-500">
+                            <i class="fa-solid fa-heart"></i>
+                            Tambah ke Wishlist
                         </button>
-                        <button
-                            @click="buyNow({{ json_encode([
-                                'id' => $product->id,
-                                'name' => $product->name,
-                                'price' => $product->current_price,
-                                'image' => $product->image_url,
-                                'type' => 'supply'
-                            ]) }}, {{ $quantity }})"
-                            class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 py-3.5 text-sm font-semibold text-white shadow-lg shadow-amber-200 transition-all hover:bg-amber-600 active:scale-[0.98]">
-                            <i class="fa-solid fa-bolt"></i>
-                            Beli Sekarang
-                        </button>
-                    </div>
-
-                    <!-- Wishlist Button -->
-                    <button class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 py-3 text-sm font-medium text-slate-600 transition hover:border-red-300 hover:text-red-500">
-                        <i class="fa-solid fa-heart"></i>
-                        Tambah ke Wishlist
-                    </button>
+                    @endif
                 @else
                     <!-- Out of Stock State -->
                     <div class="flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
@@ -368,6 +399,49 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Farmer/Toko Peternak Link -->
+            @if($farmer)
+                <a href="{{ $farmer['profile_url'] }}"
+                   target="_blank"
+                   class="mt-4 flex items-center gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 transition hover:border-amber-300 hover:bg-amber-100">
+                    @if($farmer['logo_url'])
+                        <img src="{{ $farmer['logo_url'] }}"
+                             alt="{{ $farmer['name'] }}"
+                             class="size-12 rounded-full object-cover border-2 border-white shadow">
+                    @else
+                        <div class="flex size-12 items-center justify-center rounded-full bg-amber-200 text-xl font-bold text-amber-700">
+                            {{ strtoupper(substr($farmer['name'], 0, 1)) }}
+                        </div>
+                    @endif
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <p class="font-semibold text-amber-900 truncate">{{ $farmer['name'] }}</p>
+                            @if($farmer['is_verified'])
+                                <span class="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    Terverifikasi
+                                </span>
+                            @endif
+                        </div>
+                        @if($farmer['rating'] > 0)
+                            <div class="mt-0.5 flex items-center gap-2 text-sm">
+                                <div class="flex items-center gap-1">
+                                    @for($i = 1; $i <= 5; $i++)
+                                        <i class="fa-solid fa-star text-xs {{ $i <= round($farmer['rating']) ? 'text-amber-400' : 'text-amber-200' }}"></i>
+                                    @endfor
+                                </div>
+                                <span class="font-medium text-amber-700">{{ number_format($farmer['rating'], 1) }}</span>
+                                <span class="text-amber-600">({{ number_format($farmer['total_reviews']) }} ulasan)</span>
+                            </div>
+                        @endif
+                    </div>
+                    <div class="flex items-center gap-2 text-sm font-medium text-amber-700">
+                        <span>Kunjungi Toko</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </a>
+            @endif
         </div>
     </main>
 
@@ -493,7 +567,7 @@
     </section>
 
     <!-- Reviews Section -->
-    @if(count($reviews) > 0)
+    @if($reviews && count($reviews) > 0)
         <section class="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div class="border-b border-slate-200 p-6">

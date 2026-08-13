@@ -8,6 +8,7 @@ use App\Enums\ShipmentStatusEnum;
 use App\Events\OrderStatusChanged;
 use App\Models\BookingStatus;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\OrderStatus;
 use App\Models\OrderStatusLog;
 use App\Models\ShipmentStatus;
@@ -248,13 +249,54 @@ class OrderStateMachine
         int $triggeredById,
         ?string $notes = null
     ): array {
-        return self::transition(
-            $order,
-            Order::STATUS_APPROVED,
-            OrderStatusLog::TRIGGER_ADMIN,
-            $triggeredById,
-            $notes ?? 'Booking disetujui'
-        );
+        // Decrement stock for all items when booking is approved
+        $fromStatus = $order->status;
+
+        try {
+            DB::transaction(function () use ($order, $fromStatus, $triggeredById, $notes) {
+                // Decrement stock for each item
+                foreach ($order->items as $item) {
+                    if ($item->product_id && $item->product) {
+                        $item->product->decrement('stock', $item->quantity);
+                    }
+                }
+
+                // Perform the status transition
+                self::updateStatusColumns($order, Order::STATUS_APPROVED);
+                $order->update(['status' => Order::STATUS_APPROVED]);
+
+                // Log the status change
+                OrderStatusLog::log(
+                    $order,
+                    $fromStatus,
+                    Order::STATUS_APPROVED,
+                    OrderStatusLog::TRIGGER_ADMIN,
+                    $triggeredById,
+                    $notes ?? 'Booking disetujui'
+                );
+            });
+
+            // Dispatch event after successful transition
+            event(new OrderStatusChanged(
+                $order->fresh(['statusLogs.triggeredBy']),
+                $fromStatus,
+                Order::STATUS_APPROVED,
+                OrderStatusLog::TRIGGER_ADMIN,
+                $triggeredById,
+                $notes ?? 'Booking disetujui'
+            ));
+
+            return [
+                'success' => true,
+                'message' => 'Booking berhasil disetujui dan stok telah dikurangi',
+                'order' => $order->fresh(['statusLogs.triggeredBy']),
+            ];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Gagal menyetujui booking: ' . $e->getMessage(),
+            ];
+        }
     }
 
     /**

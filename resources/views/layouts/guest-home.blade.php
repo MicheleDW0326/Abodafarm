@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     {{-- Search Engine Verification --}}
     <x-webmaster-verification />
@@ -116,6 +117,9 @@
     @livewire('splash-screen')
 
     {{ $slot }}
+
+    <!-- Cart Drawer -->
+    <x-cart-drawer />
 
     <!-- Help Center Modal - lazy loaded via Alpine -->
     <x-help-center />

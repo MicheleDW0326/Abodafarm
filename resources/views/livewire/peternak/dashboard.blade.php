@@ -308,7 +308,7 @@
             </div>
         </a>
 
-        <a href="{{ route('peternak.profile') }}" class="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-xs transition hover:shadow-md hover:border-purple-200">
+        <a href="{{ route('farmer.public-profile', ['username' => auth()->user()?->name ?? auth()->user()?->id]) }}" class="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-xs transition hover:shadow-md hover:border-purple-200">
             <div class="rounded-xl bg-purple-50 p-3 text-purple-600">
                 <i class="fa-solid fa-farm text-xl"></i>
             </div>

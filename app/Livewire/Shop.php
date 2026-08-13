@@ -5,7 +5,6 @@ namespace App\Livewire;
 use App\Models\Category;
 use App\Models\Product;
 use App\Services\SeoService;
-use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -14,7 +13,7 @@ use Illuminate\Http\Request;
 use Livewire\Attributes\Url;
 
 #[Layout('layouts.guest-home')]
-#[Title('Toko Pakan & Perlengkapan - AbodaFarm')]
+#[Title('Produk - AbodaFarm')]
 class Shop extends Component
 {
     use WithPagination;
@@ -24,6 +23,9 @@ class Shop extends Component
 
     #[Url]
     public ?int $selectedCategory = null;
+
+    #[Url]
+    public string $productType = 'all'; // all, live, fresh, supply
 
     #[Url]
     public string $sortBy = 'newest';
@@ -85,6 +87,10 @@ class Shop extends Component
 
     public array $ratingOptions = [];
 
+    public array $typeOptions = [];
+
+    public array $typeCounts = [];
+
     public function mount(Request $request): void
     {
         // Initialize filter options
@@ -103,16 +109,23 @@ class Shop extends Component
             }
         }
 
+        // Read product type from URL
+        if ($request->has('type') && $request->type) {
+            $this->productType = in_array($request->type, ['all', 'live', 'fresh', 'supply'])
+                ? $request->type
+                : 'all';
+        }
+
         $this->heroBanners = [
             [
-                'title' => 'Pakan & Perlengkapan Ternak Berkualitas',
-                'description' => 'Temukan berbagai macam pakan, vitamin, obat-obatan, dan perlengkapan peternakan untuk kebutuhan usaha Anda.',
+                'title' => 'Produk Peternakan Berkualitas',
+                'description' => 'Temukan berbagai macam ternak, daging segar, pakan, vitamin, dan perlengkapan peternakan untuk kebutuhan usaha Anda.',
                 'image' => 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449?auto=format&fit=crop&w=1600&q=80',
                 'badge' => 'Hot Promo',
             ],
             [
                 'title' => 'Diskon Spesial untuk Pelanggan Setia',
-                'description' => 'Dapatkan potongan harga hingga 30% untuk pembelian pakan dalam jumlah besar.',
+                'description' => 'Dapatkan potongan harga hingga 30% untuk pembelian produk peternakan.',
                 'image' => 'https://images.unsplash.com/photo-1500595046743-cd271d694d30?auto=format&fit=crop&w=1600&q=80',
                 'badge' => 'Limited Offer',
             ],
@@ -178,10 +191,39 @@ class Shop extends Component
             2 => '2+ Bintang',
             1 => '1+ Bintang',
         ];
+
+        $this->typeOptions = [
+            'all' => 'Semua',
+            'live' => 'Ternak',
+            'fresh' => 'Daging Segar',
+            'supply' => 'Pakan & Perlengkapan',
+        ];
+
+        // Load type counts
+        $this->loadTypeCounts();
+    }
+
+    protected function loadTypeCounts(): void
+    {
+        // OPTIMIZED: Single query instead of 4 separate COUNT queries
+        $counts = Product::available()
+            ->inStock()
+            ->selectRaw('type, COUNT(*) as total')
+            ->groupBy('type')
+            ->pluck('total', 'type')
+            ->toArray();
+
+        $this->typeCounts = [
+            'all' => array_sum($counts),
+            'live' => $counts['live'] ?? 0,
+            'fresh' => $counts['fresh'] ?? 0,
+            'supply' => $counts['supply'] ?? 0,
+        ];
     }
 
     protected function loadCategories(): void
     {
+        // All supply categories
         $supplySlugs = [
             'pakan-ternak',
             'vitamin-suplemen',
@@ -193,8 +235,35 @@ class Shop extends Component
             'lainnya',
         ];
 
-        $this->categories = Category::where('is_active', true)
-            ->whereIn('slug', $supplySlugs)
+        // Live/Fresh categories (livestock product categories)
+        $livestockSlugs = [
+            'sapi',
+            'kambing',
+            'ayam',
+            'bebek',
+            'lain-ternak',
+        ];
+
+        // Fresh meat categories
+        $freshSlugs = [
+            'daging-sapi',
+            'daging-kambing',
+            'daging-ayam',
+            'daging-bebek',
+        ];
+
+        $query = Category::where('is_active', true);
+
+        // Filter by type if not 'all'
+        if ($this->productType === 'supply') {
+            $query->whereIn('slug', $supplySlugs);
+        } elseif ($this->productType === 'live') {
+            $query->whereIn('slug', $livestockSlugs);
+        } elseif ($this->productType === 'fresh') {
+            $query->whereIn('slug', $freshSlugs);
+        }
+
+        $this->categories = $query
             ->orderBy('sort_order')
             ->get()
             ->map(fn($cat) => [
@@ -209,63 +278,89 @@ class Shop extends Component
 
     protected function loadCategoryCounts(): void
     {
-        $counts = [];
-        $supplySlugs = [
-            'pakan-ternak',
-            'vitamin-suplemen',
-            'obat-obatan',
-            'alat-minum',
-            'alat-makan',
-            'alat-kebersihan',
-            'perlengkapan-kandang',
-            'lainnya',
-        ];
+        // OPTIMIZED: Single query with GROUP BY instead of N queries in loop
+        $categoryIds = array_column($this->categories, 'id');
 
-        $supplyCategories = Category::whereIn('slug', $supplySlugs)->get();
-
-        foreach ($supplyCategories as $cat) {
-            $count = Product::supply()
-                ->where('category_id', $cat->id)
-                ->available()
-                ->inStock()
-                ->count();
-            $counts[$cat->id] = $count;
+        if (empty($categoryIds)) {
+            $this->categoryCounts = [];
+            return;
         }
 
-        $this->categoryCounts = $counts;
+        // Build base query with type filter
+        $query = Product::query()
+            ->selectRaw('category_id, COUNT(*) as total')
+            ->whereIn('category_id', $categoryIds)
+            ->available()
+            ->inStock();
+
+        // Apply type filter
+        if ($this->productType === 'supply') {
+            $query->supply();
+        } elseif ($this->productType === 'live') {
+            $query->live();
+        } elseif ($this->productType === 'fresh') {
+            $query->freshType();
+        }
+
+        // Single query with GROUP BY - returns all counts at once
+        $counts = $query->groupBy('category_id')
+            ->pluck('total', 'category_id')
+            ->toArray();
+
+        // Fill all category counts, default to 0 for missing
+        $this->categoryCounts = [];
+        foreach ($categoryIds as $catId) {
+            $this->categoryCounts[$catId] = $counts[$catId] ?? 0;
+        }
     }
 
     protected function loadFeaturedProducts(): void
     {
-        $products = Product::supply()
-            ->available()
+        $query = Product::available()
             ->inStock()
             ->featured()
-            ->with('category')
-            ->limit(6)
-            ->get();
+            ->with('category');
+
+        // Apply type filter
+        if ($this->productType === 'supply') {
+            $query->supply();
+        } elseif ($this->productType === 'live') {
+            $query->live();
+        } elseif ($this->productType === 'fresh') {
+            $query->freshType();
+        }
+
+        $products = $query->limit(6)->get();
 
         $this->featuredProducts = $products->map(fn($p) => $this->formatProduct($p))->toArray();
     }
 
     protected function getProductsQuery()
     {
-        $query = Product::supply()
-            ->available()
+        $query = Product::available()
             ->inStock()
             ->with(['category', 'reviews']);
+
+        // Filter by product type
+        if ($this->productType === 'supply') {
+            $query->supply();
+        } elseif ($this->productType === 'live') {
+            $query->live();
+        } elseif ($this->productType === 'fresh') {
+            $query->freshType();
+        }
 
         // Category filter
         if ($this->selectedCategory) {
             $query->where('category_id', $this->selectedCategory);
         }
 
-        // Search filter
+        // Search filter - OPTIMIZED: Removed LOWER() for better index usage
         if ($this->search) {
-            $searchTerm = Str::lower($this->search);
+            $searchTerm = '%' . $this->search . '%';
             $query->where(function ($q) use ($searchTerm) {
-                $q->whereRaw('LOWER(name) LIKE ?', ['%' . $searchTerm . '%'])
-                    ->orWhereRaw('LOWER(description) LIKE ?', ['%' . $searchTerm . '%']);
+                $q->where('name', 'like', $searchTerm)
+                    ->orWhere('description', 'like', $searchTerm);
             });
         }
 
@@ -394,6 +489,16 @@ class Shop extends Component
         $this->resetPage();
     }
 
+    public function setProductType(string $type): void
+    {
+        $this->productType = $type;
+        $this->selectedCategory = null;
+        $this->resetPage();
+        $this->loadCategories();
+        $this->loadCategoryCounts();
+        $this->loadFeaturedProducts();
+    }
+
     public function setSort(string $sort): void
     {
         $this->sortBy = $sort;
@@ -454,6 +559,7 @@ class Shop extends Component
     {
         $this->search = '';
         $this->selectedCategory = null;
+        $this->productType = 'all';
         $this->sortBy = 'newest';
         $this->priceRange = 'all';
         $this->minPrice = null;
@@ -465,6 +571,8 @@ class Shop extends Component
         $this->minRating = null;
         $this->organicOnly = false;
         $this->resetPage();
+        $this->loadCategories();
+        $this->loadCategoryCounts();
     }
 
     public function getActiveFiltersCount(): int
@@ -667,6 +775,8 @@ class Shop extends Component
             'total_reviews' => $product->total_reviews ?? 0,
             'unit' => $product->unit,
             'is_featured' => $product->is_featured,
+            'type' => $product->type,
+            'type_label' => $product->type_label,
         ];
     }
 

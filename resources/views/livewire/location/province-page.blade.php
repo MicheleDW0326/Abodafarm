@@ -133,7 +133,7 @@
             </div>
             <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 @foreach($provinceFarmers as $farmer)
-                    <a href="{{ route('peternak.profile', $farmer->user?->username ?? $farmer->user_id) }}"
+                    <a href="{{ route('farmer.public-profile', $farmer->user?->name ?? $farmer->user_id) }}"
                        class="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg">
                         <div class="relative aspect-[4/3]">
                             <img src="{{ $farmer->cover_image ? asset('storage/' . $farmer->cover_image) : ($farmer->image ? asset('storage/' . $farmer->image) : 'https://images.unsplash.com/photo-1500595046743-cd271d694d30?w=400') }}"

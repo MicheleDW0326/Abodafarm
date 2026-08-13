@@ -18,11 +18,16 @@ class ErrorService
      */
     public function getCategories(int $limit = 8): array
     {
-        return Category::active()
-            ->ordered()
-            ->limit($limit)
-            ->get()
-            ->toArray();
+        try {
+            return Category::active()
+                ->ordered()
+                ->limit($limit)
+                ->get()
+                ->toArray();
+        } catch (\Exception $e) {
+            // Fallback to empty array if database is unavailable
+            return [];
+        }
     }
 
     /**
@@ -30,23 +35,28 @@ class ErrorService
      */
     public function getLatestProducts(int $limit = 4): array
     {
-        return Product::availableWithStatus()
-            ->inStock()
-            ->with('category')
-            ->orderByDesc('created_at')
-            ->limit($limit)
-            ->get()
-            ->map(function ($product) {
-                return [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'slug' => $product->slug,
-                    'price' => $product->formatted_current_price,
-                    'image_url' => $product->image_url,
-                    'category' => $product->category,
-                ];
-            })
-            ->toArray();
+        try {
+            return Product::availableWithStatus()
+                ->inStock()
+                ->with('category')
+                ->orderByDesc('created_at')
+                ->limit($limit)
+                ->get()
+                ->map(function ($product) {
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'slug' => $product->slug,
+                        'price' => $product->formatted_current_price,
+                        'image_url' => $product->image_url,
+                        'category' => $product->category,
+                    ];
+                })
+                ->toArray();
+        } catch (\Exception $e) {
+            // Fallback to empty array if database is unavailable
+            return [];
+        }
     }
 
     /**
@@ -54,24 +64,29 @@ class ErrorService
      */
     public function getFeaturedProducts(int $limit = 4): array
     {
-        return Product::availableWithStatus()
-            ->inStock()
-            ->featured()
-            ->with('category')
-            ->orderByDesc('created_at')
-            ->limit($limit)
-            ->get()
-            ->map(function ($product) {
-                return [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'slug' => $product->slug,
-                    'price' => $product->formatted_current_price,
-                    'image_url' => $product->image_url,
-                    'category' => $product->category,
-                ];
-            })
-            ->toArray();
+        try {
+            return Product::availableWithStatus()
+                ->inStock()
+                ->featured()
+                ->with('category')
+                ->orderByDesc('created_at')
+                ->limit($limit)
+                ->get()
+                ->map(function ($product) {
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'slug' => $product->slug,
+                        'price' => $product->formatted_current_price,
+                        'image_url' => $product->image_url,
+                        'category' => $product->category,
+                    ];
+                })
+                ->toArray();
+        } catch (\Exception $e) {
+            // Fallback to empty array if database is unavailable
+            return [];
+        }
     }
 
     /**

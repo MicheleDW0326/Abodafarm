@@ -1,3 +1,14 @@
+<!-- Pre-load cart data before Alpine initializes -->
+<script>
+    (function() {
+        const cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+        const cartDataInput = document.getElementById('cartDataInput');
+        if (cartDataInput && cartItems.length > 0) {
+            cartDataInput.value = JSON.stringify(cartItems);
+        }
+    })();
+</script>
+
 <div x-data="{
     snapToken: null,
     paymentFinished: false,
@@ -5,6 +16,11 @@
     checkInterval: null,
     snapOpened: false,
     cartItems: [],
+    // Promo state (initialized from PHP, updated reactively)
+    promoDiscount: parseInt('{{ $discountAmount ?? 0 }}') || 0,
+    promoType: '{{ $promoType ?? '' }}',
+    promoCodeApplied: '{{ $appliedPromoCode ?? '' }}',
+    promoNameApplied: '{{ $promoName ?? '' }}',
 
     init() {
         // Check if payment is already completed
@@ -16,13 +32,24 @@
         // Load cart from localStorage
         this.cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
 
-        // Sync cart to session on mount (for backend)
-        this.syncCartToSession();
+        // Set hidden input value for Livewire
+        const cartDataInput = document.getElementById('cartDataInput');
+        if (cartDataInput && this.cartItems.length > 0) {
+            cartDataInput.value = JSON.stringify(this.cartItems);
+        }
+
+        // Sync cart to session AND update Livewire property on mount
+        this.syncCartToSession(true);
 
         // Listen for cart updates
         window.addEventListener('cart-updated', () => {
             this.cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
-            this.syncCartToSession();
+            // Update hidden input
+            const cartDataInput = document.getElementById('cartDataInput');
+            if (cartDataInput) {
+                cartDataInput.value = JSON.stringify(this.cartItems);
+            }
+            this.syncCartToSession(true);
         });
 
         // Listen for refresh-payment event from Livewire
@@ -36,6 +63,22 @@
 
         // Check URL params for payment status
         this.checkPaymentFinish();
+
+        // Listen for promo changes from Livewire
+        window.addEventListener('promo-applied', (e) => {
+            this.promoDiscount = e.detail.discount || 0;
+            this.promoType = e.detail.type || '';
+            this.promoCodeApplied = e.detail.code || '';
+            this.promoNameApplied = e.detail.name || '';
+            this.cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+        });
+
+        window.addEventListener('promo-removed', () => {
+            this.promoDiscount = 0;
+            this.promoType = '';
+            this.promoCodeApplied = '';
+            this.promoNameApplied = '';
+        });
     },
 
     showPaymentSuccessAlert() {
@@ -66,15 +109,20 @@
     checkSnapToken() {
         if (this.snapOpened) return;
         const token = this.$wire.snapToken;
-        if (token && token !== this.snapToken) {
+        if (token && typeof token === 'string' && token !== this.snapToken) {
             console.log('Snap token detected:', token.substring(0, 20) + '...');
             this.snapToken = token;
             this.openMidtransSnap();
         }
     },
 
-    syncCartToSession() {
+    syncCartToSession(updateLivewire = false) {
         if (this.cartItems.length > 0) {
+            // Also update Livewire cartData property if requested
+            if (updateLivewire) {
+                this.$wire.cartData = JSON.stringify(this.cartItems);
+            }
+
             fetch('/api/cart/sync', {
                 method: 'POST',
                 headers: {
@@ -83,8 +131,9 @@
                 },
                 body: JSON.stringify({ cart: this.cartItems })
             }).then(r => r.json()).then(data => {
-                if (data.success) {
-                    this.$wire.refreshCart();
+                if (data.success && updateLivewire) {
+                    // Force Livewire to re-render with new cart data
+                    this.$wire.cartData = JSON.stringify(this.cartItems);
                 }
             }).catch(err => console.error('Cart sync error:', err));
         }
@@ -96,6 +145,88 @@
 
     get cartTotal() {
         return this.cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    },
+
+    get shippingCost() {
+        // Use Alpine promo state for reactive updates
+        return this.promoType === 'free_shipping' ? 0 : 20000;
+    },
+
+    get grandTotal() {
+        const subtotal = this.cartTotal;
+        const shipping = this.shippingCost;
+        const discount = this.promoDiscount;
+        return Math.max(0, subtotal + shipping - discount);
+    },
+
+    applyPromoWithSync() {
+        // Get cart items directly from localStorage
+        const cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+        const cartData = JSON.stringify(cartItems);
+
+        // Update hidden input
+        const cartDataInput = document.getElementById('cartDataInput');
+        if (cartDataInput) {
+            cartDataInput.value = cartData;
+        }
+
+        // Update Livewire property
+        this.$wire.cartData = cartData;
+
+        // Call the promo method
+        this.$wire.applyPromoCode();
+
+        // Update Alpine promo state based on response
+        // The Livewire re-render will update the PHP values, which will be picked up by Alpine
+        setTimeout(() => {
+            // Read promo state from DOM (updated by Livewire)
+            const promoDiscountEl = document.querySelector('[x-data]');
+            if (promoDiscountEl) {
+                // Trigger reactivity by re-reading the values
+                this.cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+            }
+        }, 100);
+    },
+
+    // Method called by Livewire to update Alpine state after promo changes
+    updatePromoState(discount, type, code, name) {
+        this.promoDiscount = discount;
+        this.promoType = type;
+        this.promoCodeApplied = code;
+        this.promoNameApplied = name;
+    },
+
+    // Form submit handler
+    submitForm(event) {
+        event.preventDefault();
+        const cart = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+        const cartDataStr = JSON.stringify(cart);
+
+        // Set cart data to hidden input
+        const cartDataInput = document.getElementById('cartDataInput');
+        if (cartDataInput) {
+            cartDataInput.value = cartDataStr;
+        }
+
+        // Set cart data to Livewire property
+        this.$wire.cartData = cartDataStr;
+
+        // Sync to session
+        fetch('/api/cart/sync', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || ''
+            },
+            body: JSON.stringify({ cart: cart })
+        }).then(r => r.json()).then(() => {
+            // Call placeOrder with cart data
+            this.$wire.placeOrder(cartDataStr);
+        }).catch(err => {
+            console.error('Cart sync error:', err);
+            // Still try to place order with cart data
+            this.$wire.placeOrder(cartDataStr);
+        });
     },
 
     openMidtransSnap() {
@@ -193,30 +324,10 @@
 
                 <!-- Order Form (hidden if order placed) -->
                 @if (!$orderPlaced)
-                    <form x-data="{
-                        submitForm(event) {
-                            event.preventDefault();
-                            const cart = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+                    <!-- Hidden input for cart data (populated by Alpine on mount) -->
+                    <input type="hidden" wire:model="cartData" id="cartDataInput">
 
-                            // Set cart data directly to Livewire property
-                            this.$wire.cartData = JSON.stringify(cart);
-
-                            // Also sync to session
-                            fetch('/api/cart/sync', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || ''
-                                },
-                                body: JSON.stringify({ cart: cart })
-                            }).then(r => r.json()).then(() => {
-                                this.$wire.placeOrder();
-                            }).catch(err => {
-                                console.error('Cart sync error:', err);
-                                this.$wire.placeOrder();
-                            });
-                        }
-                    }" @submit="submitForm($event)" class="mt-6 space-y-4">
+                    <form @submit="submitForm($event)" class="mt-6 space-y-4">
                         <div>
                             <label class="mb-1 block text-sm font-semibold text-slate-700">Nama Penerima</label>
                             <input wire:model="name" type="text" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="Nama lengkap">
@@ -517,7 +628,8 @@
                                                wire:model.live="promoCode"
                                                placeholder="Masukkan kode promo"
                                                class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                                        <button wire:click="applyPromoCode"
+                                        <button type="button"
+                                                @click="applyPromoWithSync()"
                                                 class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700">
                                             Gunakan
                                         </button>
@@ -535,15 +647,15 @@
                                         <div class="flex items-center gap-2">
                                             <i class="fa-solid fa-circle-check text-emerald-600"></i>
                                             <div>
-                                                <span class="text-sm font-semibold text-emerald-700">{{ $promoName ?? $appliedPromoCode }}</span>
-                                                <span class="block text-xs text-emerald-500">{{ $appliedPromoCode }}</span>
+                                                <span class="text-sm font-semibold text-emerald-700" x-text="promoNameApplied || promoCodeApplied"></span>
+                                                <span class="block text-xs text-emerald-500" x-text="promoCodeApplied"></span>
                                             </div>
                                         </div>
                                         <div class="flex items-center gap-2">
                                             <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
                                                 <i class="fa-solid fa-check mr-1"></i>Aktif
                                             </span>
-                                            <button wire:click="removePromoCode" class="text-emerald-400 hover:text-emerald-600 transition">
+                                            <button type="button" @click="$wire.removePromoCode()" class="text-emerald-400 hover:text-emerald-600 transition">
                                                 <i class="fa-solid fa-xmark text-sm"></i>
                                             </button>
                                         </div>
@@ -554,48 +666,64 @@
                                 </div>
                             @endif
 
-                            <!-- Subtotal -->
+                            <!-- Subtotal (Alpine reactive - always shows cart total) -->
                             <div class="mt-3 flex items-center justify-between text-sm text-slate-600">
                                 <span>Subtotal</span>
-                                <span>Rp <span x-text="Number(cartTotal).toLocaleString('id-ID')"></span></span>
+                                <span>Rp <span x-text="cartTotal.toLocaleString('id-ID')"></span></span>
                             </div>
 
-                            <!-- Promo Discount -->
+                            <!-- Promo Discount (Alpine reactive) -->
                             @if($appliedPromoCode && $discountAmount && $discountAmount > 0)
                                 <div class="mt-2 flex items-center justify-between text-sm text-emerald-600">
                                     <span class="flex items-center gap-1">
                                         <i class="fa-solid fa-percent text-xs"></i>
                                         Promo ({{ $appliedPromoCode }})
                                     </span>
-                                    <span class="font-medium">- Rp <span x-text="Number({{ $discountAmount }}).toLocaleString('id-ID')"></span></span>
+                                    <span class="font-medium">- Rp <span x-text="discountAmount.toLocaleString('id-ID')"></span></span>
                                 </div>
                             @endif
 
-                            <!-- Shipping (will be 0 if free shipping) -->
+                            <!-- Free Shipping Badge -->
+                            @if($appliedPromoCode && $promoType === 'free_shipping')
+                                <div class="mt-2 flex items-center justify-between text-sm">
+                                    <span class="flex items-center gap-1">
+                                        <i class="fa-solid fa-truck text-xs text-emerald-600"></i>
+                                        <span class="text-emerald-600">Gratis Ongkir</span>
+                                    </span>
+                                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                                        <i class="fa-solid fa-check mr-1"></i>AKTIF
+                                    </span>
+                                </div>
+                            @endif
+
+                            <!-- Shipping (Alpine reactive) -->
                             <div class="mt-2 flex items-center justify-between text-sm text-slate-600">
                                 <span class="flex items-center gap-1">
                                     <i class="fa-solid fa-truck text-xs"></i>
                                     Ongkir
-                                    @if($appliedPromoCode && $promoType === 'free_shipping')
-                                        <span class="rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700">GRATIS</span>
-                                    @endif
                                 </span>
-                                @if($appliedPromoCode && $promoType === 'free_shipping')
-                                    <span class="font-medium text-emerald-600">GRATIS</span>
-                                @else
-                                    <span>Rp <span x-text="Number(20000).toLocaleString('id-ID')"></span></span>
-                                @endif
+                                <span :class="shippingCost === 0 ? 'text-emerald-600 font-medium' : ''">
+                                    <span x-text="shippingCost === 0 ? 'GRATIS' : 'Rp ' + shippingCost.toLocaleString('id-ID')"></span>
+                                    <span x-show="shippingCost > 0" class="text-xs text-slate-400">(perkiraan)</span>
+                                </span>
                             </div>
 
-                            <!-- Grand Total -->
+                            <!-- Total Savings (Alpine reactive) -->
+                            <template x-if="promoDiscount > 0 || promoType === 'free_shipping'">
+                                <div class="mt-2 flex items-center justify-between text-sm text-emerald-600">
+                                    <span class="flex items-center gap-1">
+                                        <i class="fa-solid fa-piggy-bank text-xs"></i>
+                                        Total Hemat
+                                    </span>
+                                    <span class="font-semibold">- Rp <span x-text="(promoDiscount + (promoType === 'free_shipping' ? 20000 : 0)).toLocaleString('id-ID')"></span></span>
+                                </div>
+                            </template>
+
+                            <!-- Grand Total (Alpine reactive) -->
                             <div class="mt-3 flex items-center justify-between pt-2 border-t border-slate-200">
                                 <span class="text-slate-800 font-semibold">Total Bayar</span>
                                 <span class="text-xl font-bold text-sky-700">
-                                    @if($appliedPromoCode && $promoType === 'free_shipping')
-                                        Rp <span x-text="Number(cartTotal @if($discountAmount && $discountAmount > 0) - {{ $discountAmount }} @endif).toLocaleString('id-ID')"></span>
-                                    @else
-                                        Rp <span x-text="Number(cartTotal @if($discountAmount && $discountAmount > 0) - {{ $discountAmount }} @endif + 20000).toLocaleString('id-ID')"></span>
-                                    @endif
+                                    Rp <span x-text="grandTotal.toLocaleString('id-ID')"></span>
                                 </span>
                             </div>
                         </div>

@@ -17,9 +17,9 @@ return [
 
     'site_name' => env('SEO_SITE_NAME', 'AbodaFarm'),
 
-    'site_description' => env('SEO_SITE_DESCRIPTION', 'AbodaFarm - Peternakan organik terpercaya menyediakan sapi, kambing, dan ayam berkualitas dengan jaminan kesehatan dan transparansi penuh.'),
+    'site_description' => env('SEO_SITE_DESCRIPTION', 'AbodaFarm - Marketplace peternakan terpercaya di Sulawesi Utara. Jual beli sapi, kambing, dan ayam berkualitas dengan jaminan kesehatan. Tersedia untuk Aqiqah dan Qurban.'),
 
-    'site_keywords' => env('SEO_SITE_KEYWORDS', 'peternakan, ternak organik, sapi, kambing, ayam, bebek, Aqiqah, Qurban, peternak, pertanian organik, jual ternak,购买牲畜,organic livestock'),
+    'site_keywords' => env('SEO_SITE_KEYWORDS', 'peternakan sulawesi utara, jual sapi, jual kambing, ayam berkualitas, aqiqah, qurban, peternak manado, beli ternak online, livestock marketplace, organik'),
 
     /*
     |--------------------------------------------------------------------------
@@ -37,9 +37,9 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'address_locality' => env('SEO_ADDRESS_LOCALITY', 'Indonesia'),
+    'address_locality' => env('SEO_ADDRESS_LOCALITY', 'Manado'),
 
-    'address_region' => env('SEO_ADDRESS_REGION', 'Jawa Barat'),
+    'address_region' => env('SEO_ADDRESS_REGION', 'Sulawesi Utara'),
 
     'address_country' => env('SEO_ADDRESS_COUNTRY', 'ID'),
 
@@ -53,9 +53,9 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'latitude' => env('SEO_LATITUDE', '-6.2088'),
+    'latitude' => env('SEO_LATITUDE', '1.4748'),
 
-    'longitude' => env('SEO_LONGITUDE', '106.8456'),
+    'longitude' => env('SEO_LONGITUDE', '124.8424'),
 
     /*
     |--------------------------------------------------------------------------
@@ -63,7 +63,7 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'default_image' => env('SEO_DEFAULT_IMAGE', '/images/og-default.jpg'),
+    'default_image' => env('SEO_DEFAULT_IMAGE', '/images/og-default.svg'),
 
     'default_logo' => env('SEO_DEFAULT_LOGO', '/icons/IconTitle.png'),
 

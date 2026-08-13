@@ -47,7 +47,7 @@
         Livewire.on('showConfirm', (eventData) => {
             // Handle both array and direct object format
             const data = Array.isArray(eventData) ? eventData[0] : eventData;
-            const { title, message, confirmText = 'Ya', cancelText = 'Tidak', confirmAction, componentId, type = 'warning' } = data || {};
+            const { title, message, confirmText = 'Ya', cancelText = 'Tidak', confirmAction, componentId, id, type = 'warning' } = data || {};
 
             const iconConfig = iconMap[type] || iconMap.warning;
 
@@ -66,7 +66,12 @@
                     const component = componentId ? Livewire.find(componentId) : Livewire.first();
 
                     if (component && typeof component.call === 'function') {
-                        component.call(confirmAction);
+                        // Pass id as parameter if available
+                        if (id !== undefined) {
+                            component.call(confirmAction, id);
+                        } else {
+                            component.call(confirmAction);
+                        }
                     } else {
                         console.error('Livewire component not found for action:', confirmAction);
                     }

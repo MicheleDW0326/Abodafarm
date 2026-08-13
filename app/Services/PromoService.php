@@ -42,15 +42,10 @@ class PromoService
         $subtotal = $this->calculateCartSubtotal($cart);
 
         // Rule 1: Check if promotion is active
-        if ($promotion->status !== 'active') {
-            $statusLabel = match($promotion->status) {
-                'inactive' => 'tidak aktif',
-                'expired' => 'kedaluwarsa',
-                default => 'tidak tersedia',
-            };
+        if (!$promotion->is_active) {
             return [
                 'valid' => false,
-                'message' => "Kode promo {$statusLabel}.",
+                'message' => 'Kode promo tidak tersedia.',
                 'reason' => 'inactive',
             ];
         }
@@ -67,8 +62,8 @@ class PromoService
             ];
         }
 
-        if ($promotion->ends_at && $now->gt($promotion->ends_at)) {
-            $endDate = $promotion->ends_at->format('d M Y');
+        if ($promotion->expires_at && $now->gt($promotion->expires_at)) {
+            $endDate = $promotion->expires_at->format('d M Y');
             return [
                 'valid' => false,
                 'message' => "Kode promo sudah berakhir pada {$endDate}.",
@@ -77,7 +72,7 @@ class PromoService
         }
 
         // Rule 3: Check global usage limit
-        if ($promotion->usage_limit !== null && $promotion->used_count >= $promotion->usage_limit) {
+        if ($promotion->usage_limit !== null && $promotion->usage_count >= $promotion->usage_limit) {
             return [
                 'valid' => false,
                 'message' => 'Kode promo sudah mencapai batas penggunaan.',
@@ -86,9 +81,9 @@ class PromoService
         }
 
         // Rule 4: Check per-user usage limit
-        if ($userId && $promotion->usage_per_user > 0) {
+        if ($userId && $promotion->per_user_limit > 0) {
             $userUsageCount = $this->getUserUsageCount($promotion->id, $userId);
-            if ($userUsageCount >= $promotion->usage_per_user) {
+            if ($userUsageCount >= $promotion->per_user_limit) {
                 return [
                     'valid' => false,
                     'message' => 'Anda sudah menggunakan kode promo ini.',
@@ -98,8 +93,8 @@ class PromoService
         }
 
         // Rule 5: Check minimum purchase
-        if ($promotion->minimum_purchase !== null && $subtotal < (float) $promotion->minimum_purchase) {
-            $minFormatted = 'Rp ' . number_format($promotion->minimum_purchase, 0, ',', '.');
+        if ($promotion->min_purchase_amount !== null && $subtotal < (float) $promotion->min_purchase_amount) {
+            $minFormatted = 'Rp ' . number_format($promotion->min_purchase_amount, 0, ',', '.');
             $subtotalFormatted = 'Rp ' . number_format($subtotal, 0, ',', '.');
             return [
                 'valid' => false,
@@ -153,11 +148,11 @@ class PromoService
                 // TODO: Check if item's category/product is restricted
                 // For now, apply to all items
                 $itemSubtotal = (float) ($item['price'] ?? 0) * (int) ($item['qty'] ?? 1);
-                $itemDiscount = $itemSubtotal * ((float) $promotion->value / 100);
+                $itemDiscount = $itemSubtotal * ((float) $promotion->discount_value / 100);
 
                 // Apply max_discount cap if set
-                if ($promotion->maximum_discount !== null && $itemDiscount > (float) $promotion->maximum_discount) {
-                    $itemDiscount = (float) $promotion->maximum_discount;
+                if ($promotion->max_discount_amount !== null && $itemDiscount > (float) $promotion->max_discount_amount) {
+                    $itemDiscount = (float) $promotion->max_discount_amount;
                 }
 
                 $discount += $itemDiscount;
@@ -165,7 +160,7 @@ class PromoService
             }
         } elseif ($promotion->type === 'fixed') {
             // Fixed discount (capped at subtotal)
-            $discount = min((float) $promotion->value, $subtotal);
+            $discount = min((float) $promotion->discount_value, $subtotal);
             $applicableItems = $items;
         }
 
@@ -177,7 +172,7 @@ class PromoService
             'applicable_items' => $applicableItems,
             'details' => [
                 'type' => $promotion->type,
-                'value' => $promotion->value,
+                'value' => $promotion->discount_value,
                 'subtotal' => $subtotal,
             ],
         ];

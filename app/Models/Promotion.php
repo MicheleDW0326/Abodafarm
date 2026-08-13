@@ -13,45 +13,32 @@ class Promotion extends Model
     use HasFactory;
 
     protected $fillable = [
-        'name',
         'code',
+        'title',
         'description',
         'type',
-        'value',
-        'minimum_purchase',
-        'maximum_discount',
+        'discount_value',
+        'min_purchase_amount',
+        'max_discount_amount',
         'usage_limit',
-        'usage_per_user',
-        'used_count',
+        'usage_count',
+        'per_user_limit',
+        'is_active',
         'starts_at',
-        'ends_at',
-        'status',
-        'created_by',
+        'expires_at',
     ];
 
     protected $casts = [
-        'value' => 'decimal:2',
-        'minimum_purchase' => 'decimal:2',
-        'maximum_discount' => 'decimal:2',
+        'discount_value' => 'decimal:2',
+        'min_purchase_amount' => 'decimal:2',
+        'max_discount_amount' => 'decimal:2',
         'usage_limit' => 'integer',
-        'usage_per_user' => 'integer',
-        'used_count' => 'integer',
+        'usage_count' => 'integer',
+        'per_user_limit' => 'integer',
+        'is_active' => 'boolean',
         'starts_at' => 'datetime',
-        'ends_at' => 'datetime',
+        'expires_at' => 'datetime',
     ];
-
-    public const TYPE_PERCENTAGE = 'percentage';
-    public const TYPE_FIXED = 'fixed';
-    public const TYPE_FREE_SHIPPING = 'free_shipping';
-
-    public const STATUS_ACTIVE = 'active';
-    public const STATUS_INACTIVE = 'inactive';
-    public const STATUS_EXPIRED = 'expired';
-
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
 
     public function usages(): HasMany
     {
@@ -60,15 +47,19 @@ class Promotion extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('status', self::STATUS_ACTIVE);
+        return $query->where('is_active', true);
     }
 
     public function scopeValid($query)
     {
         $now = Carbon::now();
-        return $query->where('status', self::STATUS_ACTIVE)
-            ->where('starts_at', '<=', $now)
-            ->where('ends_at', '>=', $now);
+        return $query->where('is_active', true)
+            ->where(function ($q) use ($now) {
+                $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
+            })
+            ->where(function ($q) use ($now) {
+                $q->whereNull('expires_at')->orWhere('expires_at', '>=', $now);
+            });
     }
 
     public function scopeByCode($query, string $code)
@@ -78,17 +69,25 @@ class Promotion extends Model
 
     public function isActive(): bool
     {
-        return $this->status === self::STATUS_ACTIVE;
+        return $this->is_active;
+    }
+
+    public function isValid(): bool
+    {
+        $now = Carbon::now();
+        $hasStarted = !$this->starts_at || $this->starts_at <= $now;
+        $notExpired = !$this->expires_at || $this->expires_at >= $now;
+        return $this->is_active && $hasStarted && $notExpired;
     }
 
     public function isExpired(): bool
     {
-        return $this->ends_at->isPast() || $this->status === self::STATUS_EXPIRED;
+        return $this->expires_at && $this->expires_at->isPast();
     }
 
     public function isStarted(): bool
     {
-        return $this->starts_at->isPast();
+        return !$this->starts_at || $this->starts_at->isPast();
     }
 
     public function hasUsagesRemaining(): bool
@@ -96,7 +95,7 @@ class Promotion extends Model
         if ($this->usage_limit === null) {
             return true;
         }
-        return $this->used_count < $this->usage_limit;
+        return $this->usage_count < $this->usage_limit;
     }
 
     public function getUsageRemainingAttribute(): ?int
@@ -104,21 +103,11 @@ class Promotion extends Model
         if (!$this->usage_limit) {
             return null;
         }
-        return max(0, $this->usage_limit - $this->used_count);
+        return max(0, $this->usage_limit - $this->usage_count);
     }
 
     public function incrementUsage(): void
     {
-        $this->increment('used_count');
-    }
-
-    public function getDiscountTypes(): array
-    {
-        return config('promotions.types');
-    }
-
-    public function getStatusOptions(): array
-    {
-        return config('promotions.statuses');
+        $this->increment('usage_count');
     }
 }

@@ -274,7 +274,7 @@ class LocalSeoService
                 'ratingValue' => (string) $farm->rating,
                 'reviewCount' => (string) ($farm->total_reviews ?? 0),
             ] : null,
-            'url' => route('peternak.profile', ['username' => $farm->user?->username ?? $farm->user_id]),
+            'url' => route('farmer.public-profile', ['username' => $farm->user?->name ?? $farm->user_id]),
         ];
     }
 

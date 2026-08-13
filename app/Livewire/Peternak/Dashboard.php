@@ -160,25 +160,31 @@ class Dashboard extends Component
         $revenues = [];
         $orders = [];
 
+        // OPTIMIZED: Single query with GROUP BY instead of 6 separate queries in loop
+        $sixMonthsAgo = now()->subMonths(5)->startOfMonth();
+
+        $data = DB::table('order_items as oi')
+            ->join('orders as o', 'oi.order_id', '=', 'o.id')
+            ->join('products as p', 'oi.product_id', '=', 'p.id')
+            ->where('p.owner_id', $userId)
+            ->where('o.status', 'not in', ['cancelled', 'rejected'])
+            ->where('o.placed_at', '>=', $sixMonthsAgo)
+            ->selectRaw("
+                YEAR(o.placed_at) as year,
+                MONTH(o.placed_at) as month,
+                COALESCE(SUM(oi.subtotal), 0) as revenue,
+                COUNT(DISTINCT o.id) as orders
+            ")
+            ->groupByRaw('YEAR(o.placed_at), MONTH(o.placed_at)')
+            ->get()
+            ->keyBy(fn($item) => $item->year . '-' . str_pad($item->month, 2, '0', STR_PAD_LEFT));
+
         for ($i = 5; $i >= 0; $i--) {
             $month = now()->subMonths($i);
+            $key = $month->format('Y-n'); // Match the keyBy format
             $months[] = $month->format('M');
-
-            $data = DB::table('order_items as oi')
-                ->join('orders as o', 'oi.order_id', '=', 'o.id')
-                ->join('products as p', 'oi.product_id', '=', 'p.id')
-                ->where('p.owner_id', $userId)
-                ->where('o.status', 'not in', ['cancelled', 'rejected'])
-                ->whereMonth('o.placed_at', $month->month)
-                ->whereYear('o.placed_at', $month->year)
-                ->selectRaw("
-                    COALESCE(SUM(oi.subtotal), 0) as revenue,
-                    COUNT(DISTINCT o.id) as orders
-                ")
-                ->first();
-
-            $revenues[] = (int) $data->revenue;
-            $orders[] = (int) $data->orders;
+            $revenues[] = (int) ($data[$key]->revenue ?? 0);
+            $orders[] = (int) ($data[$key]->orders ?? 0);
         }
 
         $this->monthlyRevenue = $revenues;

@@ -7,8 +7,9 @@ use App\Models\FarmProfile;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\ReviewPhoto;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ReviewService
 {
@@ -43,7 +44,19 @@ class ReviewService
             ]);
 
             self::uploadPhotos($review, $photos);
+
+            // Refresh product to ensure we have latest data before recalculating
+            $product->refresh();
             self::recalculateProductRating($product);
+
+            // Log for debugging
+            \Log::info('Product rating recalculated after review', [
+                'product_id' => $product->id,
+                'review_id' => $review->id,
+                'rating_submitted' => $rating,
+                'new_product_rating' => $product->fresh()->rating,
+                'new_total_reviews' => $product->fresh()->total_reviews,
+            ]);
 
             return $review->load('photos');
         });
@@ -79,7 +92,16 @@ class ReviewService
             ]);
 
             self::uploadPhotos($review, $photos);
+
+            // Refresh farm profile to ensure we have latest data before recalculating
             self::recalculateFarmProfileRating($farmerId);
+
+            // Log for debugging
+            \Log::info('Farm profile rating recalculated after review', [
+                'farmer_id' => $farmerId,
+                'review_id' => $review->id,
+                'rating_submitted' => $rating,
+            ]);
 
             return $review->load('photos');
         });
@@ -188,6 +210,7 @@ class ReviewService
      */
     public static function recalculateProductRating(Product $product): void
     {
+        // Get rating distribution counts
         $reviews = Review::where('product_id', $product->id)
             ->where('status', ReviewStatusEnum::APPROVED->value)
             ->selectRaw('rating, COUNT(*) as count')
@@ -201,7 +224,7 @@ class ReviewService
                 ->avg('rating')
             : 0;
 
-        $product->update([
+        $updateData = [
             'rating' => round($average, 2),
             'total_reviews' => $total,
             'rating_1_count' => $reviews->get(1, 0),
@@ -209,6 +232,26 @@ class ReviewService
             'rating_3_count' => $reviews->get(3, 0),
             'rating_4_count' => $reviews->get(4, 0),
             'rating_5_count' => $reviews->get(5, 0),
+        ];
+
+        // Log the update data for debugging
+        \Log::debug('Updating product rating', [
+            'product_id' => $product->id,
+            'total_approved_reviews' => $total,
+            'average_rating' => round($average, 2),
+            'update_data' => $updateData,
+        ]);
+
+        // Perform the update using direct query to ensure it works
+        Product::where('id', $product->id)->update($updateData);
+
+        // Refresh the product model to reflect changes
+        $product->refresh();
+
+        \Log::debug('Product rating updated', [
+            'product_id' => $product->id,
+            'new_rating' => $product->rating,
+            'new_total_reviews' => $product->total_reviews,
         ]);
     }
 
@@ -220,6 +263,9 @@ class ReviewService
         $profile = FarmProfile::where('user_id', $farmerId)->first();
 
         if (!$profile) {
+            \Log::warning('Farm profile not found for rating recalculation', [
+                'farmer_id' => $farmerId,
+            ]);
             return;
         }
 
@@ -232,9 +278,29 @@ class ReviewService
         $total = $farmerReviews->total ?? 0;
         $average = $farmerReviews->average ?? 0;
 
-        $profile->update([
+        $updateData = [
             'rating' => round($average, 2),
             'total_reviews' => $total,
+        ];
+
+        // Log the update data for debugging
+        \Log::debug('Updating farm profile rating', [
+            'profile_id' => $profile->id,
+            'farmer_id' => $farmerId,
+            'total_reviews' => $total,
+            'average_rating' => round($average, 2),
+        ]);
+
+        // Perform the update using direct query to ensure it works
+        FarmProfile::where('id', $profile->id)->update($updateData);
+
+        // Refresh the profile model to reflect changes
+        $profile->refresh();
+
+        \Log::debug('Farm profile rating updated', [
+            'profile_id' => $profile->id,
+            'new_rating' => $profile->rating,
+            'new_total_reviews' => $profile->total_reviews,
         ]);
     }
 

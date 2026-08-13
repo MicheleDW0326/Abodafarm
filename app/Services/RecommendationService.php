@@ -24,24 +24,21 @@ class RecommendationService
      */
     public function getTrending(int $limit = self::DEFAULT_LIMIT): Collection
     {
-        $cacheKey = "recommendations_trending_{$limit}";
-
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($limit) {
-            return Product::query()
-                ->select('products.*')
-                ->selectRaw('COUNT(product_views.id) as view_count')
-                ->leftJoin('product_views', 'products.id', '=', 'product_views.product_id')
-                ->where('product_views.viewed_at', '>=', now()->subDays(self::TRENDING_DAYS))
-                ->orWhereNull('product_views.id')
-                ->availableWithStatus()
-                ->inStock()
-                ->with(['category', 'owner'])
-                ->groupBy('products.id')
-                ->orderByDesc('view_count')
-                ->orderByDesc('products.created_at')
-                ->limit($limit)
-                ->get();
-        });
+        // Cache disabled temporarily due to corruption issue
+        return Product::query()
+            ->select('products.*')
+            ->selectRaw('COUNT(product_views.id) as view_count')
+            ->leftJoin('product_views', 'products.id', '=', 'product_views.product_id')
+            ->where('product_views.viewed_at', '>=', now()->subDays(self::TRENDING_DAYS))
+            ->orWhereNull('product_views.id')
+            ->availableWithStatus()
+            ->inStock()
+            ->with(['category', 'owner'])
+            ->groupBy('products.id')
+            ->orderByDesc('view_count')
+            ->orderByDesc('products.created_at')
+            ->limit($limit)
+            ->get();
     }
 
     /**
@@ -49,28 +46,38 @@ class RecommendationService
      */
     public function getPopular(int $limit = self::DEFAULT_LIMIT): Collection
     {
-        $cacheKey = "recommendations_popular_{$limit}";
+        // Skip cache temporarily - corrupted cache causes __PHP_Incomplete_Class error
+        // TODO: Clear cache: php artisan cache:clear
+        // return Cache::remember($cacheKey, self::CACHE_TTL, fn() => $this->fetchPopular($limit));
 
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($limit) {
-            // Get popular product IDs first
-            $popularIds = OrderItem::query()
-                ->join('orders', 'order_items.order_id', '=', 'orders.id')
-                ->whereIn('orders.status', [Order::STATUS_DELIVERED, Order::STATUS_COMPLETED])
-                ->selectRaw('product_id, SUM(quantity) as total_qty')
-                ->groupBy('product_id')
-                ->orderByDesc('total_qty')
-                ->limit($limit)
-                ->pluck('product_id')
-                ->toArray();
+        return $this->fetchPopular($limit);
+    }
 
-            return Product::query()
-                ->whereIn('id', $popularIds)
-                ->availableWithStatus()
-                ->inStock()
-                ->with(['category', 'owner'])
-                ->get()
-                ->sortBy(fn($p) => array_search($p->id, $popularIds));
-        });
+    protected function fetchPopular(int $limit): Collection
+    {
+        $popularIds = OrderItem::query()
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereIn('orders.status', [Order::STATUS_DELIVERED, Order::STATUS_COMPLETED])
+            ->selectRaw('product_id, SUM(quantity) as total_qty')
+            ->groupBy('product_id')
+            ->orderByDesc('total_qty')
+            ->limit($limit)
+            ->pluck('product_id')
+            ->values()
+            ->toArray();
+
+        if (empty($popularIds)) {
+            return collect();
+        }
+
+        return Product::query()
+            ->whereIn('id', $popularIds)
+            ->availableWithStatus()
+            ->inStock()
+            ->with(['category', 'owner'])
+            ->get()
+            ->sortBy(fn($p) => array_search($p->id, $popularIds))
+            ->values();
     }
 
     /**
@@ -220,20 +227,17 @@ class RecommendationService
      */
     public function getTopRated(int $limit = self::DEFAULT_LIMIT): Collection
     {
-        $cacheKey = "recommendations_top_rated_{$limit}";
-
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($limit) {
-            return Product::query()
-                ->availableWithStatus()
-                ->inStock()
-                ->with(['category', 'owner'])
-                ->whereNotNull('rating')
-                ->where('rating', '>', 0)
-                ->orderByDesc('rating')
-                ->orderByDesc('total_reviews')
-                ->limit($limit)
-                ->get();
-        });
+        // Cache disabled temporarily
+        return Product::query()
+            ->availableWithStatus()
+            ->inStock()
+            ->with(['category', 'owner'])
+            ->whereNotNull('rating')
+            ->where('rating', '>', 0)
+            ->orderByDesc('rating')
+            ->orderByDesc('total_reviews')
+            ->limit($limit)
+            ->get();
     }
 
     /**
@@ -241,20 +245,16 @@ class RecommendationService
      */
     public function getOrganicChoice(int $limit = self::DEFAULT_LIMIT): Collection
     {
-        $cacheKey = "recommendations_organic_{$limit}";
-
-        return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($limit) {
-            // Fresh meat products (type = fresh)
-            return Product::query()
-                ->available()
-                ->inStock()
-                ->with(['category', 'owner'])
-                ->where('type', Product::TYPE_FRESH)
-                ->orderByDesc('is_featured')
-                ->orderByDesc('rating')
-                ->limit($limit)
-                ->get();
-        });
+        // Cache disabled temporarily
+        return Product::query()
+            ->available()
+            ->inStock()
+            ->with(['category', 'owner'])
+            ->where('type', Product::TYPE_FRESH)
+            ->orderByDesc('is_featured')
+            ->orderByDesc('rating')
+            ->limit($limit)
+            ->get();
     }
 
     /**

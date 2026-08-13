@@ -50,6 +50,7 @@ use App\Livewire\Admin\CampaignAnalytics;
 use App\Livewire\Customer\MyReviews;
 use App\Livewire\Customer\SubmitProductReview;
 use App\Livewire\Customer\SubmitFarmerReview;
+use App\Livewire\FarmerProfilePublic;
 use App\Livewire\Admin\ReviewModeration;
 use App\Livewire\Admin\FarmerVerification;
 use App\Livewire\Location\ProvincePage;
@@ -75,38 +76,10 @@ Route::middleware('auth')->group(function () {
 Route::get('/', Home::class)->name('home');
 Route::get('/tentang-kami', About::class)->name('about');
 Route::get('/kontak', Contact::class)->name('contact');
-Route::get('/galeri', Gallery::class)->name('gallery');
+Route::get('/galeri', fn() => redirect()->route('shop'))->name('gallery');
 Route::get('/checkout', Checkout::class)->name('checkout');
 
-// Shop - Feed & Farm Supplies
-Route::get('/shop', Shop::class)->name('shop');
-Route::get('/shop/{slug}', ProductDetail::class)->name('shop.product');
-
-// Local SEO - Location Pages (public routes for SEO indexing)
-// Use a constraint to avoid matching protected paths like /ternak, /pesanan, etc.
-Route::middleware('throttle:60,1')->group(function () {
-    Route::get('/peternak', function () {
-        return redirect('/');
-    })->name('peternak.index');
-
-    // Only match if {province} contains a hyphen (indicating it's a slug like 'jawa-barat')
-    // and is NOT a protected route path like 'ternak', 'pesanan', etc.
-    Route::get('/peternak/{province}', ProvincePage::class)
-        ->name('peternak.province')
-        ->where('province', '[a-z]+(-[a-z]+)+');
-
-    Route::get('/peternak/{province}/{regency}', RegencyPage::class)
-        ->name('peternak.regency')
-        ->where('province', '[a-z]+(-[a-z]+)+')
-        ->where('regency', '[a-z]+(-[a-z]+)+');
-});
-
-// Local SEO - Category Location Pages
-Route::get('/ternak/{location}', CategoryLocationPage::class)->name('location.ternak');
-Route::get('/daging/{location}', CategoryLocationPage::class)->name('location.daging');
-Route::get('/pakan/{location}', CategoryLocationPage::class)->name('location.pakan');
-
-// Stock Check Routes (for cart validation)
+// Stock Check Routes (for cart validation) - MUST be before /shop/{slug} route
 Route::get('/shop/check-stock/{productId}', function ($productId) {
     $product = \App\Models\Product::find($productId);
 
@@ -198,6 +171,41 @@ Route::post('/shop/check-stock-bulk', function (\Illuminate\Http\Request $reques
 
     return response()->json($result);
 })->name('shop.check-stock-bulk');
+
+// Shop / Produk - Unified Product Catalog (all product types)
+Route::get('/shop', Shop::class)->name('shop');
+Route::get('/produk', Shop::class)->name('produk');
+Route::get('/shop/{slug}', ProductDetail::class)->name('shop.product');
+Route::get('/produk/{slug}', ProductDetail::class)->name('produk.product');
+
+// Local SEO - Location Pages (public routes for SEO indexing)
+// Use a constraint to avoid matching protected paths like /ternak, /pesanan, etc.
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/peternak', function () {
+        return redirect('/');
+    })->name('peternak.index');
+
+    // Only match if {province} contains a hyphen (indicating it's a slug like 'jawa-barat')
+    // and is NOT a protected route path like 'ternak', 'pesanan', etc.
+    Route::get('/peternak/{province}', ProvincePage::class)
+        ->name('peternak.province')
+        ->where('province', '[a-z]+(-[a-z]+)+');
+
+    Route::get('/peternak/{province}/{regency}', RegencyPage::class)
+        ->name('peternak.regency')
+        ->where('province', '[a-z]+(-[a-z]+)+')
+        ->where('regency', '[a-z]+(-[a-z]+)+');
+});
+
+// Local SEO - Category Location Pages
+Route::get('/ternak/{location}', CategoryLocationPage::class)->name('location.ternak');
+Route::get('/daging/{location}', CategoryLocationPage::class)->name('location.daging');
+Route::get('/pakan/{location}', CategoryLocationPage::class)->name('location.pakan');
+
+// Public Farmer Profile Pages
+Route::get('/peternak/{username}', FarmerProfilePublic::class)
+    ->name('farmer.public-profile')
+    ->middleware('throttle:60,1');
 
 // FCM Token Routes (web - session auth)
 Route::middleware(['auth'])->prefix('fcm-token')->group(function () {

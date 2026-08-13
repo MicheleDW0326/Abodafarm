@@ -73,12 +73,13 @@ class SmartSearch extends Component
             return [];
         }
 
-        $term = mb_strtolower($this->query);
+        // OPTIMIZED: Removed LOWER() for better index usage
+        $term = '%' . $this->query . '%';
 
         return Category::active()
             ->where(function ($q) use ($term) {
-                $q->whereRaw('LOWER(name) LIKE ?', ["%{$term}%"])
-                    ->orWhereRaw('LOWER(description) LIKE ?', ["%{$term}%"]);
+                $q->where('name', 'like', $term)
+                    ->orWhere('description', 'like', $term);
             })
             ->limit(self::MAX_RESULTS)
             ->get()
@@ -99,14 +100,15 @@ class SmartSearch extends Component
             return [];
         }
 
-        $term = mb_strtolower($this->query);
+        // OPTIMIZED: Removed LOWER() for better index usage, simplified query
+        $term = '%' . $this->query . '%';
 
         return Product::with('category')
             ->where(function ($q) use ($term) {
-                $q->whereRaw('LOWER(name) LIKE ?', ["%{$term}%"])
-                    ->orWhereRaw('LOWER(description) LIKE ?', ["%{$term}%"])
+                $q->where('name', 'like', $term)
+                    ->orWhere('description', 'like', $term)
                     ->orWhereHas('category', function ($q2) use ($term) {
-                        $q2->whereRaw('LOWER(name) LIKE ?', ["%{$term}%"]);
+                        $q2->where('name', 'like', $term);
                     });
             })
             ->available()
@@ -133,11 +135,12 @@ class SmartSearch extends Component
             return [];
         }
 
-        $term = mb_strtolower($this->query);
+        // OPTIMIZED: Removed LOWER() for better index usage
+        $term = '%' . $this->query . '%';
 
         return User::role('peternak')
             ->with('farmProfile')
-            ->whereRaw('LOWER(name) LIKE ?', ["%{$term}%"])
+            ->where('name', 'like', $term)
             ->limit(self::MAX_RESULTS)
             ->get()
             ->map(fn($user) => [
@@ -157,7 +160,8 @@ class SmartSearch extends Component
             return [];
         }
 
-        $term = mb_strtolower($this->query);
+        // OPTIMIZED: Use case-insensitive comparison directly
+        $term = strtolower($this->query);
         $filters = [];
 
         // Check for feed-related keywords
@@ -244,6 +248,11 @@ class SmartSearch extends Component
 
     public function render()
     {
-        return view('livewire.smart-search');
+        return view('livewire.smart-search', [
+            'categories' => $this->categories,
+            'products' => $this->products,
+            'farms' => $this->farms,
+            'quickFilters' => $this->quickFilters,
+        ]);
     }
 }

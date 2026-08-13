@@ -97,8 +97,6 @@
 
     @include('components.topbar')
 
-    @include('components.cart-drawer')
-
     @include('components.toast')
 
     <livewire:home.hero :hero-slides="$heroSlides" />

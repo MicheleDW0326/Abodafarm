@@ -28,17 +28,17 @@ class PromotionManagement extends Component
 
     public string $code = '';
 
-    public string $title = '';
+    public ?string $title = '';
 
-    public string $description = '';
+    public ?string $description = '';
 
     public string $type = 'percentage';
 
-    public string $discountValue = '';
+    public ?string $discountValue = '';
 
-    public string $maxDiscountAmount = '';
+    public ?string $maxDiscountAmount = '';
 
-    public string $minPurchaseAmount = '0';
+    public ?string $minPurchaseAmount = '';
 
     public ?string $usageLimit = '';
 
@@ -52,9 +52,7 @@ class PromotionManagement extends Component
 
     public function mount(): void
     {
-        if (!auth()->user()->isAdmin()) {
-            abort(403);
-        }
+        // Authorization handled by middleware (check.admin)
     }
 
     public function openModal(?int $id = null): void
@@ -62,20 +60,27 @@ class PromotionManagement extends Component
         $this->resetForm();
 
         if ($id) {
+            $promotion = Promotion::find($id);
+
+            if (! $promotion) {
+                $this->dispatch('showAlert', ['type' => 'error', 'message' => 'Promo yang dipilih tidak ditemukan.']);
+
+                return;
+            }
+
             $this->isEditing = true;
             $this->editingId = $id;
 
-            $promotion = Promotion::findOrFail($id);
-            $this->code = $promotion->code;
-            $this->title = $promotion->title;
+            $this->code = $promotion->code ?? '';
+            $this->title = $promotion->title ?? '';
             $this->description = $promotion->description ?? '';
-            $this->type = $promotion->type;
-            $this->discountValue = $promotion->discount_value;
-            $this->maxDiscountAmount = $promotion->max_discount_amount ?? '';
-            $this->minPurchaseAmount = $promotion->min_purchase_amount ?? '0';
-            $this->usageLimit = $promotion->usage_limit ?? '';
-            $this->perUserLimit = (string) $promotion->per_user_limit;
-            $this->isActive = $promotion->is_active;
+            $this->type = $promotion->type ?? 'percentage';
+            $this->discountValue = $promotion->discount_value !== null ? (string) $promotion->discount_value : '';
+            $this->maxDiscountAmount = $promotion->max_discount_amount !== null ? (string) $promotion->max_discount_amount : '';
+            $this->minPurchaseAmount = $promotion->min_purchase_amount !== null ? (string) $promotion->min_purchase_amount : '0';
+            $this->usageLimit = $promotion->usage_limit !== null ? (string) $promotion->usage_limit : '';
+            $this->perUserLimit = (string) ($promotion->per_user_limit ?? 1);
+            $this->isActive = (bool) $promotion->is_active;
             $this->startsAt = $promotion->starts_at?->format('Y-m-d\TH:i');
             $this->expiresAt = $promotion->expires_at?->format('Y-m-d\TH:i');
         } else {
@@ -111,44 +116,49 @@ class PromotionManagement extends Component
 
     public function save(): void
     {
-        $this->validate([
-            'code' => 'required|string|max:50|unique:promotions,code' . ($this->editingId ? ',' . $this->editingId : ''),
-            'title' => 'required|string|max:200',
-            'description' => 'nullable|string',
-            'type' => 'required|in:percentage,fixed',
-            'discountValue' => 'required|numeric|min:0',
-            'maxDiscountAmount' => 'nullable|numeric|min:0',
-            'minPurchaseAmount' => 'nullable|numeric|min:0',
-            'usageLimit' => 'nullable|integer|min:1',
-            'perUserLimit' => 'required|integer|min:1',
-            'startsAt' => 'nullable|date',
-            'expiresAt' => 'nullable|date|after_or_equal:startsAt',
-        ]);
+        try {
+            $this->validate([
+                'code' => 'required|string|max:50|unique:promotions,code' . ($this->editingId ? ',' . $this->editingId : ''),
+                'title' => 'required|string|max:200',
+                'description' => 'nullable|string',
+                'type' => 'required|in:percentage,fixed',
+                'discountValue' => 'required|numeric|min:0',
+                'maxDiscountAmount' => 'nullable|numeric|min:0',
+                'minPurchaseAmount' => 'nullable|numeric|min:0',
+                'usageLimit' => 'nullable|integer|min:1',
+                'perUserLimit' => 'required|integer|min:1',
+                'startsAt' => 'nullable|date',
+                'expiresAt' => 'nullable|date|after_or_equal:startsAt',
+            ]);
 
-        $data = [
-            'code' => strtoupper(trim($this->code)),
-            'title' => $this->title,
-            'description' => $this->description,
-            'type' => $this->type,
-            'discount_value' => (float) $this->discountValue,
-            'max_discount_amount' => $this->maxDiscountAmount ? (float) $this->maxDiscountAmount : null,
-            'min_purchase_amount' => (float) $this->minPurchaseAmount,
-            'usage_limit' => $this->usageLimit ? (int) $this->usageLimit : null,
-            'per_user_limit' => (int) $this->perUserLimit,
-            'is_active' => $this->isActive,
-            'starts_at' => $this->startsAt ? \Carbon\Carbon::parse($this->startsAt) : null,
-            'expires_at' => $this->expiresAt ? \Carbon\Carbon::parse($this->expiresAt) : null,
-        ];
+            $data = [
+                'code' => strtoupper(trim($this->code)),
+                'title' => trim($this->title),
+                'description' => $this->description ? trim($this->description) : null,
+                'type' => $this->type,
+                'discount_value' => (float) $this->discountValue,
+                'max_discount_amount' => $this->maxDiscountAmount ? (float) $this->maxDiscountAmount : null,
+                'min_purchase_amount' => (float) ($this->minPurchaseAmount ?: 0),
+                'usage_limit' => $this->usageLimit ? (int) $this->usageLimit : null,
+                'per_user_limit' => (int) $this->perUserLimit,
+                'is_active' => $this->isActive,
+                'starts_at' => $this->startsAt ? \Carbon\Carbon::parse($this->startsAt) : null,
+                'expires_at' => $this->expiresAt ? \Carbon\Carbon::parse($this->expiresAt) : null,
+            ];
 
-        if ($this->isEditing) {
-            Promotion::findOrFail($this->editingId)->update($data);
-            session()->flash('success', 'Promo berhasil diperbarui!');
-        } else {
-            Promotion::create($data);
-            session()->flash('success', 'Promo berhasil dibuat!');
+            if ($this->isEditing) {
+                Promotion::findOrFail($this->editingId)->update($data);
+                $this->dispatch('showAlert', ['type' => 'success', 'message' => 'Promo berhasil diperbarui!']);
+            } else {
+                Promotion::create($data);
+                $this->dispatch('showAlert', ['type' => 'success', 'message' => 'Promo berhasil dibuat!']);
+            }
+
+            $this->closeModal();
+        } catch (\Throwable $e) {
+            $this->dispatch('showAlert', ['type' => 'error', 'message' => 'Gagal menyimpan promo. Silakan periksa data yang Anda masukkan.']);
+            report($e);
         }
-
-        $this->closeModal();
     }
 
     public function toggleActive(int $id): void
@@ -157,15 +167,33 @@ class PromotionManagement extends Component
         $promotion->update(['is_active' => !$promotion->is_active]);
     }
 
-    public function delete(int $id): void
+    public function confirmDelete(int $id): void
+    {
+        $this->dispatch('showConfirm', [
+            'title' => 'Hapus Promo?',
+            'message' => 'Apakah Anda yakin ingin menghapus promo ini? Tindakan ini tidak dapat dibatalkan.',
+            'confirmText' => 'Hapus',
+            'cancelText' => 'Batal',
+            'confirmAction' => 'deletePromo',
+            'componentId' => $this->getId(),
+            'id' => $id,
+        ]);
+    }
+
+    public function deletePromo(int $id): void
     {
         Promotion::findOrFail($id)->delete();
-        session()->flash('success', 'Promo berhasil dihapus!');
+        $this->dispatch('showAlert', ['type' => 'success', 'message' => 'Promo berhasil dihapus!']);
     }
 
     public function generateCode(): void
     {
         $this->code = 'PROMO' . strtoupper(Str::random(4));
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
     }
 
     public function render()

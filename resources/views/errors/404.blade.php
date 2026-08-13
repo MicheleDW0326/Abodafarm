@@ -183,7 +183,7 @@
         </section>
 
         {{-- Popular Categories --}}
-        @if(isset($categories) && $categories->isNotEmpty())
+        @if(isset($categories) && (is_array($categories) ? count($categories) > 0 : $categories->isNotEmpty()))
         <section class="bg-white py-12 border-t border-slate-200">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <h3 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
@@ -192,12 +192,12 @@
                 </h3>
                 <div class="flex flex-wrap gap-3">
                     @foreach($categories as $category)
-                        <a href="/shop?category={{ $category->slug }}"
+                        <a href="/shop?category={{ is_array($category) ? ($category['slug'] ?? '') : $category->slug }}"
                            class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-emerald-100 hover:text-emerald-700">
-                            @if($category->icon)
-                                <i class="{{ $category->icon }}"></i>
+                            @if(is_array($category) ? ($category['icon'] ?? null) : ($category->icon ?? null))
+                                <i class="{{ is_array($category) ? $category['icon'] : $category->icon }}"></i>
                             @endif
-                            {{ $category->name }}
+                            {{ is_array($category) ? ($category['name'] ?? '') : $category->name }}
                         </a>
                     @endforeach
                 </div>
@@ -206,7 +206,7 @@
         @endif
 
         {{-- Latest Products --}}
-        @if(isset($products) && $products->isNotEmpty())
+        @if(isset($products) && (is_array($products) ? count($products) > 0 : $products->isNotEmpty()))
         <section class="bg-slate-50 py-12">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <h3 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
@@ -215,12 +215,13 @@
                 </h3>
                 <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                     @foreach($products as $product)
-                        <a href="{{ route('shop.product', $product->slug) }}"
+                        <a href="{{ route('shop.product', is_array($product) ? ($product['slug'] ?? '') : $product->slug) }}"
                            class="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-lg">
                             <div class="aspect-square overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200">
-                                @if($product->image_url)
-                                    <img src="{{ $product->image_url }}"
-                                         alt="{{ $product->name }}"
+                                @php $imgUrl = is_array($product) ? ($product['image_url'] ?? null) : ($product->image_url ?? null); @endphp
+                                @if($imgUrl)
+                                    <img src="{{ $imgUrl }}"
+                                         alt="{{ is_array($product) ? ($product['name'] ?? '') : $product->name }}"
                                          class="h-full w-full object-cover transition group-hover:scale-105">
                                 @else
                                     <div class="flex h-full items-center justify-center">
@@ -229,11 +230,13 @@
                                 @endif
                             </div>
                             <div class="p-4">
-                                <p class="text-xs text-emerald-600">{{ $product->category?->name ?? 'Produk' }}</p>
+                                @php $catName = is_array($product) ? ($product['category']['name'] ?? 'Produk') : ($product->category?->name ?? 'Produk'); @endphp
+                                <p class="text-xs text-emerald-600">{{ $catName }}</p>
                                 <h4 class="mt-1 font-semibold text-slate-900 line-clamp-2 group-hover:text-emerald-600">
-                                    {{ $product->name }}
+                                    {{ is_array($product) ? ($product['name'] ?? '') : $product->name }}
                                 </h4>
-                                <p class="mt-2 font-bold text-emerald-700">{{ $product->formatted_current_price ?? 'Hubungi kami' }}</p>
+                                @php $price = is_array($product) ? ($product['formatted_current_price'] ?? 'Hubungi kami') : ($product->formatted_current_price ?? 'Hubungi kami'); @endphp
+                                <p class="mt-2 font-bold text-emerald-700">{{ $price }}</p>
                             </div>
                         </a>
                     @endforeach
