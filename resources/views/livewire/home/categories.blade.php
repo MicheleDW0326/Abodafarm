@@ -7,17 +7,10 @@
     <div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         @foreach ($categories as $index => $category)
             <button type="button" wire:click="selectCategory('{{ $category['search'] }}')"
-                class="group overflow-hidden rounded-3xl border border-emerald-100 bg-white text-left shadow-md transition hover:-translate-y-1 hover:shadow-xl"
-                data-aos="{{ $index % 2 === 0 ? 'fade-right' : 'fade-left' }}"
-                data-aos-delay="{{ ($index % 4) * 100 }}">
-                <x-image
-                    src="{{ $category['image'] }}"
-                    alt="{{ $category['name'] }}"
-                    type="category"
-                    width="400"
-                    height="224"
-                    class="h-56 w-full object-cover"
-                />
+                class="cursor-pointer group overflow-hidden rounded-3xl border border-emerald-100 bg-white text-left shadow-md transition hover:-translate-y-1 hover:shadow-xl"
+                data-aos="{{ $index % 2 === 0 ? 'fade-right' : 'fade-left' }}" data-aos-delay="{{ ($index % 4) * 100 }}">
+                <x-image src="{{ $category['image'] }}" alt="{{ $category['name'] }}" type="category" width="400"
+                    height="224" class="h-56 w-full object-cover" />
                 <div class="space-y-2 p-6">
                     <div class="flex items-center justify-between">
                         <h3 class="text-xl font-semibold text-slate-900">{{ $category['icon'] }} {{ $category['name'] }}

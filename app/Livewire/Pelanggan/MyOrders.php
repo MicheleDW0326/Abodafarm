@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\CustomerNotification;
 use App\Models\OrderStatusLog;
 use App\Services\OrderStateMachine;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -63,13 +64,25 @@ class MyOrders extends Component
 
         $orders = $ordersQuery->get();
 
-        // Stats using effective_status for backward compatibility
+        // OPTIMIZED: Single query for all stats using CASE WHEN
+        $statsData = DB::table('orders')
+            ->where('user_id', $userId)
+            ->where('order_type', 'cart')
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status IN ('paid', 'processing') THEN 1 ELSE 0 END) as processing,
+                SUM(CASE WHEN status = 'shipped' THEN 1 ELSE 0 END) as shipped,
+                SUM(CASE WHEN status IN ('delivered', 'completed') THEN 1 ELSE 0 END) as completed
+            ")
+            ->first();
+
         $stats = [
-            'total' => Order::cart()->where('user_id', $userId)->count(),
-            'pending' => Order::cart()->where('user_id', $userId)->where('status', 'pending')->count(),
-            'processing' => Order::cart()->where('user_id', $userId)->whereIn('status', ['paid', 'processing'])->count(),
-            'shipped' => Order::cart()->where('user_id', $userId)->where('status', 'shipped')->count(),
-            'completed' => Order::cart()->where('user_id', $userId)->whereIn('status', ['delivered', 'completed'])->count(),
+            'total' => (int) $statsData->total,
+            'pending' => (int) $statsData->pending,
+            'processing' => (int) $statsData->processing,
+            'shipped' => (int) $statsData->shipped,
+            'completed' => (int) $statsData->completed,
         ];
 
         $selectedOrder = $this->selectedOrderId

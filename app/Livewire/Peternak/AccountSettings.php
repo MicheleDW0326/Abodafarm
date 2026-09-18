@@ -40,7 +40,8 @@ class AccountSettings extends Component
 
             session()->flash('success', 'Profil berhasil diperbarui!');
         } catch (\Exception $e) {
-            session()->flash('error', 'Error: ' . $e->getMessage());
+            \Log::error('Peternak profile update error: ' . $e->getMessage());
+            session()->flash('error', 'Terjadi kesalahan saat memperbarui profil. Silakan coba lagi.');
         }
     }
 
@@ -63,7 +64,8 @@ class AccountSettings extends Component
 
             session()->flash('success', 'Password berhasil diubah!');
         } catch (\Exception $e) {
-            session()->flash('error', 'Error: ' . $e->getMessage());
+            \Log::error('Peternak password update error: ' . $e->getMessage());
+            session()->flash('error', 'Terjadi kesalahan saat mengubah password. Silakan coba lagi.');
         }
     }
 

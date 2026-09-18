@@ -90,9 +90,18 @@
                                 'cancelled' => 'Dibatalkan',
                                 default => ucfirst($sale->order_status),
                             };
+                            // Handle placed_at - could be Carbon or string
+                            $placedAt = $sale->placed_at;
+                            if (is_string($placedAt)) {
+                                $formattedDate = \Carbon\Carbon::parse($placedAt)->format('d M Y');
+                            } elseif ($placedAt instanceof \Carbon\Carbon) {
+                                $formattedDate = $placedAt->format('d M Y');
+                            } else {
+                                $formattedDate = '-';
+                            }
                         @endphp
                         <tr class="transition hover:bg-slate-50">
-                            <td class="px-4 py-3 text-sm text-slate-600">{{ $sale->placed_at?->format('d M Y') ?? '-' }}</td>
+                            <td class="px-4 py-3 text-sm text-slate-600">{{ $formattedDate }}</td>
                             <td class="px-4 py-3 text-sm font-semibold text-slate-900">{{ $sale->order_number }}</td>
                             <td class="px-4 py-3 text-sm text-slate-900">{{ $sale->product_name }}</td>
                             <td class="px-4 py-3 text-sm text-slate-600">{{ $sale->customer_name }}</td>

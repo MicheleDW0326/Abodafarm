@@ -17,63 +17,40 @@
     {{-- Main Stats Cards --}}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {{-- Total Booking --}}
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs transition hover:shadow-md">
-            <div class="mb-4 flex items-start justify-between">
-                <div class="rounded-lg bg-emerald-50 p-2.5 text-emerald-600">
-                    <i class="fa-solid fa-cow text-lg"></i>
-                </div>
-            </div>
-            <p class="text-sm text-slate-500">Total Booking Ternak</p>
-            <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($stats['totalBookings'], 0, ',', '.') }}</p>
-            <p class="mt-2 text-xs text-slate-400">{{ $stats['pendingBookings'] }} menunggu persetujuan</p>
-        </article>
+        <x-ui.card.stat
+            icon="fa-cow"
+            label="Total Booking Ternak"
+            :value="number_format($stats['totalBookings'])"
+            color="emerald"
+            sub="{{ $stats['pendingBookings'] }} menunggu persetujuan"
+        />
 
         {{-- Booking Disetujui --}}
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs transition hover:shadow-md">
-            <div class="mb-4 flex items-start justify-between">
-                <div class="rounded-lg bg-green-50 p-2.5 text-green-600">
-                    <i class="fa-solid fa-check text-lg"></i>
-                </div>
-                <span class="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-600">
-                    {{ $stats['approvedBookings'] }}
-                </span>
-            </div>
-            <p class="text-sm text-slate-500">Booking Disetujui</p>
-            <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($stats['approvedBookings'], 0, ',', '.') }}</p>
-            <p class="mt-2 text-xs text-slate-400">Siap diambil</p>
-        </article>
+        <x-ui.card.stat
+            icon="fa-check"
+            label="Booking Disetujui"
+            :value="number_format($stats['approvedBookings'])"
+            color="green"
+            badge="{{ $stats['approvedBookings'] }} Siap diambil"
+        />
 
         {{-- Pesanan Daging Aktif --}}
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs transition hover:shadow-md">
-            <div class="mb-4 flex items-start justify-between">
-                <div class="rounded-lg bg-blue-50 p-2.5 text-blue-600">
-                    <i class="fa-solid fa-shopping-bag text-lg"></i>
-                </div>
-                <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-600">
-                    {{ $stats['activeOrders'] }}
-                </span>
-            </div>
-            <p class="text-sm text-slate-500">Pesanan Daging Aktif</p>
-            <p class="mt-1 text-2xl font-bold text-slate-900">{{ number_format($stats['activeOrders'], 0, ',', '.') }}</p>
-            <p class="mt-2 text-xs text-slate-400">Sedang diproses</p>
-        </article>
+        <x-ui.card.stat
+            icon="fa-shopping-bag"
+            label="Pesanan Daging Aktif"
+            :value="number_format($stats['activeOrders'])"
+            color="blue"
+            badge="{{ $stats['activeOrders'] }} Sedang diproses"
+        />
 
         {{-- Notifikasi --}}
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs transition hover:shadow-md">
-            <div class="mb-4 flex items-start justify-between">
-                <div class="rounded-lg bg-amber-50 p-2.5 text-amber-600">
-                    <i class="fa-solid fa-bell text-lg"></i>
-                </div>
-                @if($stats['unreadNotifications'] > 0)
-                <span class="rounded-full bg-red-500 px-2.5 py-1 text-xs font-semibold text-white">
-                    {{ $stats['unreadNotifications'] }} Baru
-                </span>
-                @endif
-            </div>
-            <p class="text-sm text-slate-500">Notifikasi</p>
-            <p class="mt-1 text-2xl font-bold text-slate-900">{{ $stats['unreadNotifications'] }}</p>
-            <p class="mt-2 text-xs text-slate-400">Pesan yang belum dibaca</p>
-        </article>
+        <x-ui.card.stat
+            icon="fa-bell"
+            label="Notifikasi"
+            :value="$stats['unreadNotifications']"
+            color="amber"
+            :badge="($stats['unreadNotifications'] > 0) ? $stats['unreadNotifications'] . ' Baru' : null"
+        />
     </div>
 
     {{-- Recent Activity & Quick Actions --}}
@@ -106,17 +83,18 @@
                     </span>
                 </div>
             @empty
-                <div class="flex flex-col items-center gap-3 px-6 py-12 text-center">
-                    <div class="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                        <i class="fa-solid fa-cow text-2xl"></i>
-                    </div>
-                    <div>
-                        <p class="text-sm font-medium text-slate-600">Belum ada booking ternak</p>
-                        <p class="mt-1 text-xs text-slate-400">Jelajahi ternak yang tersedia sekarang</p>
-                    </div>
-                    <a href="{{ route('home') }}" class="mt-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700">
-                        Jelajahi Ternak
-                    </a>
+                <div class="px-6 py-8">
+                    <x-ui.empty-state
+                        icon="fa-cow"
+                        title="Belum ada booking ternak"
+                        description="Jelajahi ternak yang tersedia sekarang"
+                    >
+                        <x-slot:action>
+                            <a href="{{ route('home') }}" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700">
+                                <i class="fa-solid fa-search"></i> Jelajahi Ternak
+                            </a>
+                        </x-slot:action>
+                    </x-ui.empty-state>
                 </div>
             @endforelse
         </section>
@@ -218,17 +196,18 @@
                 </div>
             </div>
         @empty
-            <div class="flex flex-col items-center gap-3 px-6 py-12 text-center">
-                <div class="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                    <i class="fa-solid fa-shopping-bag text-2xl"></i>
-                </div>
-                <div>
-                    <p class="text-sm font-medium text-slate-600">Belum ada pesanan daging</p>
-                    <p class="mt-1 text-xs text-slate-400">Jelajahi produk daging segar</p>
-                </div>
-                <a href="{{ route('home') }}" class="mt-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700">
-                    Jelajahi Produk
-                </a>
+            <div class="px-6 py-8">
+                <x-ui.empty-state
+                    icon="fa-shopping-bag"
+                    title="Belum ada pesanan daging"
+                    description="Jelajahi produk daging segar"
+                >
+                    <x-slot:action>
+                        <a href="{{ route('home') }}" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-700">
+                            <i class="fa-solid fa-search"></i> Jelajahi Produk
+                        </a>
+                    </x-slot:action>
+                </x-ui.empty-state>
             </div>
         @endforelse
     </section>

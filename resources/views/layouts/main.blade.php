@@ -261,6 +261,26 @@
                 }
             });
         });
+
+        // Global Livewire error handler
+        window.addEventListener('livewire:init', () => {
+            Livewire.hook('message.failed', (message, retry) => {
+                console.error('Livewire message failed:', message);
+                // Show user-friendly error
+                if (window.Swal) {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'error',
+                        title: 'Terjadi kesalahan koneksi. Silakan refresh halaman.',
+                        showConfirmButton: false,
+                        timer: 5000
+                    });
+                }
+                // Retry the request
+                retry();
+            });
+        });
     </script>
     @stack('scripts')
 </body>

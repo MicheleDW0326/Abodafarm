@@ -1,5 +1,4 @@
 <div x-data="{
-    cartItems: JSON.parse(localStorage.getItem('abodafarm_cart') || '[]'),
     showToast: false,
     toastText: '',
     toastIcon: 'check',
@@ -19,9 +18,6 @@
         }, 5000);
 
         window.addEventListener('storage', (e) => {
-            if (e.key === 'abodafarm_cart') {
-                this.cartItems = JSON.parse(e.newValue || '[]');
-            }
             if (e.key === 'abodafarm_wishlist') {
                 this.wishlistProductIds = JSON.parse(e.newValue || '[]');
             }
@@ -33,7 +29,6 @@
             .then(r => r.json())
             .then(d => {
                 if (d.count !== undefined) {
-                    // Store product IDs in localStorage for quick access
                     this.fetchWishlistIds();
                 }
             })
@@ -43,7 +38,6 @@
 
     async fetchWishlistIds() {
         // This would fetch the actual product IDs from the server
-        // For now, we rely on localStorage
     },
 
     isInWishlist(productId) {
@@ -112,7 +106,7 @@
         document.body.style.overflow = '';
     },
 
-    async addToCart(product, event = null) {
+    addToCart(product, event = null) {
         if (event) {
             event.stopPropagation();
         }
@@ -120,124 +114,26 @@
         // Get product type (fresh, supply, live)
         const productType = product.type || 'supply';
         const key = 'product_' + product.id + '_' + productType;
-        const isNewItem = !this.cartItems.find(item => item.key === key);
 
-        // Validate stock via server
-        try {
-            const response = await fetch('/shop/check-stock/' + product.id);
-            const stockData = await response.json();
-
-            if (!stockData.available) {
-                this.showAddToast('Stok habis - tidak bisa ditambahkan', 'times', 'error');
-                return;
+        // Dispatch add-to-cart event - cart-drawer component will handle the rest
+        window.dispatchEvent(new CustomEvent('add-to-cart', {
+            detail: {
+                id: product.id,
+                name: product.name,
+                price: product.current_price || product.price,
+                image: product.image,
+                type: productType,
+                key: key
             }
+        }));
 
-            const existing = this.cartItems.find(item => item.key === key);
-
-            if (existing) {
-                // Check if adding 1 more would exceed stock
-                const newQty = existing.qty + 1;
-                if (newQty > stockData.stock) {
-                    this.showAddToast('Stok tidak mencukupi', 'warning', 'warning');
-                    return;
-                }
-                existing.qty++;
-            } else {
-                this.cartItems.push({
-                    key: key,
-                    product_id: product.id,
-                    name: product.name,
-                    price: product.current_price || product.price,
-                    image: product.image,
-                    type: productType,
-                    qty: 1,
-                    max_stock: stockData.stock,
-                    added_at: new Date().toISOString()
-                });
-            }
-
-            this.persistCart();
-            this.showAddToast(product.name + ' ditambahkan ke keranjang');
-            this.$dispatch('cart-updated');
-
-            // Dispatch specific event for new items (for floating cart button animation)
-            if (isNewItem) {
-                this.$dispatch('cart-item-added', {
-                    name: product.name,
-                    key: key,
-                    image: product.image
-                });
-            }
-        } catch (error) {
-            console.error('Error checking stock:', error);
-            // Fallback to client-side only
-            const existing = this.cartItems.find(item => item.key === key);
-
-            if (existing) {
-                existing.qty++;
-            } else {
-                this.cartItems.push({
-                    key: key,
-                    product_id: product.id,
-                    name: product.name,
-                    price: product.current_price || product.price,
-                    image: product.image,
-                    type: productType,
-                    qty: 1,
-                    added_at: new Date().toISOString()
-                });
-            }
-
-            this.persistCart();
-            this.showAddToast(product.name + ' ditambahkan ke keranjang');
-            this.$dispatch('cart-updated');
-
-            // Dispatch specific event for new items
-            if (isNewItem) {
-                this.$dispatch('cart-item-added', {
-                    name: product.name,
-                    key: key,
-                    image: product.image
-                });
-            }
-        }
-    },
-
-    async increaseQty(key) {
-        const item = this.cartItems.find(i => i.key === key);
-        if (item) {
-            // Validate against server stock
-            try {
-                const response = await fetch('/shop/validate-cart/' + item.product_id + '?qty=' + (item.qty + 1));
-                const validation = await response.json();
-
-                if (!validation.valid) {
-                    this.showAddToast(validation.message, 'warning', 'warning');
-                    return;
-                }
-
-                item.qty++;
-                item.max_stock = validation.currentStock;
-                this.persistCart();
-                window.dispatchEvent(new Event('cart-updated'));
-            } catch (error) {
-                // Fallback - allow increase but warn
-                item.qty++;
-                this.persistCart();
-                window.dispatchEvent(new Event('cart-updated'));
-            }
-        }
-    },
-
-    persistCart() {
-        localStorage.setItem('abodafarm_cart', JSON.stringify(this.cartItems));
-    },
-
-    get cartCount() {
-        return this.cartItems.reduce((sum, item) => sum + item.qty, 0);
+        this.showAddToast(product.name + ' ditambahkan ke keranjang');
     }
 }" x-on:cart-item-added.window="showAddToast($event.detail.name)"
     class="bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900">
+
+    <!-- Topbar -->
+    @include('components.topbar')
 
     <!-- Toast Notification -->
     <div x-show="showToast"
@@ -1346,7 +1242,4 @@
             </div>
         </div>
     </footer>
-
-    <!-- Floating Cart Button -->
-    <x-floating-cart-button />
 </div>

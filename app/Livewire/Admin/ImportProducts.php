@@ -72,8 +72,9 @@ class ImportProducts extends Component
             ]]);
 
         } catch (\Exception $e) {
+            \Log::error('Import file process error: ' . $e->getMessage());
             $this->hasError = true;
-            $this->errorMessage = 'Gagal membaca file: ' . $e->getMessage();
+            $this->errorMessage = 'Gagal membaca file. Pastikan format file benar dan coba lagi.';
             $this->step = 'upload';
         }
     }
@@ -143,8 +144,9 @@ class ImportProducts extends Component
             }
 
         } catch (\Exception $e) {
+            \Log::error('Import confirm error: ' . $e->getMessage());
             $this->hasError = true;
-            $this->errorMessage = 'Gagal mengimport: ' . $e->getMessage();
+            $this->errorMessage = 'Terjadi kesalahan saat mengimport produk. Silakan coba lagi.';
             $this->step = 'complete';
         }
     }

@@ -34,17 +34,10 @@
     </div>
 
     {{-- Search --}}
-    <div class="relative">
-        <input
-            type="text"
-            wire:model.live.debounce.300ms="searchQuery"
-            placeholder="Cari user..."
-            class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 lg:w-80"
-        />
-        <svg class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" stroke-linecap="round" />
-        </svg>
-    </div>
+    <x-ui.search.input
+        wire:model.live.debounce.300ms="searchQuery"
+        placeholder="Cari user..."
+    />
 
     {{-- Users Table --}}
     <div class="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
@@ -101,9 +94,18 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="px-6 py-12 text-center">
-                            <i class="fa-solid fa-users text-4xl text-slate-300 mb-3"></i>
-                            <p class="text-slate-500">Belum ada user</p>
+                        <td colspan="5" class="px-6 py-12">
+                            <x-ui.empty-state
+                                icon="fa-users"
+                                title="Belum ada user"
+                                description="Tambahkan user baru untuk mulai mengelola"
+                            >
+                                <x-slot:action>
+                                    <x-ui.btn.primary wire:click="openUserModal()">
+                                        <i class="fa-solid fa-plus mr-1"></i> Tambah User
+                                    </x-ui.btn.primary>
+                                </x-slot:action>
+                            </x-ui.empty-state>
                         </td>
                     </tr>
                 @endforelse
@@ -122,37 +124,45 @@
                 </button>
             </div>
             <form wire:submit.prevent="saveUser" class="space-y-4 px-6 py-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-900 mb-1">Nama *</label>
-                    <input type="text" wire:model="userName" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
-                    @error('userName') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-900 mb-1">Email *</label>
-                    <input type="email" wire:model="userEmail" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
-                    @error('userEmail') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-900 mb-1">Password {{ $editingUserId ? '' : '*' }}</label>
-                    <input type="password" wire:model="userPassword" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
-                    @error('userPassword') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                    @if($editingUserId)
-                        <p class="mt-1 text-xs text-slate-400">Kosongkan jika tidak ingin mengubah password</p>
-                    @endif
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-900 mb-1">Role *</label>
-                    <select wire:model="userRole" class="w-full rounded-lg border border-slate-200 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500">
-                        <option value="admin">Admin</option>
-                        <option value="staf">Staf</option>
-                        <option value="peternak">Peternak</option>
-                        <option value="pelanggan">Pelanggan</option>
-                    </select>
-                    @error('userRole') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                </div>
+                <x-ui.form.input
+                    label="Nama *"
+                    wire:model="userName"
+                    placeholder="Nama lengkap"
+                    :error="$errors->first('userName')"
+                />
+                <x-ui.form.input
+                    label="Email *"
+                    type="email"
+                    wire:model="userEmail"
+                    placeholder="email@example.com"
+                    :error="$errors->first('userEmail')"
+                />
+                <x-ui.form.input
+                    label="Password {{ $editingUserId ? '' : '*' }}"
+                    type="password"
+                    wire:model="userPassword"
+                    placeholder="••••••••"
+                    :error="$errors->first('userPassword')"
+                    hint="Kosongkan jika tidak ingin mengubah password"
+                />
+                <x-ui.form.select
+                    label="Role *"
+                    wire:model="userRole"
+                    :options="[
+                        ['value' => 'admin', 'label' => 'Admin'],
+                        ['value' => 'staf', 'label' => 'Staf'],
+                        ['value' => 'peternak', 'label' => 'Peternak'],
+                        ['value' => 'pelanggan', 'label' => 'Pelanggan'],
+                    ]"
+                    :error="$errors->first('userRole')"
+                />
                 <div class="flex gap-3 pt-4 border-t">
-                    <button type="button" wire:click="closeUserModal" class="flex-1 rounded-lg border border-slate-200 py-2.5 text-sm font-semibold hover:bg-slate-50">Batal</button>
-                    <button type="submit" class="flex-1 rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Simpan</button>
+                    <x-ui.btn.cancel wire:click="closeUserModal" class="flex-1">
+                        Batal
+                    </x-ui.btn.cancel>
+                    <x-ui.btn.primary type="submit" class="flex-1">
+                        Simpan
+                    </x-ui.btn.primary>
                 </div>
             </form>
         </div>

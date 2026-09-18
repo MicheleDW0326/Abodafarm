@@ -4,7 +4,6 @@ namespace App\Livewire\Staff;
 
 use App\Models\Delivery;
 use App\Services\DeliveryService;
-use Illuminate\Support\Facades\Storage;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -38,38 +37,60 @@ class Shipping extends Component
         $this->deliveryService = $deliveryService;
     }
 
-    public function getActiveDeliveriesProperty()
+    public function getDeliveriesDataProperty(): array
     {
-        return Delivery::forStaff(auth()->id())
+        $staffId = auth()->id();
+
+        // OPTIMIZED: Single query for all delivery lists
+        $activeDeliveries = Delivery::forStaff($staffId)
             ->with(['order.user', 'timeline'])
             ->active()
             ->orderBy('updated_at', 'desc')
             ->get();
-    }
 
-    public function getAssignedDeliveriesProperty()
-    {
-        return Delivery::forStaff(auth()->id())
+        $assignedDeliveries = Delivery::forStaff($staffId)
             ->where('status', Delivery::STATUS_ASSIGNED)
             ->with(['order.user'])
             ->get();
-    }
 
-    public function getOutForDeliveryProperty()
-    {
-        return Delivery::forStaff(auth()->id())
+        $outForDelivery = Delivery::forStaff($staffId)
             ->where('status', Delivery::STATUS_OUT_FOR_DELIVERY)
             ->with(['order.user'])
             ->get();
-    }
 
-    public function getCompletedTodayProperty()
-    {
-        return Delivery::forStaff(auth()->id())
+        $completedToday = Delivery::forStaff($staffId)
             ->where('status', Delivery::STATUS_DELIVERED)
             ->whereDate('delivered_at', today())
             ->with(['order.user'])
             ->get();
+
+        return [
+            'active' => $activeDeliveries,
+            'assigned' => $assignedDeliveries,
+            'out_for_delivery' => $outForDelivery,
+            'completed_today' => $completedToday,
+        ];
+    }
+
+    // Backward compatible property accessors
+    public function getActiveDeliveriesProperty()
+    {
+        return $this->deliveriesData['active'];
+    }
+
+    public function getAssignedDeliveriesProperty()
+    {
+        return $this->deliveriesData['assigned'];
+    }
+
+    public function getOutForDeliveryProperty()
+    {
+        return $this->deliveriesData['out_for_delivery'];
+    }
+
+    public function getCompletedTodayProperty()
+    {
+        return $this->deliveriesData['completed_today'];
     }
 
     public function getStatsProperty(): array
@@ -116,7 +137,8 @@ class Shipping extends Component
             $this->selectedDelivery->refresh();
             $this->dispatch('alert', ['type' => 'success', 'message' => 'Pesanan berhasil diterima']);
         } catch (\Exception $e) {
-            $this->dispatch('alert', ['type' => 'error', 'message' => $e->getMessage()]);
+            \Log::error('Accept delivery error: ' . $e->getMessage());
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Terjadi kesalahan. Silakan coba lagi.']);
         }
     }
 
@@ -131,7 +153,8 @@ class Shipping extends Component
             $this->selectedDelivery->refresh();
             $this->dispatch('alert', ['type' => 'success', 'message' => 'Pengiriman dimulai']);
         } catch (\Exception $e) {
-            $this->dispatch('alert', ['type' => 'error', 'message' => $e->getMessage()]);
+            \Log::error('Start delivery error: ' . $e->getMessage());
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Terjadi kesalahan. Silakan coba lagi.']);
         }
     }
 
@@ -168,7 +191,8 @@ class Shipping extends Component
             $this->closeModal();
             $this->dispatch('alert', ['type' => 'success', 'message' => 'Pengiriman berhasil diselesaikan!']);
         } catch (\Exception $e) {
-            $this->dispatch('alert', ['type' => 'error', 'message' => $e->getMessage()]);
+            \Log::error('Complete delivery error: ' . $e->getMessage());
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Terjadi kesalahan. Silakan coba lagi.']);
         }
     }
 
@@ -189,7 +213,8 @@ class Shipping extends Component
             $this->closeModal();
             $this->dispatch('alert', ['type' => 'info', 'message' => 'Pengiriman ditandai gagal']);
         } catch (\Exception $e) {
-            $this->dispatch('alert', ['type' => 'error', 'message' => $e->getMessage()]);
+            \Log::error('Mark delivery failed error: ' . $e->getMessage());
+            $this->dispatch('alert', ['type' => 'error', 'message' => 'Terjadi kesalahan. Silakan coba lagi.']);
         }
     }
 

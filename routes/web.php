@@ -202,7 +202,41 @@ Route::get('/ternak/{location}', CategoryLocationPage::class)->name('location.te
 Route::get('/daging/{location}', CategoryLocationPage::class)->name('location.daging');
 Route::get('/pakan/{location}', CategoryLocationPage::class)->name('location.pakan');
 
-// Public Farmer Profile Pages
+// Protected Peternak Routes (MUST be before public profile route)
+Route::middleware(['auth', 'verified', 'check.peternak'])
+    ->prefix('peternak')
+    ->name('peternak.')
+    ->group(function (): void {
+        Route::get('/', PeternakDashboard::class)->name('dashboard');
+
+        // Ternak
+        Route::get('/ternak', LivestockManagement::class)->name('livestock');
+        Route::get('/ternak/tambah', LivestockManagement::class)->name('livestock.add');
+        Route::get('/ternak/galeri', LivestockManagement::class)->name('livestock.gallery');
+
+        // Pesanan
+        Route::get('/pesanan', Orders::class)->name('orders');
+        Route::get('/pesanan/baru', Orders::class)->name('orders.new');
+        Route::get('/pesanan/riwayat', Orders::class)->name('orders.history');
+
+        // Pengiriman
+        Route::get('/pengiriman', Shipments::class)->name('shipments');
+        Route::get('/pengiriman/riwayat', Shipments::class)->name('shipments.history');
+
+        // Lainnya
+        Route::get('/booking', IncomingBookings::class)->name('bookings');
+        Route::get('/penjualan', SalesHistory::class)->name('sales');
+        Route::get('/dompet', Wallet::class)->name('wallet');
+        Route::get('/profil', FarmProfileSettings::class)->name('profile');
+        Route::get('/ulasan', \App\Livewire\Peternak\MyReviews::class)->name('reviews');
+        Route::get('/notifikasi', Notifications::class)->name('notifications');
+        Route::get('/pengaturan', AccountSettings::class)->name('settings');
+        Route::get('/pengaturan/password', AccountSettings::class)->name('settings.password');
+        Route::get('/analitik', FarmerAnalyticsDashboard::class)->name('analytics');
+        Route::get('/analitik/ekspor', [FarmerExportController::class, 'analytics'])->name('analytics.export');
+    });
+
+// Public Farmer Profile Pages (MUST be after protected routes)
 Route::get('/peternak/{username}', FarmerProfilePublic::class)
     ->name('farmer.public-profile')
     ->middleware('throttle:60,1');
@@ -265,39 +299,6 @@ Route::middleware(['auth', 'verified', 'check.staff'])
         Route::get('/operasional', Operations::class)->name('operations');
         Route::get('/notifikasi', StaffNotifications::class)->name('notifications');
         Route::get('/profil', Profile::class)->name('profile');
-    });
-
-Route::middleware(['auth', 'verified', 'check.peternak'])
-    ->prefix('peternak')
-    ->name('peternak.')
-    ->group(function (): void {
-        Route::get('/', PeternakDashboard::class)->name('dashboard');
-
-        // Ternak
-        Route::get('/ternak', LivestockManagement::class)->name('livestock');
-        Route::get('/ternak/tambah', LivestockManagement::class)->name('livestock.add');
-        Route::get('/ternak/galeri', LivestockManagement::class)->name('livestock.gallery');
-
-        // Pesanan
-        Route::get('/pesanan', Orders::class)->name('orders');
-        Route::get('/pesanan/baru', Orders::class)->name('orders.new');
-        Route::get('/pesanan/riwayat', Orders::class)->name('orders.history');
-
-        // Pengiriman
-        Route::get('/pengiriman', Shipments::class)->name('shipments');
-        Route::get('/pengiriman/riwayat', Shipments::class)->name('shipments.history');
-
-        // Lainnya
-        Route::get('/booking', IncomingBookings::class)->name('bookings');
-        Route::get('/penjualan', SalesHistory::class)->name('sales');
-        Route::get('/dompet', Wallet::class)->name('wallet');
-        Route::get('/profil', FarmProfileSettings::class)->name('profile');
-        Route::get('/ulasan', \App\Livewire\Peternak\MyReviews::class)->name('reviews');
-        Route::get('/notifikasi', Notifications::class)->name('notifications');
-        Route::get('/pengaturan', AccountSettings::class)->name('settings');
-        Route::get('/pengaturan/password', AccountSettings::class)->name('settings.password');
-        Route::get('/analitik', FarmerAnalyticsDashboard::class)->name('analytics');
-        Route::get('/analitik/ekspor', [FarmerExportController::class, 'analytics'])->name('analytics.export');
     });
 
 Route::middleware(['auth', 'verified', 'check.pelanggan'])

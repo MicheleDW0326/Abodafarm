@@ -70,41 +70,25 @@ class FinancialReport extends Component
     // ============================================================
     public function getOrdersReport(): array
     {
-        // Order counts by status using new FK architecture
-        $ordersByPaymentStatus = Order::query()
-            ->whereBetween('placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-            ->whereNotNull('payment_status_id')
-            ->whereHas('paymentStatusRelation', function ($q) {
-                $q->where('type', 'payment');
-            })
-            ->with('paymentStatusRelation')
+        // OPTIMIZED: SQL GROUP BY instead of PHP groupBy for payment status
+        $ordersByPaymentStatus = DB::table('orders as o')
+            ->join('order_statuses as ps', 'o.payment_status_id', '=', 'ps.id')
+            ->whereBetween('o.placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
+            ->whereNotNull('o.payment_status_id')
+            ->where('ps.type', 'payment')
+            ->selectRaw("COALESCE(ps.code, 'unknown') as status, ps.label, ps.color, COUNT(*) as count, SUM(o.total_amount) as revenue")
+            ->groupBy('ps.code', 'ps.label', 'ps.color')
             ->get()
-            ->groupBy(fn($o) => $o->paymentStatusRelation?->code ?? 'unknown')
-            ->map(fn($group) => [
-                'status' => $group->first()->paymentStatusRelation?->code ?? 'unknown',
-                'label' => $group->first()->paymentStatusRelation?->label ?? 'Unknown',
-                'color' => $group->first()->paymentStatusRelation?->color ?? 'slate',
-                'count' => $group->count(),
-                'revenue' => $group->sum('total_amount'),
-            ])
-            ->values()
             ->toArray();
 
-        $ordersByShipmentStatus = Order::query()
-            ->whereBetween('placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-            ->whereNotNull('shipment_status_id')
-            ->whereHas('shipmentStatusRelation')
-            ->with('shipmentStatusRelation')
+        // OPTIMIZED: SQL GROUP BY instead of PHP groupBy for shipment status
+        $ordersByShipmentStatus = DB::table('orders as o')
+            ->join('order_statuses as ss', 'o.shipment_status_id', '=', 'ss.id')
+            ->whereBetween('o.placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
+            ->whereNotNull('o.shipment_status_id')
+            ->selectRaw("COALESCE(ss.code, 'unknown') as status, ss.label, ss.color, COUNT(*) as count, SUM(o.total_amount) as revenue")
+            ->groupBy('ss.code', 'ss.label', 'ss.color')
             ->get()
-            ->groupBy(fn($o) => $o->shipmentStatusRelation?->code ?? 'unknown')
-            ->map(fn($group) => [
-                'status' => $group->first()->shipmentStatusRelation?->code ?? 'unknown',
-                'label' => $group->first()->shipmentStatusRelation?->label ?? 'Unknown',
-                'color' => $group->first()->shipmentStatusRelation?->color ?? 'slate',
-                'count' => $group->count(),
-                'revenue' => $group->sum('total_amount'),
-            ])
-            ->values()
             ->toArray();
 
         return [
@@ -118,35 +102,31 @@ class FinancialReport extends Component
     // ============================================================
     public function getBookingsReport(): array
     {
-        $bookingStats = Order::booking()
-            ->whereBetween('placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-            ->with('bookingStatusRelation')
+        // OPTIMIZED: SQL GROUP BY instead of PHP groupBy
+        $bookingStats = DB::table('orders as o')
+            ->join('order_statuses as bs', 'o.booking_status_id', '=', 'bs.id')
+            ->whereBetween('o.placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
+            ->where('o.order_type', 'inquiry')
+            ->whereNotNull('o.booking_status_id')
+            ->selectRaw("COALESCE(bs.code, 'unknown') as status, bs.label, bs.color, COUNT(*) as count, SUM(o.total_amount) as revenue")
+            ->groupBy('bs.code', 'bs.label', 'bs.color')
             ->get()
-            ->groupBy(fn($o) => $o->bookingStatusRelation?->code ?? 'unknown')
-            ->map(fn($group) => [
-                'status' => $group->first()->bookingStatusRelation?->code ?? 'unknown',
-                'label' => $group->first()->bookingStatusRelation?->label ?? 'Unknown',
-                'color' => $group->first()->bookingStatusRelation?->color ?? 'slate',
-                'count' => $group->count(),
-                'revenue' => $group->sum('total_amount'),
-            ])
-            ->values()
             ->toArray();
 
-        // Survey stats
-        $surveyScheduled = Order::booking()
+        // Single query for all booking counts
+        $bookingCounts = DB::table('orders')
             ->whereBetween('placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-            ->where('status', 'survey_scheduled')
-            ->count();
-
-        $totalBookings = Order::booking()
-            ->whereBetween('placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-            ->count();
+            ->where('order_type', 'inquiry')
+            ->selectRaw("
+                COUNT(*) as total_bookings,
+                SUM(CASE WHEN booking_status_id IS NOT NULL AND EXISTS (SELECT 1 FROM order_statuses WHERE id = booking_status_id AND code = 'survey_scheduled') THEN 1 ELSE 0 END) as survey_scheduled
+            ")
+            ->first();
 
         return [
             'by_status' => $bookingStats,
-            'survey_scheduled' => $surveyScheduled,
-            'total_bookings' => $totalBookings,
+            'survey_scheduled' => (int) $bookingCounts->survey_scheduled,
+            'total_bookings' => (int) $bookingCounts->total_bookings,
         ];
     }
 
@@ -155,27 +135,28 @@ class FinancialReport extends Component
     // ============================================================
     public function getPaymentsReport(): array
     {
-        $payments = Payment::whereBetween('created_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-            ->with('order')
-            ->get();
+        // OPTIMIZED: Single query with GROUP BY instead of loading all to memory
+        $paymentStats = Payment::whereBetween('created_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
+            ->selectRaw("
+                COUNT(*) as total_transactions,
+                SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as successful_payments,
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_payments,
+                SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) as total_collected
+            ")
+            ->first();
 
-        $paidPayments = $payments->where('status', 'paid');
-        $failedPayments = $payments->where('status', 'failed');
+        $paymentMethods = Payment::whereBetween('created_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
+            ->selectRaw('payment_type as type, COUNT(*) as count, SUM(amount) as amount')
+            ->groupBy('payment_type')
+            ->get()
+            ->toArray();
 
         return [
-            'total_transactions' => $payments->count(),
-            'successful_payments' => $paidPayments->count(),
-            'failed_payments' => $failedPayments->count(),
-            'total_collected' => $paidPayments->sum('amount'),
-            'payment_methods' => $payments
-                ->groupBy('payment_type')
-                ->map(fn($group) => [
-                    'type' => $group->first()->payment_type ?? 'unknown',
-                    'count' => $group->count(),
-                    'amount' => $group->sum('amount'),
-                ])
-                ->values()
-                ->toArray(),
+            'total_transactions' => (int) $paymentStats->total_transactions,
+            'successful_payments' => (int) $paymentStats->successful_payments,
+            'failed_payments' => (int) $paymentStats->failed_payments,
+            'total_collected' => (int) $paymentStats->total_collected,
+            'payment_methods' => $paymentMethods,
         ];
     }
 
@@ -199,20 +180,13 @@ class FinancialReport extends Component
             ->orderBy('period')
             ->get();
 
-        // Revenue by status
-        $revenueByStatus = Order::query()
-            ->whereBetween('placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-            ->with('shipmentStatusRelation')
+        // Revenue by status - OPTIMIZED: SQL GROUP BY instead of PHP groupBy
+        $revenueByStatus = DB::table('orders as o')
+            ->leftJoin('order_statuses as ss', 'o.shipment_status_id', '=', 'ss.id')
+            ->whereBetween('o.placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
+            ->selectRaw("COALESCE(ss.code, 'completed') as status, COALESCE(ss.label, 'Selesai') as label, COALESCE(ss.color, 'emerald') as color, SUM(o.total_amount) as revenue, COUNT(*) as count")
+            ->groupBy(DB::raw("COALESCE(ss.code, 'completed')"), DB::raw("COALESCE(ss.label, 'Selesai')"), DB::raw("COALESCE(ss.color, 'emerald')"))
             ->get()
-            ->groupBy(fn($o) => $o->shipmentStatusRelation?->code ?? 'completed')
-            ->map(fn($group) => [
-                'status' => $group->first()->shipmentStatusRelation?->code ?? 'completed',
-                'label' => $group->first()->shipmentStatusRelation?->label ?? 'Selesai',
-                'color' => $group->first()->shipmentStatusRelation?->color ?? 'emerald',
-                'revenue' => $group->sum('total_amount'),
-                'count' => $group->count(),
-            ])
-            ->values()
             ->toArray();
 
         // Top products
@@ -237,17 +211,7 @@ class FinancialReport extends Component
     // ============================================================
     public function getOperationalReport(): array
     {
-        // Order fulfillment metrics
-        $orders = Order::whereBetween('placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-            ->with(['statusLogs'])
-            ->get();
-
-        // Calculate average processing time
-        $processingLogs = $orders
-            ->flatMap(fn($o) => $o->statusLogs->toArray())
-            ->filter(fn($log) => in_array($log['to_status'], ['processing', 'shipped']));
-
-        // Order status distribution
+        // OPTIMIZED: Order status distribution - single query
         $statusDistribution = Order::query()
             ->whereBetween('placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
             ->selectRaw('status, COUNT(*) as count')
@@ -255,27 +219,24 @@ class FinancialReport extends Component
             ->pluck('count', 'status')
             ->toArray();
 
-        // Staff activity (based on status logs)
-        $staffActivity = DB::table('order_status_logs')
+        // OPTIMIZED: Combined staff and farmer activity in one query
+        $activityStats = DB::table('order_status_logs')
             ->join('users', 'order_status_logs.triggered_by_id', '=', 'users.id')
             ->whereBetween('order_status_logs.created_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-            ->where('triggered_by_type', 'staff')
-            ->selectRaw('users.name, COUNT(*) as action_count')
-            ->groupBy('users.id', 'users.name')
+            ->whereIn('triggered_by_type', ['staff', 'farmer'])
+            ->selectRaw("
+                triggered_by_type,
+                users.id,
+                users.name,
+                COUNT(*) as action_count
+            ")
+            ->groupBy('triggered_by_type', 'users.id', 'users.name')
             ->orderByDesc('action_count')
             ->limit(10)
             ->get();
 
-        // Farmer activity
-        $farmerActivity = DB::table('order_status_logs')
-            ->join('users', 'order_status_logs.triggered_by_id', '=', 'users.id')
-            ->whereBetween('order_status_logs.created_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-            ->where('triggered_by_type', 'farmer')
-            ->selectRaw('users.name, COUNT(*) as action_count')
-            ->groupBy('users.id', 'users.name')
-            ->orderByDesc('action_count')
-            ->limit(10)
-            ->get();
+        $staffActivity = $activityStats->where('triggered_by_type', 'staff')->values();
+        $farmerActivity = $activityStats->where('triggered_by_type', 'farmer')->values();
 
         return [
             'status_distribution' => $statusDistribution,

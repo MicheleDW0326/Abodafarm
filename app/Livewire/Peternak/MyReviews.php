@@ -4,6 +4,7 @@ namespace App\Livewire\Peternak;
 
 use App\Models\FarmProfile;
 use App\Models\Review;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -23,19 +24,32 @@ class MyReviews extends Component
     {
         $userId = auth()->id();
 
-        // Get reviews about the farmer (TYPE_FARMER)
-        $farmerReviewsQuery = Review::where('review_type', Review::TYPE_FARMER)
-            ->where('farmer_id', $userId);
+        // OPTIMIZED: Single query for all stats using UNION and aggregation
+        $stats = DB::select("
+            SELECT
+                COALESCE(SUM(CASE WHEN review_type = ? AND is_visible = 1 THEN 1 ELSE 0 END), 0) as total_farmer_reviews,
+                COALESCE(SUM(CASE WHEN review_type = ? AND is_visible = 1 THEN 1 ELSE 0 END), 0) as total_product_reviews,
+                COALESCE(AVG(CASE WHEN review_type = ? AND is_visible = 1 THEN rating END), 0) as avg_farmer_rating,
+                COALESCE(AVG(CASE WHEN review_type = ? AND is_visible = 1 THEN rating END), 0) as avg_product_rating
+            FROM reviews
+            WHERE (review_type = ? AND farmer_id = ?)
+               OR (review_type = ? AND product_id IN (SELECT id FROM products WHERE owner_id = ?))
+        ", [
+            Review::TYPE_FARMER,
+            Review::TYPE_PRODUCT,
+            Review::TYPE_FARMER,
+            Review::TYPE_PRODUCT,
+            Review::TYPE_FARMER, $userId,
+            Review::TYPE_PRODUCT, $userId
+        ]);
 
-        // Get reviews about farmer's products (TYPE_PRODUCT)
-        $productReviewsQuery = Review::where('review_type', Review::TYPE_PRODUCT)
-            ->whereHas('product', fn($q) => $q->where('owner_id', $userId));
+        $statsData = $stats[0] ?? null;
 
         return [
-            'total_farmer_reviews' => (clone $farmerReviewsQuery)->visible()->count(),
-            'total_product_reviews' => (clone $productReviewsQuery)->visible()->count(),
-            'avg_farmer_rating' => (clone $farmerReviewsQuery)->visible()->avg('rating') ?? 0,
-            'avg_product_rating' => (clone $productReviewsQuery)->visible()->avg('rating') ?? 0,
+            'total_farmer_reviews' => (int) ($statsData->total_farmer_reviews ?? 0),
+            'total_product_reviews' => (int) ($statsData->total_product_reviews ?? 0),
+            'avg_farmer_rating' => round((float) ($statsData->avg_farmer_rating ?? 0), 1),
+            'avg_product_rating' => round((float) ($statsData->avg_product_rating ?? 0), 1),
         ];
     }
 

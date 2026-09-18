@@ -2,6 +2,7 @@
 
 namespace App\Http\Responses;
 
+use Illuminate\Support\Facades\Session;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 
 class LoginResponse implements LoginResponseContract
@@ -12,6 +13,12 @@ class LoginResponse implements LoginResponseContract
     public function toResponse($request)
     {
         $user = $request->user();
+
+        // Check for intended URL (e.g., checkout redirect)
+        $intended = Session::pull('url.intended');
+        if ($intended === '/checkout') {
+            return to_route('checkout');
+        }
 
         if ($user?->hasRole('admin')) {
             return to_route('admin.dashboard');

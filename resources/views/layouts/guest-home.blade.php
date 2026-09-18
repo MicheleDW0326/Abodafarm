@@ -118,8 +118,20 @@
 
     {{ $slot }}
 
-    <!-- Cart Drawer -->
+    <!-- Global Cart State - Initialize before Alpine components -->
+    <script>
+        window.__cartDrawerOpen = window.__cartDrawerOpen ?? false;
+        window.__cartInitialized = true;
+    </script>
+
+    <!-- Cart Drawer (centralized cart management) -->
     <x-cart-drawer />
+
+    <!-- Global Alert Popup -->
+    <x-auth.alert-popup />
+
+    <!-- Login Modal for Guest Checkout -->
+    <x-auth.login-modal />
 
     <!-- Help Center Modal - lazy loaded via Alpine -->
     <x-help-center />

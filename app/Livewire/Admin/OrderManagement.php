@@ -287,80 +287,115 @@ class OrderManagement extends Component
     // STAFF ASSIGNMENT METHODS
     // =====================================================
 
+    public ?int $orderForAssignmentId = null;
+
     public function openStaffSelection(Order $order)
     {
-        $this->orderForAssignment = $order;
-        $this->showStaffSelection = true;
+        try {
+            $this->orderForAssignment = $order;
+            $this->orderForAssignmentId = $order->id;
+            $this->showStaffSelection = true;
+            $this->staffSearchQuery = '';
+
+            // Dispatch browser event to open modal if needed
+            $this->dispatch('openStaffModal');
+        } catch (\Exception $e) {
+            \Log::error('Error opening staff selection modal', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+            $this->dispatch('showAlert', [
+                'type' => 'error',
+                'title' => 'Error!',
+                'message' => 'Gagal membuka modal penugasan staff.',
+            ]);
+        }
     }
 
     public function closeStaffSelection()
     {
         $this->showStaffSelection = false;
         $this->orderForAssignment = null;
+        $this->orderForAssignmentId = null;
+        $this->staffSearchQuery = '';
     }
 
     public function assignStaffToOrder(Order $order, int $staffId)
     {
-        $staff = \App\Models\User::find($staffId);
+        try {
+            $staff = \App\Models\User::find($staffId);
 
-        if (!$staff) {
+            if (!$staff) {
+                $this->dispatch('showAlert', [
+                    'type' => 'error',
+                    'title' => 'Gagal!',
+                    'message' => 'Staff tidak ditemukan.',
+                ]);
+                return;
+            }
+
+            if (!$staff->hasRole('staf')) {
+                $this->dispatch('showAlert', [
+                    'type' => 'error',
+                    'title' => 'Gagal!',
+                    'message' => 'Pengguna yang dipilih bukan staff.',
+                ]);
+                return;
+            }
+
+            // Update order assignment
+            $order->update([
+                'assigned_staff_id' => $staff->id,
+                'assigned_at' => now(),
+                'assigned_by' => auth()->id(),
+            ]);
+
+            // Log status change
+            OrderStatusLog::create([
+                'order_id' => $order->id,
+                'from_status' => $order->getOriginal('status') ?? null,
+                'to_status' => $order->status,
+                'triggered_by_type' => OrderStatusLog::TRIGGER_ADMIN,
+                'triggered_by_id' => auth()->id(),
+                'notes' => "Admin menugaskan pesanan ke {$staff->name}",
+            ]);
+
+            // Fire event
+            event(new OrderAssignedToStaff(
+                $order->fresh(),
+                $staff,
+                auth()->user()
+            ));
+
+            // Send notification
+            app(NotificationService::class)->orderAssignedToStaff($staff, $order, auth()->user());
+
+            // Refresh selected order if it's the same
+            if ($this->selectedOrder && $this->selectedOrder->id === $order->id) {
+                $this->selectedOrder = $order->fresh(['items', 'user', 'statusLogs.triggeredBy', 'assignedStaff', 'assignedByUser']);
+                $this->selectedOrderTimeline = $this->selectedOrder->timeline_data;
+            }
+
+            $this->closeStaffSelection();
+
+            $this->dispatch('showAlert', [
+                'type' => 'success',
+                'title' => 'Berhasil!',
+                'message' => "Pesanan {$order->order_number} ditugaskan ke {$staff->name}.",
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error assigning staff to order', [
+                'order_id' => $order->id,
+                'staff_id' => $staffId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             $this->dispatch('showAlert', [
                 'type' => 'error',
-                'title' => 'Gagal!',
-                'message' => 'Staff tidak ditemukan.',
+                'title' => 'Error!',
+                'message' => 'Terjadi kesalahan saat menugaskan staff: ' . $e->getMessage(),
             ]);
-            return;
         }
-
-        if (!$staff->hasRole('staf')) {
-            $this->dispatch('showAlert', [
-                'type' => 'error',
-                'title' => 'Gagal!',
-                'message' => 'Pengguna yang dipilih bukan staff.',
-            ]);
-            return;
-        }
-
-        // Update order assignment
-        $order->update([
-            'assigned_staff_id' => $staff->id,
-            'assigned_at' => now(),
-            'assigned_by' => auth()->id(),
-        ]);
-
-        // Log status change
-        OrderStatusLog::create([
-            'order_id' => $order->id,
-            'from_status' => $order->getOriginal('status') ?? null,
-            'to_status' => $order->status,
-            'triggered_by_type' => OrderStatusLog::TRIGGER_ADMIN,
-            'triggered_by_id' => auth()->id(),
-            'notes' => "Admin menugaskan pesanan ke {$staff->name}",
-        ]);
-
-        // Fire event
-        event(new OrderAssignedToStaff(
-            $order->fresh(),
-            $staff,
-            auth()->user()
-        ));
-
-        // Send notification
-        app(NotificationService::class)->orderAssignedToStaff($staff, $order, auth()->user());
-
-        // Refresh selected order if it's the same
-        if ($this->selectedOrder && $this->selectedOrder->id === $order->id) {
-            $this->selectedOrder = $order->fresh(['items', 'user', 'statusLogs.triggeredBy', 'assignedStaff', 'assignedByUser']);
-            $this->selectedOrderTimeline = $this->selectedOrder->timeline_data;
-        }
-
-        $this->closeStaffSelection();
-
-        $this->dispatch('showAlert', [
-            'type' => 'success',
-            'title' => 'Berhasil!',
-            'message' => "Pesanan {$order->order_number} ditugaskan ke {$staff->name}.",
-        ]);
     }
 
     public function getOrderStats(): array

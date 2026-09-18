@@ -17,7 +17,7 @@ class OrderNotificationMail extends Mailable
     public function __construct(
         public string $type,
         public string $title,
-        public string $message,
+        public string $bodyText,
         public User $user,
         public array $data = []
     ) {}
@@ -42,7 +42,7 @@ class OrderNotificationMail extends Mailable
             with: [
                 'type' => $this->type,
                 'title' => $this->title,
-                'message' => $this->message,
+                'bodyText' => $this->bodyText,
                 'userName' => $this->user->name,
                 'data' => $this->data,
                 'orderNumber' => $this->data['order_number'] ?? null,

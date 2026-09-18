@@ -167,7 +167,8 @@ class LivestockManagement extends Component
 
             $this->closeModal();
         } catch (\Exception $e) {
-            session()->flash('error', 'Error: ' . $e->getMessage());
+            \Log::error('Livestock save error: ' . $e->getMessage());
+            session()->flash('error', 'Terjadi kesalahan saat menyimpan data. Silakan coba lagi.');
         }
     }
 
@@ -211,7 +212,8 @@ class LivestockManagement extends Component
             $product->delete();
             session()->flash('success', 'Ternak berhasil dihapus!');
         } catch (\Exception $e) {
-            session()->flash('error', 'Error: ' . $e->getMessage());
+            \Log::error('Livestock delete error: ' . $e->getMessage());
+            session()->flash('error', 'Terjadi kesalahan saat menghapus data. Silakan coba lagi.');
         }
 
         $this->pendingDeleteId = null;
@@ -271,12 +273,22 @@ class LivestockManagement extends Component
         $livestocks = $livestocksQuery->get();
         $categories = Category::where('is_active', true)->orderBy('name')->get();
 
-        // Stats
+        // OPTIMIZED: Single query for all stats using CASE WHEN
+        $statsData = Product::where('owner_id', $userId)
+            ->where('type', 'live')
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available,
+                SUM(CASE WHEN status = 'reserved' THEN 1 ELSE 0 END) as reserved,
+                SUM(CASE WHEN status = 'sold' THEN 1 ELSE 0 END) as sold
+            ")
+            ->first();
+
         $stats = [
-            'total' => Product::where('owner_id', $userId)->where('type', 'live')->count(),
-            'available' => Product::where('owner_id', $userId)->where('type', 'live')->where('status', 'available')->count(),
-            'reserved' => Product::where('owner_id', $userId)->where('type', 'live')->where('status', 'reserved')->count(),
-            'sold' => Product::where('owner_id', $userId)->where('type', 'live')->where('status', 'sold')->count(),
+            'total' => (int) $statsData->total,
+            'available' => (int) $statsData->available,
+            'reserved' => (int) $statsData->reserved,
+            'sold' => (int) $statsData->sold,
         ];
 
         return view('livewire.peternak.livestock-management', [

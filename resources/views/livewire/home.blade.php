@@ -1,11 +1,9 @@
 <div x-data="{
     mobileOpen: false,
-    cartOpen: false,
     showToast: false,
     toastText: '',
     toastType: 'success',
     toastTimer: null,
-    cartItems: JSON.parse(localStorage.getItem('abodafarm_cart') || '[]'),
     showScrollTop: false,
 
     showAddToast(name) {
@@ -28,57 +26,7 @@
         }, 4000)
     },
 
-    addToCart(product) {
-        const type = product.type || 'fresh';
-        const key = 'product_' + product.id + '_' + type;
-        const existing = this.cartItems.find(item => item.key === key);
-
-        if (existing) {
-            existing.qty++;
-        } else {
-            this.cartItems.push({
-                key: key,
-                product_id: product.id,
-                name: product.name,
-                price: parseInt(product.price),
-                image: product.image,
-                type: type,
-                qty: 1
-            });
-        }
-
-        this.persistCart();
-        this.showAddToast(product.name);
-
-        this.$dispatch('cart-updated');
-    },
-
-    persistCart() {
-        localStorage.setItem('abodafarm_cart', JSON.stringify(this.cartItems));
-    },
-
-    clearCart() {
-        this.cartItems = [];
-        localStorage.setItem('abodafarm_cart', '[]');
-        this.$dispatch('cart-updated');
-    },
-
-    get cartCount() {
-        return this.cartItems.reduce((sum, item) => sum + item.qty, 0);
-    },
-
-    get cartTotal() {
-        return this.cartItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    },
-
     init() {
-        // Sync with localStorage on page load
-        window.addEventListener('storage', (e) => {
-            if (e.key === 'abodafarm_cart') {
-                this.cartItems = JSON.parse(e.newValue || '[]');
-            }
-        });
-
         // Scroll-to-top visibility listener
         const onScroll = () => {
             this.showScrollTop = window.scrollY > 400;
@@ -91,9 +39,8 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 }" x-on:cart-item-added.window="showAddToast($event.detail.name)"
-    x-on:add-to-cart.window="addToCart($event.detail)" x-on:clear-cart.window="clearCart()"
-    x-on:toggle-cart.window="cartOpen = !cartOpen"
-    x-on:alert.window="showAlert($event.detail)" class="bg-[#f5faf6] text-slate-900">
+    x-on:alert.window="showAlert($event.detail)"
+    class="bg-[#f5faf6] text-slate-900">
 
     @include('components.topbar')
 
@@ -114,8 +61,8 @@
         </div>
     </section>
 
-    <livewire:home.highlights :highlights="$highlights" lazy-on-visible />
-    <livewire:home.categories :categories="$categories" lazy-on-visible />
+    <livewire:home.highlights :highlights="$highlights" />
+    <livewire:home.categories :categories="$categories" />
 
     <!-- Recently Viewed Section -->
     @if (count($recentlyViewed) > 0)
@@ -150,7 +97,8 @@
                             <div class="p-3">
                                 <p class="line-clamp-2 text-xs font-semibold text-slate-900">{{ $item['name'] }}</p>
                                 <p class="mt-1 text-sm font-bold text-emerald-600">{{ $item['price'] }}</p>
-                                <p class="mt-1 text-[10px] text-slate-400">{{ $item['viewed_at'] ?? 'Baru dilihat' }}</p>
+                                <p class="mt-1 text-[10px] text-slate-400">{{ $item['viewed_at'] ?? 'Baru dilihat' }}
+                                </p>
                             </div>
                         </div>
                     </a>
@@ -161,98 +109,54 @@
 
     <!-- Continue Shopping Section -->
     @if (count($continueShopping) > 0)
-        <livewire:home.product-carousel
-            :products="$continueShopping"
-            title="Lanjutkan Belanja"
-            subtitle="Lanjut dari produk yang pernah Anda lihat"
-            icon="fa-solid fa-cart-shopping"
-            icon-color="bg-emerald-100 text-emerald-600"
-            section-id="continue-shopping"
-            :show-view-all="false"
-            lazy-on-visible
-        />
+        <livewire:home.product-carousel :products="$continueShopping" title="Lanjutkan Belanja"
+            subtitle="Lanjut dari produk yang pernah Anda lihat" icon="fa-solid fa-cart-shopping"
+            icon-color="bg-emerald-100 text-emerald-600" section-id="continue-shopping" :show-view-all="false"
+             />
     @endif
 
     <!-- Recommended For You Section (Logged in users) -->
     @if (count($recommendedProducts) > 0)
-        <livewire:home.product-carousel
-            :products="$recommendedProducts"
-            title="Rekomendasi Untuk Anda"
-            subtitle="Berdasarkan histori belanja Anda"
-            icon="fa-solid fa-sparkles"
-            icon-color="bg-purple-100 text-purple-600"
-            section-id="recommended-for-you"
-            lazy-on-visible
-        />
+        <livewire:home.product-carousel :products="$recommendedProducts" title="Rekomendasi Untuk Anda"
+            subtitle="Berdasarkan histori belanja Anda" icon="fa-solid fa-sparkles"
+            icon-color="bg-purple-100 text-purple-600" section-id="recommended-for-you"  />
     @endif
 
     <!-- Trending This Week -->
     @if (count($trendingProducts) > 0)
-        <livewire:home.product-carousel
-            :products="$trendingProducts"
-            title="Trending Minggu Ini"
-            subtitle="Produk yang sedang populer"
-            icon="fa-solid fa-fire text-orange-500"
-            icon-color="bg-orange-100 text-orange-600"
-            section-id="trending"
-            lazy-on-visible
-        />
+        <livewire:home.product-carousel :products="$trendingProducts" title="Trending Minggu Ini"
+            subtitle="Produk yang sedang populer" icon="fa-solid fa-fire text-orange-500"
+            icon-color="bg-orange-100 text-orange-600" section-id="trending"  />
     @endif
 
     <!-- New Arrivals -->
     @if (count($newArrivals) > 0)
-        <livewire:home.product-carousel
-            :products="$newArrivals"
-            title="Produk Baru"
-            subtitle="Baru hadir di AbodaFarm"
-            icon="fa-solid fa-bolt"
-            icon-color="bg-blue-100 text-blue-600"
-            section-id="new-arrivals"
-            lazy-on-visible
-        />
+        <livewire:home.product-carousel :products="$newArrivals" title="Produk Baru" subtitle="Baru hadir di AbodaFarm"
+            icon="fa-solid fa-bolt" icon-color="bg-blue-100 text-blue-600" section-id="new-arrivals"  />
     @endif
 
     <!-- Popular Products -->
     @if (count($popularProducts) > 0)
-        <livewire:home.product-carousel
-            :products="$popularProducts"
-            title="Populer"
-            subtitle="Paling banyak diminati"
-            icon="fa-solid fa-star"
-            icon-color="bg-amber-100 text-amber-600"
-            section-id="popular"
-            lazy-on-visible
-        />
+        <livewire:home.product-carousel :products="$popularProducts" title="Populer" subtitle="Paling banyak diminati"
+            icon="fa-solid fa-star" icon-color="bg-amber-100 text-amber-600" section-id="popular"  />
     @endif
 
     <!-- Top Rated -->
     @if (count($topRatedProducts) > 0)
-        <livewire:home.product-carousel
-            :products="$topRatedProducts"
-            title="Pilihan Terbaik"
-            subtitle="Produk dengan rating tertinggi"
-            icon="fa-solid fa-award"
-            icon-color="bg-yellow-100 text-yellow-600"
-            section-id="top-rated"
-            lazy-on-visible
-        />
+        <livewire:home.product-carousel :products="$topRatedProducts" title="Pilihan Terbaik"
+            subtitle="Produk dengan rating tertinggi" icon="fa-solid fa-award"
+            icon-color="bg-yellow-100 text-yellow-600" section-id="top-rated"  />
     @endif
 
     <!-- Organic Choice -->
     @if (count($organicProducts) > 0)
-        <livewire:home.product-carousel
-            :products="$organicProducts"
-            title="Pilihan Organik"
-            subtitle="Daging segar berkualitas premium"
-            icon="fa-solid fa-leaf"
-            icon-color="bg-green-100 text-green-600"
-            section-id="organic-choice"
-            lazy-on-visible
-        />
+        <livewire:home.product-carousel :products="$organicProducts" title="Pilihan Organik"
+            subtitle="Daging segar berkualitas premium" icon="fa-solid fa-leaf" icon-color="bg-green-100 text-green-600"
+            section-id="organic-choice"  />
     @endif
 
     <!-- Produk dengan filter yang terhubung ke Home::filteredLiveLivestockProducts -->
-    <livewire:home.products :products-live="$this->filteredLiveLivestockProducts" :products-fresh="$this->freshMeatProducts" lazy-on-visible />
+    <livewire:home.products :products-live="$this->filteredLiveLivestockProducts" :products-fresh="$this->freshMeatProducts"  />
 
     <!-- Proses perawatan dan trust section -->
     <section id="perawatan" class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -296,11 +200,11 @@
         </div>
     </section>
 
-    <livewire:home.delivery :delivery-steps="$deliverySteps" lazy-on-visible />
-    <livewire:home.testimonials :testimonials="$testimonials" lazy-on-visible />
-    <livewire:home.faq :faqs="$faqs" lazy-on-visible />
-    <livewire:home.cta lazy-on-visible />
-    <livewire:home.footer lazy-on-visible />
+    <livewire:home.delivery :delivery-steps="$deliverySteps"  />
+    <livewire:home.testimonials :testimonials="$testimonials"  />
+    <livewire:home.faq :faqs="$faqs"  />
+    <livewire:home.cta  />
+    <livewire:home.footer  />
 
     <livewire:side-panel />
 
@@ -309,7 +213,7 @@
         x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
         x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0"
         x-transition:leave-end="opacity-0 translate-y-4" @click="scrollToTop()" aria-label="Kembali ke atas"
-        class="fixed bottom-24 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:scale-110 hover:shadow-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
+        class="cursor-pointer fixed bottom-24 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-white shadow-lg shadow-emerald-500/30 transition-all duration-300 hover:scale-110 hover:shadow-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 19V5M5 12l7-7 7 7" />

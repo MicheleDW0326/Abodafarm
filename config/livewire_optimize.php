@@ -70,7 +70,7 @@ return [
     // Debounce updates to reduce INP
     'update_debounce' => [
         'enabled' => true,
-        'delay' => 150, // milliseconds
+        'delay' => 300, // milliseconds - increased to prevent 404 errors from rapid updates
     ],
 
     /*

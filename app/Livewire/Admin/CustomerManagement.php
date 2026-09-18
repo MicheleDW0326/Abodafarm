@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -75,20 +76,22 @@ class CustomerManagement extends Component
 
     public function getCustomerStats(): array
     {
-        $totalCustomers = User::role('pelanggan')->count();
-        $newThisMonth = User::role('pelanggan')
-            ->whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
-            ->count();
-
-        $activeCustomers = User::role('pelanggan')
-            ->whereHas('orders', fn($q) => $q->where('created_at', '>=', now()->subDays(30)))
-            ->count();
+        // OPTIMIZED: Single query with CASE WHEN instead of 3 separate queries
+        $stats = DB::table('users')
+            ->join('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
+            ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+            ->where('roles.name', 'pelanggan')
+            ->selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN users.created_at >= ? THEN 1 ELSE 0 END) as new_this_month,
+                (SELECT COUNT(DISTINCT user_id) FROM orders WHERE created_at >= ?) as active_customers
+            ', [now()->startOfMonth()->toDateTimeString(), now()->subDays(30)->toDateTimeString()])
+            ->first();
 
         return [
-            'total' => $totalCustomers,
-            'newThisMonth' => $newThisMonth,
-            'activeCustomers' => $activeCustomers,
+            'total' => (int) $stats->total,
+            'newThisMonth' => (int) $stats->new_this_month,
+            'activeCustomers' => (int) $stats->active_customers,
         ];
     }
 

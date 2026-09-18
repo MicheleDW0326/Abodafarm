@@ -1,18 +1,9 @@
 <div x-data="{
-    cartItems: JSON.parse(localStorage.getItem('abodafarm_cart') || '[]'),
     showToast: false,
     toastText: '',
     toastTimer: null,
     activeImage: 0,
     showFullscreenGallery: false,
-
-    init() {
-        window.addEventListener('storage', (e) => {
-            if (e.key === 'abodafarm_cart') {
-                this.cartItems = JSON.parse(e.newValue || '[]');
-            }
-        });
-    },
 
     showAddToast(name, action = 'added') {
         this.toastText = action === 'buynow'
@@ -26,26 +17,42 @@
     },
 
     addToCart(product, qty = 1) {
-        const key = 'product_' + product.id + '_supply';
-        const existing = this.cartItems.find(item => item.key === key);
+        const key = 'product_' + product.id + '_' + (product.type || 'fresh');
 
-        if (existing) {
-            existing.qty += qty;
-        } else {
-            this.cartItems.push({
-                key: key,
-                product_id: product.id,
-                name: product.name,
-                price: product.current_price,
-                image: product.image,
-                type: 'supply',
-                qty: qty
-            });
+        // Validate stock before adding
+        const currentCart = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+        const existingItem = currentCart.find(item => item.key === key);
+        const currentQty = existingItem ? existingItem.qty : 0;
+        const availableStock = product.stock || 0;
+
+        if (availableStock <= 0) {
+            window.dispatchEvent(new CustomEvent('alert', {
+                detail: { type: 'error', title: 'Stok Habis', message: 'Maaf, stok produk ini sudah habis.' }
+            }));
+            return;
         }
 
-        this.persistCart();
+        if (currentQty + qty > availableStock) {
+            window.dispatchEvent(new CustomEvent('alert', {
+                detail: { type: 'warning', title: 'Stok Terbatas', message: `Maaf, hanya ${availableStock} unit tersedia. Anda sudah memiliki ${currentQty} di keranjang.` }
+            }));
+            return;
+        }
+
+        // Dispatch add-to-cart event - cart-drawer will handle
+        window.dispatchEvent(new CustomEvent('add-to-cart', {
+            detail: {
+                id: product.id,
+                name: product.name,
+                price: product.current_price || product.price,
+                image: product.image,
+                type: product.type || 'fresh',
+                key: key,
+                stock: availableStock
+            }
+        }));
+
         this.showAddToast(product.name);
-        this.$dispatch('cart-updated');
     },
 
     buyNow(product, qty = 1) {
@@ -56,23 +63,20 @@
         }, 1000);
     },
 
-    persistCart() {
-        localStorage.setItem('abodafarm_cart', JSON.stringify(this.cartItems));
-    },
-
-    get cartCount() {
-        return this.cartItems.reduce((sum, item) => sum + item.qty, 0);
-    },
-
     isInCart(productId) {
-        return this.cartItems.some(item => item.product_id === productId && item.type === 'supply');
+        const cart = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+        return cart.some(item => item.product_id === productId);
     },
 
     getCartQty(productId) {
-        const item = this.cartItems.find(i => i.product_id === productId && i.type === 'supply');
+        const cart = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+        const item = cart.find(i => i.product_id === productId);
         return item ? item.qty : 0;
     }
-}" class="bg-slate-50 text-slate-900">
+}" x-on:cart-item-added.window="showAddToast($event.detail.name)" class="bg-slate-50 text-slate-900">
+
+    <!-- Topbar -->
+    @include('components.topbar')
 
     <!-- Toast Notification -->
     <div x-show="showToast" x-transition:enter="transition ease-out duration-300"
@@ -344,6 +348,7 @@
                                     'price' => $product->current_price,
                                     'image' => $product->image_url,
                                     'type' => $product->type,
+                                    'stock' => $product->stock,
                                     'qty' => $quantity
                                 ]) }}, {{ $quantity }})"
                                 class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-200 transition-all hover:bg-emerald-700 active:scale-[0.98]">
@@ -356,7 +361,8 @@
                                     'name' => $product->name,
                                     'price' => $product->current_price,
                                     'image' => $product->image_url,
-                                    'type' => $product->type
+                                    'type' => $product->type,
+                                    'stock' => $product->stock
                                 ]) }}, {{ $quantity }})"
                                 class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 py-3.5 text-sm font-semibold text-white shadow-lg shadow-amber-200 transition-all hover:bg-amber-600 active:scale-[0.98]">
                                 <i class="fa-solid fa-bolt"></i>
@@ -372,18 +378,17 @@
                     @endif
                 @else
                     <!-- Out of Stock State -->
-                    <div class="flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
-                        <div class="flex size-16 items-center justify-center rounded-full bg-slate-200">
-                            <i class="fa-solid fa-box-open text-2xl text-slate-400"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-semibold text-slate-700">Maaf, stok habis</h3>
-                            <p class="mt-1 text-sm text-slate-500">Produk ini sedang tidak tersedia</p>
-                        </div>
-                        <button class="rounded-xl border border-slate-300 px-6 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100">
-                            <i class="fa-solid fa-bell mr-2"></i> Notify Me When Available
-                        </button>
-                    </div>
+                    <x-ui.empty-state
+                        icon="fa-box-open"
+                        title="Maaf, stok habis"
+                        description="Produk ini sedang tidak tersedia"
+                    >
+                        <x-slot:action>
+                            <button class="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-6 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100">
+                                <i class="fa-solid fa-bell"></i> Notify Me When Available
+                            </button>
+                        </x-slot:action>
+                    </x-ui.empty-state>
                 @endif
             </div>
 

@@ -288,7 +288,7 @@ class NotificationService
             $mailable = new \App\Mail\OrderNotificationMail(
                 type: $type,
                 title: $title,
-                message: $message,
+                bodyText: $message,
                 user: $user,
                 data: $data
             );

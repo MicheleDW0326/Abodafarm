@@ -193,7 +193,8 @@ class FarmProfileSettings extends Component
 
             $this->dispatch('saved');
         } catch (\Exception $e) {
-            session()->flash('error', 'Error: ' . $e->getMessage());
+            \Log::error('Farm profile save error: ' . $e->getMessage());
+            session()->flash('error', 'Terjadi kesalahan saat menyimpan profil. Silakan coba lagi.');
         }
     }
 

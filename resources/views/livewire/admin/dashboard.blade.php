@@ -2,38 +2,39 @@
     $maxRevenue = max(1, ...$monthlyRevenue);
     $maxOrders = max(1, ...$monthlyOrders);
     $maxWeekly = max(1, ...$weeklyOrders);
+
+    function getCardColor($text) {
+        if (str_contains($text, 'emerald')) return 'emerald';
+        if (str_contains($text, 'blue')) return 'blue';
+        if (str_contains($text, 'violet')) return 'violet';
+        if (str_contains($text, 'rose')) return 'rose';
+        if (str_contains($text, 'amber')) return 'amber';
+        return 'purple';
+    }
 @endphp
 
 <div class="space-y-6">
-    {{-- Analytics Cards --}}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    {{-- Analytics Cards - Using Stat Card Component --}}
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         @foreach ($analyticsCards as $card)
-            <article class="group relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-xs transition-all hover:shadow-md">
-                <div class="flex items-start justify-between">
-                    <div class="rounded-xl {{ $card['bg'] }} p-3 {{ $card['text'] }}">
-                        <i class="{{ $card['icon'] }} text-lg"></i>
-                    </div>
-                    @if(isset($card['change']))
-                        <span class="rounded-full px-2 py-1 text-xs font-bold {{ $card['positive'] ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500' }}">
-                            {{ $card['change'] }}
-                        </span>
-                    @endif
-                </div>
-                <div class="mt-4">
-                    <p class="text-xs font-medium uppercase tracking-wide text-slate-400">{{ $card['label'] }}</p>
-                    <p class="mt-1 text-2xl font-bold text-slate-900">{{ $card['value'] }}</p>
-                    <p class="mt-1 text-xs text-slate-500">{{ $card['sub_value'] }}</p>
-                </div>
-            </article>
+            <x-ui.card.stat
+                icon="{{ $card['icon'] }}"
+                label="{{ $card['label'] }}"
+                :value="$card['value']"
+                :change="$card['change'] ?? null"
+                :trend="($card['positive'] ?? true) ? 'up' : 'down'"
+                color="{{ getCardColor($card['text']) }}"
+                sub="{{ $card['sub_value'] ?? '' }}"
+            />
         @endforeach
     </div>
 
     {{-- Top Product & Top Farms Row --}}
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {{-- Top Selling Product --}}
-        <div class="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div class="mb-4 flex items-center gap-3">
-                <div class="rounded-xl bg-amber-50 p-2.5 text-amber-600">
+                <div class="rounded-xl bg-amber-100 p-2.5 text-amber-600">
                     <i class="fa-solid fa-trophy text-lg"></i>
                 </div>
                 <div>
@@ -46,8 +47,8 @@
                     <div class="flex size-14 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
                         <i class="fa-solid fa-crown text-2xl"></i>
                     </div>
-                    <div class="flex-1">
-                        <p class="font-bold text-slate-900">{{ $topProduct['name'] }}</p>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-bold text-slate-900 truncate">{{ $topProduct['name'] }}</p>
                         <div class="mt-1 flex items-center gap-3 text-xs text-slate-500">
                             <span><i class="fa-solid fa-box-open mr-1"></i>{{ $topProduct['qty'] }} terjual</span>
                             <span><i class="fa-solid fa-money-bill mr-1"></i>{{ $topProduct['sales'] }}</span>
@@ -63,10 +64,10 @@
         </div>
 
         {{-- Top Farms --}}
-        <div class="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs lg:col-span-2">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
             <div class="mb-4 flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="rounded-xl bg-green-50 p-2.5 text-green-600">
+                    <div class="rounded-xl bg-green-100 p-2.5 text-green-600">
                         <i class="fa-solid fa-tractor text-lg"></i>
                     </div>
                     <div>
@@ -78,15 +79,15 @@
             @if($topFarms->count() > 0)
                 <div class="space-y-3">
                     @foreach($topFarms as $index => $farm)
-                        <div class="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-                            <div class="flex size-10 items-center justify-center rounded-full bg-green-100 text-green-600 font-bold">
+                        <div class="flex items-center gap-3 rounded-xl bg-slate-50 p-3 hover:bg-slate-100 transition-colors">
+                            <div class="flex size-10 items-center justify-center rounded-full bg-green-100 text-green-600 font-bold text-sm">
                                 #{{ $index + 1 }}
                             </div>
-                            <div class="flex-1">
-                                <p class="font-semibold text-slate-900">{{ $farm->farm_name }}</p>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-slate-900 truncate">{{ $farm->farm_name }}</p>
                                 <p class="text-xs text-slate-500">{{ $farm->total_orders }} pesanan</p>
                             </div>
-                            <div class="text-right">
+                            <div class="text-right flex-shrink-0">
                                 <p class="font-bold text-emerald-600">{{ $formatCompact($farm->total_sales) }}</p>
                             </div>
                         </div>
@@ -104,8 +105,8 @@
     {{-- Charts Row --}}
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
         {{-- Monthly Revenue Chart --}}
-        <section class="rounded-2xl border border-slate-100 bg-white p-6 xl:col-span-2 shadow-xs">
-            <div class="mb-6 flex items-center justify-between">
+        <section class="rounded-2xl border border-slate-200 bg-white p-5 xl:col-span-2 shadow-sm">
+            <div class="mb-5 flex items-center justify-between">
                 <div>
                     <h3 class="text-base font-bold text-slate-900">Pendapatan Bulanan {{ $chartYear }}</h3>
                     <p class="mt-0.5 text-xs text-slate-400">Grafik pendapatan per bulan</p>
@@ -120,12 +121,12 @@
                 </div>
             </div>
 
-            <div class="flex h-48 items-end gap-1">
+            <div class="flex h-52 items-end gap-1">
                 @foreach ($monthlyRevenue as $index => $value)
                     <div class="group relative flex flex-1 flex-col items-center gap-1">
-                        <div class="flex h-40 w-full items-end justify-center">
+                        <div class="flex h-44 w-full items-end justify-center">
                             {{-- Revenue Bar --}}
-                            <div class="w-4/5 rounded-t-md bg-emerald-500 transition-all group-hover:bg-emerald-600"
+                            <div class="w-4/5 rounded-t-md bg-emerald-500 transition-all duration-200 group-hover:bg-emerald-600"
                                  style="height: {{ max(4, ($value / $maxRevenue) * 100) }}%">
                             </div>
                         </div>
@@ -142,17 +143,17 @@
         </section>
 
         {{-- Weekly Orders Chart --}}
-        <section class="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs">
-            <div class="mb-6">
+        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-5">
                 <h3 class="text-base font-bold text-slate-900">Pesanan Mingguan</h3>
                 <p class="mt-0.5 text-xs text-slate-400">{{ $thisWeekOrders }} pesanan minggu ini</p>
             </div>
 
-            <div class="flex h-48 items-end gap-2">
+            <div class="flex h-52 items-end gap-2">
                 @foreach ($weeklyOrders as $index => $value)
                     <div class="group relative flex flex-1 flex-col items-center gap-1">
-                        <div class="flex h-40 w-full items-end justify-center">
-                            <div class="w-full max-w-8 rounded-t-md bg-blue-400 transition-all group-hover:bg-blue-500"
+                        <div class="flex h-44 w-full items-end justify-center">
+                            <div class="w-full max-w-8 rounded-t-md bg-blue-400 transition-all duration-200 group-hover:bg-blue-500"
                                  style="height: {{ max(4, ($value / $maxWeekly) * 100) }}%">
                             </div>
                         </div>
@@ -171,8 +172,8 @@
     {{-- Order Status & Latest Transactions Row --}}
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
         {{-- Order Status Distribution --}}
-        <section class="rounded-2xl border border-slate-100 bg-white p-6 shadow-xs">
-            <div class="mb-5">
+        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div class="mb-4">
                 <h3 class="text-sm font-bold text-slate-900">Distribusi Status</h3>
                 <p class="mt-0.5 text-xs text-slate-400">{{ number_format($totalStatusOrders, 0, ',', '.') }} total pesanan</p>
             </div>
@@ -186,7 +187,7 @@
                             <span class="font-semibold text-slate-900">{{ $status['count'] }}</span>
                         </div>
                         <div class="h-2 overflow-hidden rounded-full bg-slate-100">
-                            <div class="h-full {{ $status['color'] }} rounded-full transition-all"
+                            <div class="h-full {{ $status['color'] }} rounded-full transition-all duration-500"
                                  style="width: {{ $percent }}%"></div>
                         </div>
                     </div>
@@ -195,28 +196,28 @@
         </section>
 
         {{-- Latest Transactions --}}
-        <section class="rounded-2xl border border-slate-100 bg-white shadow-xs xl:col-span-2">
-            <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        <section class="rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2 overflow-hidden">
+            <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                 <div>
                     <h3 class="text-sm font-bold text-slate-900">Transaksi Terbaru</h3>
                     <p class="mt-0.5 text-xs text-slate-400">Riwayat pesanan terbaru</p>
                 </div>
-                <a href="{{ route('admin.orders') }}" class="text-xs font-semibold text-emerald-600 hover:text-emerald-700">
+                <a href="{{ route('admin.orders') }}" class="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors">
                     Lihat Semua <i class="fa-solid fa-arrow-right ml-1"></i>
                 </a>
             </div>
 
-            <div class="divide-y divide-slate-50">
+            <div class="divide-y divide-slate-100">
                 @forelse($latestTransactions as $tx)
-                    <div class="flex items-center justify-between px-6 py-3.5 transition hover:bg-slate-50">
+                    <div class="flex items-center justify-between px-5 py-3.5 transition hover:bg-slate-50">
                         <div class="flex items-center gap-3">
-                            <div class="flex size-10 items-center justify-center rounded-full
+                            <div class="flex size-10 items-center justify-center rounded-full shrink-0
                                 @if($tx->order_type === 'inquiry') bg-violet-100 text-violet-600
                                 @else bg-emerald-100 text-emerald-600 @endif">
                                 <i class="fa-solid {{ $tx->order_type === 'inquiry' ? 'fa-calendar-check' : 'fa-shopping-bag' }}"></i>
                             </div>
-                            <div>
-                                <p class="text-sm font-medium text-slate-900">{{ $tx->customer_name ?: ($tx->user_name ?: 'Guest') }}</p>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-medium text-slate-900 truncate">{{ $tx->customer_name ?: ($tx->user_name ?: 'Guest') }}</p>
                                 <p class="text-xs text-slate-400">
                                     {{ $tx->order_number }}
                                     <span class="mx-1">·</span>
@@ -224,27 +225,18 @@
                                 </p>
                             </div>
                         </div>
-                        <div class="text-right">
+                        <div class="text-right shrink-0 ml-4">
                             <p class="text-sm font-bold text-slate-900">Rp {{ number_format($tx->total_amount, 0, ',', '.') }}</p>
-                            @php
-                                $statusClass = match($tx->status) {
-                                    'delivered', 'completed' => 'bg-emerald-50 text-emerald-700',
-                                    'shipped' => 'bg-blue-50 text-blue-700',
-                                    'processing' => 'bg-violet-50 text-violet-700',
-                                    'pending' => 'bg-amber-50 text-amber-700',
-                                    'cancelled', 'rejected' => 'bg-red-50 text-red-700',
-                                    default => 'bg-slate-50 text-slate-600'
-                                };
-                            @endphp
-                            <span class="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $statusClass }}">
-                                {{ ucfirst($tx->status) }}
-                            </span>
+                            <x-ui.badge.status :status="$tx->status" size="sm" :showIcon="false" />
                         </div>
                     </div>
                 @empty
-                    <div class="px-6 py-12 text-center">
-                        <i class="fa-solid fa-receipt text-4xl text-slate-200 mb-3"></i>
-                        <p class="text-sm text-slate-400">Belum ada transaksi</p>
+                    <div class="px-5 py-8">
+                        <x-ui.empty-state
+                            icon="fa-receipt"
+                            title="Belum ada transaksi"
+                            description="Transaksi terbaru akan muncul di sini"
+                        />
                     </div>
                 @endforelse
             </div>
@@ -253,33 +245,33 @@
 
     {{-- Critical Stocks --}}
     @if($criticalStocks->count() > 0)
-        <section class="rounded-2xl border border-red-100 bg-white shadow-xs">
-            <div class="flex items-center justify-between border-b border-red-100 px-6 py-4">
+        <section class="rounded-2xl border border-red-200 bg-white shadow-sm overflow-hidden">
+            <div class="flex items-center justify-between border-b border-red-100 px-5 py-4 bg-red-50/50">
                 <div class="flex items-center gap-3">
-                    <div class="rounded-xl bg-red-50 p-2 text-red-600">
+                    <div class="rounded-xl bg-red-100 p-2 text-red-600">
                         <i class="fa-solid fa-triangle-exclamation text-lg"></i>
                     </div>
                     <div>
                         <h3 class="text-sm font-bold text-slate-900">Stok Kritis</h3>
-                        <p class="text-xs text-slate-400">Produk daging segar yang perlu diisi ulang</p>
+                        <p class="text-xs text-slate-500">Produk daging segar yang perlu diisi ulang</p>
                     </div>
                 </div>
-                <span class="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600">
+                <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-600">
                     {{ $criticalStocks->count() }} Produk
                 </span>
             </div>
 
-            <div class="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 lg:grid-cols-5">
+            <div class="grid grid-cols-2 gap-4 p-5 sm:grid-cols-3 lg:grid-cols-5">
                 @foreach($criticalStocks as $item)
-                    <div class="rounded-xl border border-red-100 bg-red-50/50 p-4">
-                        <p class="font-semibold text-slate-900 line-clamp-1">{{ $item['name'] }}</p>
+                    <div class="rounded-xl border border-red-200 bg-red-50/30 p-4 hover:bg-red-50 transition-colors">
+                        <p class="font-semibold text-slate-900 line-clamp-1 text-sm">{{ $item['name'] }}</p>
                         <p class="mt-0.5 text-xs text-slate-500">{{ $item['category'] }}</p>
-                        <div class="mt-2 flex items-center justify-between">
-                            <span class="text-lg font-bold text-red-600">{{ $item['stock'] }}</span>
+                        <div class="mt-3 flex items-center justify-between">
+                            <span class="text-xl font-bold text-red-600">{{ $item['stock'] }}</span>
                             <span class="text-xs text-slate-400">unit</span>
                         </div>
                         <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-red-100">
-                            <div class="h-full rounded-full bg-red-400" style="width: {{ ($item['stock'] / 10) * 100 }}%"></div>
+                            <div class="h-full rounded-full bg-red-400 transition-all" style="width: {{ ($item['stock'] / 10) * 100 }}%"></div>
                         </div>
                     </div>
                 @endforeach

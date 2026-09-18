@@ -1,14 +1,3 @@
-<!-- Pre-load cart data before Alpine initializes -->
-<script>
-    (function() {
-        const cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
-        const cartDataInput = document.getElementById('cartDataInput');
-        if (cartDataInput && cartItems.length > 0) {
-            cartDataInput.value = JSON.stringify(cartItems);
-        }
-    })();
-</script>
-
 <div x-data="{
     snapToken: null,
     paymentFinished: false,
@@ -17,38 +6,43 @@
     snapOpened: false,
     cartItems: [],
     // Promo state (initialized from PHP, updated reactively)
-    promoDiscount: parseInt('{{ $discountAmount ?? 0 }}') || 0,
+    promoDiscount: {{ $discountAmount ?? 0 }},
     promoType: '{{ $promoType ?? '' }}',
     promoCodeApplied: '{{ $appliedPromoCode ?? '' }}',
     promoNameApplied: '{{ $promoName ?? '' }}',
+    // Promo loading state
+    isApplyingPromo: false,
+    // Submit loading state
+    isSubmitting: false,
+    // Passed from PHP: hasCompletedPayment
+    hasCompletedPayment: false,
 
     init() {
-        // Check if payment is already completed
-        @if ($this->paymentStatus && $this->paymentStatus['is_completed'])
-            this.showPaymentSuccessAlert();
-            return;
-        @endif
-
-        // Load cart from localStorage
+        // Load cart from localStorage first
         this.cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
 
-        // Set hidden input value for Livewire
+        // Set hidden input and Livewire property
         const cartDataInput = document.getElementById('cartDataInput');
         if (cartDataInput && this.cartItems.length > 0) {
-            cartDataInput.value = JSON.stringify(this.cartItems);
+            const cartDataStr = JSON.stringify(this.cartItems);
+            cartDataInput.value = cartDataStr;
+            this.$wire.cartData = cartDataStr;
         }
 
-        // Sync cart to session AND update Livewire property on mount
-        this.syncCartToSession(true);
+        // Sync cart to session
+        this.syncCartToSession();
 
         // Listen for cart updates
         window.addEventListener('cart-updated', () => {
             this.cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
-            // Update hidden input
+            // Update hidden input and Livewire property
             const cartDataInput = document.getElementById('cartDataInput');
+            const cartDataStr = JSON.stringify(this.cartItems);
             if (cartDataInput) {
-                cartDataInput.value = JSON.stringify(this.cartItems);
+                cartDataInput.value = cartDataStr;
             }
+            // Also set Livewire property directly
+            this.$wire.cartData = cartDataStr;
             this.syncCartToSession(true);
         });
 
@@ -78,6 +72,13 @@
             this.promoType = '';
             this.promoCodeApplied = '';
             this.promoNameApplied = '';
+        });
+
+        // Listen for Livewire submit loading state
+        window.addEventListener('livewire:loading', (e) => {
+            if (e.detail.component === this.$wire.__instance.id) {
+                this.isSubmitting = e.detail.loading;
+            }
         });
     },
 
@@ -116,13 +117,8 @@
         }
     },
 
-    syncCartToSession(updateLivewire = false) {
+    syncCartToSession() {
         if (this.cartItems.length > 0) {
-            // Also update Livewire cartData property if requested
-            if (updateLivewire) {
-                this.$wire.cartData = JSON.stringify(this.cartItems);
-            }
-
             fetch('/api/cart/sync', {
                 method: 'POST',
                 headers: {
@@ -130,11 +126,6 @@
                     'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || ''
                 },
                 body: JSON.stringify({ cart: this.cartItems })
-            }).then(r => r.json()).then(data => {
-                if (data.success && updateLivewire) {
-                    // Force Livewire to re-render with new cart data
-                    this.$wire.cartData = JSON.stringify(this.cartItems);
-                }
             }).catch(err => console.error('Cart sync error:', err));
         }
     },
@@ -160,6 +151,10 @@
     },
 
     applyPromoWithSync() {
+        // Prevent double apply
+        if (this.isApplyingPromo) return;
+        this.isApplyingPromo = true;
+
         // Get cart items directly from localStorage
         const cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
         const cartData = JSON.stringify(cartItems);
@@ -176,57 +171,10 @@
         // Call the promo method
         this.$wire.applyPromoCode();
 
-        // Update Alpine promo state based on response
-        // The Livewire re-render will update the PHP values, which will be picked up by Alpine
+        // Reset loading after delay (Livewire will handle actual completion)
         setTimeout(() => {
-            // Read promo state from DOM (updated by Livewire)
-            const promoDiscountEl = document.querySelector('[x-data]');
-            if (promoDiscountEl) {
-                // Trigger reactivity by re-reading the values
-                this.cartItems = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
-            }
-        }, 100);
-    },
-
-    // Method called by Livewire to update Alpine state after promo changes
-    updatePromoState(discount, type, code, name) {
-        this.promoDiscount = discount;
-        this.promoType = type;
-        this.promoCodeApplied = code;
-        this.promoNameApplied = name;
-    },
-
-    // Form submit handler
-    submitForm(event) {
-        event.preventDefault();
-        const cart = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
-        const cartDataStr = JSON.stringify(cart);
-
-        // Set cart data to hidden input
-        const cartDataInput = document.getElementById('cartDataInput');
-        if (cartDataInput) {
-            cartDataInput.value = cartDataStr;
-        }
-
-        // Set cart data to Livewire property
-        this.$wire.cartData = cartDataStr;
-
-        // Sync to session
-        fetch('/api/cart/sync', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || ''
-            },
-            body: JSON.stringify({ cart: cart })
-        }).then(r => r.json()).then(() => {
-            // Call placeOrder with cart data
-            this.$wire.placeOrder(cartDataStr);
-        }).catch(err => {
-            console.error('Cart sync error:', err);
-            // Still try to place order with cart data
-            this.$wire.placeOrder(cartDataStr);
-        });
+            this.isApplyingPromo = false;
+        }, 1500);
     },
 
     openMidtransSnap() {
@@ -289,11 +237,56 @@
 
     checkPaymentFinish() {
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('payment_status') || urlParams.has('order_id')) {
+
+        // Always check if there's a current order ID
+        if (this.$wire.currentOrderId) {
+            // Call refreshPaymentStatus to update payment state and decrement stock
+            this.$wire.refreshPaymentStatus().then(() => {
+                // After refresh, check if payment is now completed
+                if (this.$wire.paymentStatus?.is_completed) {
+                    this.showPaymentSuccessAlert();
+                }
+            });
+        } else if (urlParams.has('payment_status') || urlParams.has('order_id')) {
+            // Fallback for legacy URL params without order ID
             this.$wire.refreshPaymentStatus();
         }
     }
-}" class="min-h-screen bg-sky-50 py-12">
+}">
+
+    {{-- Guest Login Prompt --}}
+    @guest
+    <div class="min-h-screen bg-sky-50 py-12">
+        <div class="mx-auto max-w-md px-4">
+            <div class="rounded-2xl bg-white p-8 text-center shadow-sm">
+                <div class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
+                    <svg class="h-10 w-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">Login Diperlukan</h2>
+                <p class="mt-3 text-slate-600">Anda harus login untuk melanjutkan checkout. Silakan masuk ke akun Anda.</p>
+                <div class="mt-8 flex flex-col gap-3">
+                    <a href="{{ route('login') }}" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white transition hover:bg-emerald-700">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+                        </svg>
+                        Masuk
+                    </a>
+                    <a href="{{ route('register') }}" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-50">
+                        Belum punya akun? Daftar
+                    </a>
+                </div>
+                <p class="mt-6 text-sm text-slate-500">
+                    Atau
+                    <button type="button" onclick="window.dispatchEvent(new CustomEvent('require-login', { detail: { redirect: '/checkout' } }))" class="font-medium text-emerald-600 hover:text-emerald-700">
+                        login dengan modal
+                    </button>
+                </p>
+            </div>
+        </div>
+    </div>
+    @endguest
 
     <div class="mx-auto grid max-w-6xl gap-8 px-4 sm:px-6 lg:grid-cols-5 lg:px-8">
         <section class="lg:col-span-3">
@@ -327,7 +320,7 @@
                     <!-- Hidden input for cart data (populated by Alpine on mount) -->
                     <input type="hidden" wire:model="cartData" id="cartDataInput">
 
-                    <form @submit="submitForm($event)" class="mt-6 space-y-4">
+                    <form wire:submit.prevent="submitCheckout" class="mt-6 space-y-4">
                         <div>
                             <label class="mb-1 block text-sm font-semibold text-slate-700">Nama Penerima</label>
                             <input wire:model="name" type="text" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200" placeholder="Nama lengkap">
@@ -458,8 +451,16 @@
                             @error('notes') <p class="mt-1 text-xs text-rose-600">{{ $message }}</p> @enderror
                         </div>
 
-                        <button type="submit" class="inline-flex rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600">
-                            Konfirmasi & Bayar Sekarang
+                        <button type="submit"
+                                :disabled="isSubmitting"
+                                class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <template x-if="isSubmitting">
+                                <svg class="size-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </template>
+                            <span x-text="isSubmitting ? 'Memproses...' : 'Konfirmasi & Bayar Sekarang'"></span>
                         </button>
                     </form>
                 @endif
@@ -534,28 +535,44 @@
                                 <button
                                     wire:click="openPaymentModal"
                                     @if($isLoadingPayment) disabled @endif
+                                    :disabled="$wire.isLoadingPayment"
+                                    x-on:click="$wire.isLoadingPayment = true"
                                     class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-emerald-300">
-                                    @if($isLoadingPayment)
+                                    <template x-if="$wire.isLoadingPayment">
                                         <svg class="size-4 animate-spin" fill="none" viewBox="0 0 24 24">
                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
-                                        Memuat...
-                                    @else
-                                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
-                                        </svg>
-                                        Bayar Sekarang
-                                    @endif
+                                    </template>
+                                    <template x-if="$wire.isLoadingPayment">
+                                        <span>Memuat...</span>
+                                    </template>
+                                    <template x-if="!$wire.isLoadingPayment">
+                                        <span class="flex items-center gap-2">
+                                            <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                                            </svg>
+                                            Bayar Sekarang
+                                        </span>
+                                    </template>
                                 </button>
 
                                 <button
                                     wire:click="refreshPaymentStatus"
-                                    class="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                                    <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                    </svg>
-                                    Cek Status
+                                    :disabled="$wire.isLoadingPayment"
+                                    class="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                                    <template x-if="$wire.isLoadingPayment">
+                                        <svg class="size-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    </template>
+                                    <template x-if="!$wire.isLoadingPayment">
+                                        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                        </svg>
+                                    </template>
+                                    <span x-text="$wire.isLoadingPayment ? 'Memuat...' : 'Cek Status'"></span>
                                 </button>
                             </div>
                         @endif
@@ -587,11 +604,21 @@
 
                         <div class="mt-4 border-t border-slate-200 pt-4">
                             <div class="flex items-center justify-between text-sm text-slate-600">
-                                <span>Total Item</span>
-                                <span>{{ $order->total_items }}</span>
+                                <span>Subtotal</span>
+                                <span>Rp {{ number_format($subtotal ?? 0) }}</span>
                             </div>
-                            <div class="mt-2 flex items-center justify-between">
-                                <span class="text-slate-800">Total Bayar</span>
+                            @if(($discountAmount ?? 0) > 0)
+                                <div class="mt-1 flex items-center justify-between text-sm text-emerald-600">
+                                    <span>Diskon ({{ $appliedPromoCode }})</span>
+                                    <span>-Rp {{ number_format($discountAmount) }}</span>
+                                </div>
+                            @endif
+                            <div class="mt-1 flex items-center justify-between text-sm text-slate-600">
+                                <span>Ongkos Kirim</span>
+                                <span>Rp {{ number_format($shippingCost ?? 0) }}</span>
+                            </div>
+                            <div class="mt-3 flex items-center justify-between border-t border-slate-200 pt-3">
+                                <span class="font-semibold text-slate-800">Total Bayar</span>
                                 <span class="text-xl font-bold text-sky-700">Rp {{ number_format($order->total_amount) }}</span>
                             </div>
                         </div>
@@ -627,17 +654,36 @@
                                         <input type="text"
                                                wire:model.live="promoCode"
                                                placeholder="Masukkan kode promo"
-                                               class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                                               :disabled="isApplyingPromo"
+                                               class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:bg-slate-100 disabled:cursor-not-allowed">
                                         <button type="button"
                                                 @click="applyPromoWithSync()"
-                                                class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700">
-                                            Gunakan
+                                                :disabled="isApplyingPromo"
+                                                class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-400">
+                                            <template x-if="isApplyingPromo">
+                                                <svg class="size-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                            </template>
+                                            <template x-if="isApplyingPromo">
+                                                <span>Memuat...</span>
+                                            </template>
+                                            <template x-if="!isApplyingPromo">
+                                                <span>Gunakan</span>
+                                            </template>
                                         </button>
                                     </div>
                                     @if($promoError)
                                         <div class="mt-2 flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
                                             <i class="fa-solid fa-circle-xmark text-red-500 text-sm"></i>
                                             <p class="text-xs text-red-600">{{ $promoError }}</p>
+                                        </div>
+                                    @endif
+                                    @if($promoSuccess)
+                                        <div class="mt-2 flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2">
+                                            <i class="fa-solid fa-circle-check text-emerald-500 text-sm"></i>
+                                            <p class="text-xs text-emerald-600">{{ $promoSuccess }}</p>
                                         </div>
                                     @endif
                                 </div>

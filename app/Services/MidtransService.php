@@ -263,6 +263,10 @@ class MidtransService
                 null,
                 $notes
             ));
+
+            // Dispatch browser event to clear checkout session on frontend
+            // This notifies any open checkout pages to clear their state
+            event(new \App\Events\ClearCheckoutSession($order->user_id));
         }
 
         Log::info('Order marked as paid via FK transition', [
@@ -281,19 +285,53 @@ class MidtransService
     {
         $order->load('items.product');
 
-        foreach ($order->items as $item) {
-            if ($item->product_id && $item->product) {
-                $newStock = max(0, $item->product->stock - $item->quantity);
-                $item->product->update(['stock' => $newStock]);
+        $decrementedCount = 0;
+        $skippedCount = 0;
 
-                Log::info('Stock decremented for product', [
-                    'product_id' => $item->product_id,
-                    'quantity_ordered' => $item->quantity,
-                    'previous_stock' => $item->product->stock + $item->quantity,
-                    'new_stock' => $newStock,
+        foreach ($order->items as $item) {
+            if (!$item->product_id) {
+                // No product_id - skip (legacy items or non-inventory products)
+                Log::debug('Stock decrement skipped - no product_id', [
+                    'order_id' => $order->id,
+                    'item_id' => $item->id,
+                    'product_name' => $item->product_name,
                 ]);
+                $skippedCount++;
+                continue;
             }
+
+            if (!$item->product) {
+                // Product deleted or not found
+                Log::warning('Stock decrement skipped - product not found', [
+                    'order_id' => $order->id,
+                    'item_id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'product_name' => $item->product_name,
+                ]);
+                $skippedCount++;
+                continue;
+            }
+
+            $previousStock = $item->product->stock;
+            $newStock = max(0, $previousStock - $item->quantity);
+            $item->product->update(['stock' => $newStock]);
+
+            Log::info('Stock decremented for product', [
+                'order_id' => $order->id,
+                'product_id' => $item->product_id,
+                'product_name' => $item->product_name,
+                'quantity_ordered' => $item->quantity,
+                'previous_stock' => $previousStock,
+                'new_stock' => $newStock,
+            ]);
+            $decrementedCount++;
         }
+
+        Log::info('Stock decrement completed', [
+            'order_id' => $order->id,
+            'decremented_count' => $decrementedCount,
+            'skipped_count' => $skippedCount,
+        ]);
     }
 
     /**

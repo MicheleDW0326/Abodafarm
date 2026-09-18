@@ -320,15 +320,27 @@ class Operations extends Component
     public function getStats(): array
     {
         $staffId = auth()->id();
-        $orders = Order::query()->where('assigned_staff_id', $staffId);
+
+        // OPTIMIZED: Single query for all stats using CASE WHEN
+        $statsData = DB::table('orders')
+            ->where('assigned_staff_id', $staffId)
+            ->selectRaw("
+                SUM(CASE WHEN status IN ('paid', 'approved') THEN 1 ELSE 0 END) as ready_to_process,
+                SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) as processing,
+                SUM(CASE WHEN status = 'ready_to_ship' THEN 1 ELSE 0 END) as ready_to_ship,
+                SUM(CASE WHEN status = 'shipped' THEN 1 ELSE 0 END) as shipped,
+                SUM(CASE WHEN status IN ('delivered', 'completed') THEN 1 ELSE 0 END) as delivered,
+                SUM(CASE WHEN status NOT IN ('cancelled', 'rejected') THEN 1 ELSE 0 END) as total_active
+            ")
+            ->first();
 
         return [
-            'ready_to_process' => (clone $orders)->whereIn('status', ['paid', 'approved'])->count(),
-            'processing' => (clone $orders)->where('status', 'processing')->count(),
-            'ready_to_ship' => (clone $orders)->where('status', 'ready_to_ship')->count(),
-            'shipped' => (clone $orders)->where('status', 'shipped')->count(),
-            'delivered' => (clone $orders)->whereIn('status', ['delivered', 'completed'])->count(),
-            'total_active' => (clone $orders)->whereNotIn('status', ['cancelled', 'rejected'])->count(),
+            'ready_to_process' => (int) $statsData->ready_to_process,
+            'processing' => (int) $statsData->processing,
+            'ready_to_ship' => (int) $statsData->ready_to_ship,
+            'shipped' => (int) $statsData->shipped,
+            'delivered' => (int) $statsData->delivered,
+            'total_active' => (int) $statsData->total_active,
         ];
     }
 

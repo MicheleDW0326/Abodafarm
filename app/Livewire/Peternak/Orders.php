@@ -3,6 +3,7 @@
 namespace App\Livewire\Peternak;
 
 use App\Models\Order;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -40,13 +41,25 @@ class Orders extends Component
 
         $orders = $ordersQuery->get();
 
-        // Stats - only for cart orders
-        $statsQuery = Order::cart()->whereHas('items.product', fn($q) => $q->where('owner_id', $userId));
+        // OPTIMIZED: Single query for all stats using CASE WHEN
+        $statsQuery = DB::table('orders as o')
+            ->join('order_items as oi', 'o.id', '=', 'oi.order_id')
+            ->join('products as p', 'oi.product_id', '=', 'p.id')
+            ->where('p.owner_id', $userId)
+            ->where('o.order_type', 'cart')
+            ->selectRaw("
+                COUNT(DISTINCT o.id) as total,
+                SUM(CASE WHEN o.status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN o.status = 'processing' THEN 1 ELSE 0 END) as processing,
+                SUM(CASE WHEN o.status = 'shipped' THEN 1 ELSE 0 END) as shipped
+            ")
+            ->first();
+
         $stats = [
-            'total' => (clone $statsQuery)->count(),
-            'pending' => (clone $statsQuery)->where('status', 'pending')->count(),
-            'processing' => (clone $statsQuery)->where('status', 'processing')->count(),
-            'shipped' => (clone $statsQuery)->where('status', 'shipped')->count(),
+            'total' => (int) $statsQuery->total,
+            'pending' => (int) $statsQuery->pending,
+            'processing' => (int) $statsQuery->processing,
+            'shipped' => (int) $statsQuery->shipped,
         ];
 
         $selectedOrder = $this->selectedOrderId

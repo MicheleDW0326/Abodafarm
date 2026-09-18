@@ -7,6 +7,7 @@ use App\Models\CustomerNotification;
 use App\Models\Order;
 use App\Models\OrderStatusLog;
 use App\Services\OrderStateMachine;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -62,15 +63,29 @@ class MyBookings extends Component
 
         $bookings = $bookingsQuery->get();
 
-        // Stats
+        // OPTIMIZED: Single query for all stats using CASE WHEN
+        $statsData = DB::table('orders')
+            ->where('user_id', $userId)
+            ->where('order_type', 'inquiry')
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'survey_scheduled' THEN 1 ELSE 0 END) as survey_scheduled,
+                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+                SUM(CASE WHEN status = 'ready_for_delivery' THEN 1 ELSE 0 END) as ready_for_delivery,
+                SUM(CASE WHEN status IN ('rejected', 'cancelled') THEN 1 ELSE 0 END) as rejected,
+                SUM(CASE WHEN status IN ('completed', 'delivered') THEN 1 ELSE 0 END) as completed
+            ")
+            ->first();
+
         $stats = [
-            'total' => Order::booking()->where('user_id', $userId)->count(),
-            'pending' => Order::booking()->where('user_id', $userId)->where('status', 'pending')->count(),
-            'survey_scheduled' => Order::booking()->where('user_id', $userId)->where('status', 'survey_scheduled')->count(),
-            'approved' => Order::booking()->where('user_id', $userId)->where('status', 'approved')->count(),
-            'ready_for_delivery' => Order::booking()->where('user_id', $userId)->where('status', 'ready_for_delivery')->count(),
-            'rejected' => Order::booking()->where('user_id', $userId)->where('status', 'rejected')->count(),
-            'completed' => Order::booking()->where('user_id', $userId)->where('status', 'completed')->count(),
+            'total' => (int) $statsData->total,
+            'pending' => (int) $statsData->pending,
+            'survey_scheduled' => (int) $statsData->survey_scheduled,
+            'approved' => (int) $statsData->approved,
+            'ready_for_delivery' => (int) $statsData->ready_for_delivery,
+            'rejected' => (int) $statsData->rejected,
+            'completed' => (int) $statsData->completed,
         ];
 
         $selectedBooking = null;

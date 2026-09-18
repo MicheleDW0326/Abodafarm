@@ -1,14 +1,38 @@
-<header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-lg"
-    x-data="{
-        activeRoute: '',
-        mobileOpen: false,
-        cartOpen: false,
-        get cartCount() {
-            const cart = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
-            return cart.reduce((sum, item) => sum + (item.qty || 0), 0);
-        }
-    }"
-    x-init="activeRoute = window.location.pathname; window.addEventListener('livewire:navigated', () => activeRoute = window.location.pathname)">
+<header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/95 backdrop-blur-lg" x-data="{
+    activeRoute: '',
+    mobileOpen: false,
+    cartCount: 0,
+
+    init() {
+        this.activeRoute = window.location.pathname;
+        this.updateCartCount();
+
+        window.addEventListener('livewire:navigated', () => {
+            this.activeRoute = window.location.pathname;
+        });
+
+        // Listen for cart updates
+        window.addEventListener('cart-updated', () => {
+            this.updateCartCount();
+        });
+
+        // Listen for storage changes (cross-tab)
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'abodafarm_cart') {
+                this.updateCartCount();
+            }
+        });
+    },
+
+    updateCartCount() {
+        const cart = JSON.parse(localStorage.getItem('abodafarm_cart') || '[]');
+        this.cartCount = cart.reduce((sum, item) => sum + (item.qty || 0), 0);
+    },
+
+    toggleCart() {
+        window.dispatchEvent(new CustomEvent('toggle-cart'));
+    }
+}">
 
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
@@ -17,30 +41,38 @@
 
             <!-- Logo & Brand -->
             <a href="{{ url('/') }}" class="flex items-center gap-2.5 group flex-shrink-0">
-                <img src="/icons/MainLogo.png" alt="AbodaFarm Logo" class="h-9 w-auto object-contain transition-transform duration-300 group-hover:scale-105">
+                <img src="/icons/MainLogo.png" alt="AbodaFarm Logo"
+                    class="h-9 w-auto object-contain transition-transform duration-300 group-hover:scale-105">
                 <span class="text-lg font-bold tracking-tight text-slate-800">AbodaFarm</span>
             </a>
 
             <!-- Desktop Navigation - Centered -->
             <nav class="hidden items-center gap-1 lg:flex">
-                <a href="{{ url('/') }}"
+                <a wire:navigate href="{{ url('/') }}"
                     class="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
-                    :class="activeRoute === '/' ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
+                    :class="activeRoute === '/' ? 'bg-emerald-50 text-emerald-700 font-semibold' :
+                        'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
                     Beranda
                 </a>
-                <a href="{{ route('shop') }}"
+                <a wire:navigate.hover href="{{ route('shop') }}"
                     class="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
-                    :class="activeRoute.includes('/shop') || activeRoute.includes('/produk') ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
+                    :class="activeRoute.includes('/shop') || activeRoute.includes('/produk') ?
+                        'bg-emerald-50 text-emerald-700 font-semibold' :
+                        'text-slate-600 hover:bg-slate-100 hover:text-emerald-700'">
                     Produk
                 </a>
-                <a href="{{ route('about') }}"
+                <a wire:navigate.hover href="{{ route('about') }}"
                     class="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
-                    :class="activeRoute.includes('/about') || activeRoute.includes('/tentang-kami') ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
-                    Tentang Kami
+                    :class="activeRoute.includes('/about') || activeRoute.includes('/tentang-kami') ?
+                        'bg-emerald-50 text-emerald-700 font-semibold' :
+                        'text-slate-600 hover:bg-slate-100 hover:text-emerald-700'">
+                    Tentang
                 </a>
-                <a href="{{ route('contact') }}"
+                <a wire:navigate.hover href="{{ route('contact') }}"
                     class="rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
-                    :class="activeRoute.includes('/contact') || activeRoute.includes('/kontak') ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-emerald-700'">
+                    :class="activeRoute.includes('/contact') || activeRoute.includes('/kontak') ?
+                        'bg-emerald-50 text-emerald-700 font-semibold' :
+                        'text-slate-600 hover:bg-slate-100 hover:text-emerald-700'">
                     Kontak
                 </a>
             </nav>
@@ -62,22 +94,19 @@
                         title="Wishlist">
                         <x-icon name="svg-wishlist" class="w-[18px] h-[18px] text-rose-500" />
                         <span class="hidden xl:inline">Wishlist</span>
-                        <span x-show="wishlistCount > 0"
-                            x-text="wishlistCount"
-                            x-data="{ wishlistCount: 0 }"
+                        <span x-show="wishlistCount > 0" x-text="wishlistCount" x-data="{ wishlistCount: 0 }"
                             x-init="fetch('{{ route('api.favorites.count') }}').then(r => r.json()).then(d => wishlistCount = d.count).catch(() => {})"
                             class="flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
                         </span>
                     </a>
 
                     <!-- Cart -->
-                    <button @click="window.dispatchEvent(new CustomEvent('toggle-cart'))"
-                        class="relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-all hover:bg-white hover:text-emerald-600 hover:shadow-sm"
+                    <button @click="toggleCart()"
+                        class="cursor-pointer relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-all hover:bg-white hover:text-emerald-600 hover:shadow-sm"
                         title="Keranjang">
                         <x-icon name="svg-cart" class="w-[18px] h-[18px]" />
                         <span class="hidden xl:inline">Keranjang</span>
-                        <span x-show="cartCount > 0"
-                            x-text="cartCount"
+                        <span x-show="cartCount > 0" x-text="cartCount"
                             class="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white">
                         </span>
                     </button>
@@ -102,27 +131,29 @@
                 </div>
 
                 <!-- CTA Button -->
-                <a href="{{ route('shop') }}"
-                    class="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:from-emerald-700 hover:to-emerald-800 hover:shadow-md">
+                <a wire:navigate.hover href="{{ route('shop') }}"
+                    class=" cursor-pointer flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:from-emerald-700 hover:to-emerald-800 hover:shadow-md">
                     <x-icon name="svg-search" class="w-4 h-4" />
                     <span>Belanja</span>
                 </a>
 
                 <!-- Help Button -->
                 <button @click="document.dispatchEvent(new CustomEvent('toggle-help'))"
-                    class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50/50 text-slate-500 transition-all hover:bg-white hover:text-emerald-600 hover:shadow-sm"
+                    class="cursor-pointer flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50/50 text-slate-500 transition-all hover:bg-white hover:text-emerald-600 hover:shadow-sm"
                     title="Bantuan">
                     <x-icon name="help-circle" class="w-5 h-5" />
                 </button>
             </div>
 
             <!-- Mobile Menu Toggle -->
-            <button @click="mobileOpen = !mobileOpen" class="rounded-xl border border-slate-200 bg-slate-50 p-2.5 lg:hidden"
-                aria-label="Toggle menu">
-                <svg x-show="!mobileOpen" xmlns="http://www.w3.org/2000/svg" class="size-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <button @click="mobileOpen = !mobileOpen"
+                class="rounded-xl border border-slate-200 bg-slate-50 p-2.5 lg:hidden" aria-label="Toggle menu">
+                <svg x-show="!mobileOpen" xmlns="http://www.w3.org/2000/svg" class="size-5 text-slate-600"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
-                <svg x-show="mobileOpen" xmlns="http://www.w3.org/2000/svg" class="size-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg x-show="mobileOpen" xmlns="http://www.w3.org/2000/svg" class="size-5 text-slate-600" fill="none"
+                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
@@ -130,7 +161,10 @@
     </div>
 
     <!-- Mobile Menu -->
-    <div x-show="mobileOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-2"
+    <div x-show="mobileOpen" x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 -translate-y-2"
         class="border-t border-slate-100 bg-white px-4 py-5 lg:hidden">
 
         <!-- Mobile Search -->
@@ -148,19 +182,22 @@
             </a>
             <a href="{{ route('shop') }}" @click="mobileOpen = false"
                 class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition"
-                :class="activeRoute.includes('/shop') || activeRoute.includes('/produk') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
+                :class="activeRoute.includes('/shop') || activeRoute.includes('/produk') ? 'bg-emerald-50 text-emerald-700' :
+                    'text-slate-600 hover:bg-slate-50'">
                 <x-icon name="store" class="w-5 h-5" />
                 Produk
             </a>
             <a href="{{ route('about') }}" @click="mobileOpen = false"
                 class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition"
-                :class="activeRoute.includes('/about') || activeRoute.includes('/tentang-kami') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
+                :class="activeRoute.includes('/about') || activeRoute.includes('/tentang-kami') ?
+                    'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
                 <x-icon name="info" class="w-5 h-5" />
                 Tentang Kami
             </a>
             <a href="{{ route('contact') }}" @click="mobileOpen = false"
                 class="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition"
-                :class="activeRoute.includes('/contact') || activeRoute.includes('/kontak') ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50'">
+                :class="activeRoute.includes('/contact') || activeRoute.includes('/kontak') ? 'bg-emerald-50 text-emerald-700' :
+                    'text-slate-600 hover:bg-slate-50'">
                 <x-icon name="mail" class="w-5 h-5" />
                 Kontak
             </a>
@@ -192,22 +229,23 @@
                     <x-icon name="svg-wishlist" class="w-[18px] h-[18px] text-rose-500" />
                     Wishlist
                 </a>
-                <button @click="mobileOpen = false; window.dispatchEvent(new CustomEvent('toggle-cart'))"
-                    class="flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                <button @click="mobileOpen = false; toggleCart()"
+                    class="cursor-pointer flex flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
                     <x-icon name="svg-cart" class="w-[18px] h-[18px]" />
                     Keranjang
-                    <span x-show="cartCount > 0" x-text="'(' + cartCount + ')'" class="rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-bold text-white"></span>
+                    <span x-show="cartCount > 0" x-text="'(' + cartCount + ')'"
+                        class="rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-bold text-white"></span>
                 </button>
             </div>
 
             <a href="{{ route('shop') }}" @click="mobileOpen = false"
-                class="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-3.5 text-sm font-semibold text-white">
+                class="cursor-pointer flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-3.5 text-sm font-semibold text-white">
                 <x-icon name="svg-search" class="w-4 h-4" />
                 Mulai Belanja
             </a>
 
             <button @click="document.dispatchEvent(new CustomEvent('toggle-help')); mobileOpen = false"
-                class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                class="cursor-pointer flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50">
                 <x-icon name="help-circle" class="w-5 h-5" />
                 Pusat Bantuan
             </button>

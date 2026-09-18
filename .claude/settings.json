@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd c:/laragon/www/AbodaFarm && rm -rf storage/framework/views/*.php 2>/dev/null && php artisan cache:clear 2>/dev/null && echo \"Cache cleared\")",
+      "Bash(xxd \"c:/laragon/www/AbodaFarm/resources/views/livewire/admin/product-management.blade.php\")",
+      "Bash(dir \"c:\\\\laragon\\\\www\\\\AbodaFarm\\\\public\\\\vendor\\\\livewire\\\\\")",
+      "Bash(curl -s -X POST http://abodafarm.test/livewire-553e229a/update -H \"X-Livewire: true\" -H \"Content-Type: application/json\" -d \"{}\" -w \"\\\\nHTTP Status: %{http_code}\\\\n\")"
+    ],
+    "additionalDirectories": [
+      "c:\\laragon\\www\\AbodaFarm\\storage\\framework\\views"
+    ]
+  }
+}

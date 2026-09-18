@@ -153,22 +153,27 @@ class ProductManagement extends Component
         // Auto-fill barn location and origin from farmer's farm profile
         // - Origin: farm_name
         // - Barn Location: address, fallback to village
-        if ($ownerId) {
-            $farmProfile = FarmProfile::where('user_id', $ownerId)->first();
-            if ($farmProfile) {
-                // Origin = farm_name
-                $this->productOrigin = $farmProfile->farm_name ?? '';
+        try {
+            if ($ownerId) {
+                $farmProfile = FarmProfile::where('user_id', $ownerId)->first();
+                if ($farmProfile) {
+                    // Origin = farm_name
+                    $this->productOrigin = $farmProfile->farm_name ?? '';
 
-                // Barn Location = address, fallback to village
-                $this->productBarnLocation = $farmProfile->address
-                    ?: ($farmProfile->village
-                        ? "{$farmProfile->village}" . ($farmProfile->district ? ", {$farmProfile->district}" : '')
-                        : '');
+                    // Barn Location = address, fallback to village
+                    $this->productBarnLocation = $farmProfile->address
+                        ?: ($farmProfile->village
+                            ? "{$farmProfile->village}" . ($farmProfile->district ? ", {$farmProfile->district}" : '')
+                            : '');
+                }
+            } else {
+                // Clear when no owner selected
+                $this->productBarnLocation = '';
+                $this->productOrigin = '';
             }
-        } else {
-            // Clear when no owner selected
-            $this->productBarnLocation = '';
-            $this->productOrigin = '';
+        } catch (\Exception $e) {
+            // Log error but don't break the form
+            \Log::warning('Failed to load farm profile for product owner: ' . $e->getMessage());
         }
     }
 
@@ -182,7 +187,7 @@ class ProductManagement extends Component
     {
         $this->validate([
             'productName' => 'required|string|max:255',
-            'productPrice' => 'required|numeric|min:0',
+            'productPrice' => 'required|numeric|min:0|max:999999999999',
             'productCategory' => 'required|exists:categories,id',
             'productType' => 'required|in:live,fresh,supply',
             'productStatus' => 'required|in:available,pre_order,in_care,sold',
@@ -233,7 +238,9 @@ class ProductManagement extends Component
 
             $this->closeProductModal();
         } catch (\Exception $e) {
-            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Error!', 'message' => $e->getMessage()]);
+            // Log error for debugging (do not expose to user)
+            \Log::error('Product save error: ' . $e->getMessage());
+            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Gagal!', 'message' => 'Terjadi kesalahan saat menyimpan produk. Silakan coba lagi.']);
         }
     }
 
@@ -258,7 +265,7 @@ class ProductManagement extends Component
         $product = Product::find($this->pendingDeleteProductId);
 
         if (!$product) {
-            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Error!', 'message' => 'Produk tidak ditemukan.']);
+            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Gagal!', 'message' => 'Produk tidak ditemukan.']);
             $this->pendingDeleteProductId = null;
             return;
         }
@@ -270,7 +277,8 @@ class ProductManagement extends Component
             $product->delete();
             $this->dispatch('showAlert', ['type' => 'success', 'title' => 'Berhasil!', 'message' => 'Produk berhasil dihapus!']);
         } catch (\Exception $e) {
-            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Error!', 'message' => $e->getMessage()]);
+            \Log::error('Product delete error: ' . $e->getMessage());
+            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Gagal!', 'message' => 'Terjadi kesalahan saat menghapus produk. Silakan coba lagi.']);
         }
 
         $this->pendingDeleteProductId = null;
@@ -366,7 +374,8 @@ class ProductManagement extends Component
 
             $this->closeCategoryModal();
         } catch (\Exception $e) {
-            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Error!', 'message' => $e->getMessage()]);
+            \Log::error('Category save error: ' . $e->getMessage());
+            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Gagal!', 'message' => 'Terjadi kesalahan saat menyimpan kategori. Silakan coba lagi.']);
         }
     }
 
@@ -396,7 +405,8 @@ class ProductManagement extends Component
             $category->delete();
             $this->dispatch('showAlert', ['type' => 'success', 'title' => 'Berhasil!', 'message' => 'Kategori berhasil dihapus!']);
         } catch (\Exception $e) {
-            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Error!', 'message' => $e->getMessage()]);
+            \Log::error('Category delete error: ' . $e->getMessage());
+            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Gagal!', 'message' => 'Terjadi kesalahan saat menghapus kategori. Silakan coba lagi.']);
         }
 
         $this->pendingDeleteCategoryId = null;
@@ -444,7 +454,7 @@ class ProductManagement extends Component
     public function saveInventory()
     {
         $this->validate([
-            'inventoryQuantity' => 'required|numeric|min:1',
+            'inventoryQuantity' => 'required|numeric|min:1|max:999999',
             'inventoryType' => 'required|in:restock,sale,death,transfer,adjustment',
             'inventoryDate' => 'required|date',
         ]);
@@ -474,7 +484,8 @@ class ProductManagement extends Component
             $this->dispatch('showAlert', ['type' => 'success', 'title' => 'Berhasil!', 'message' => 'Inventaris berhasil dicatat!']);
             $this->closeInventoryModal();
         } catch (\Exception $e) {
-            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Error!', 'message' => $e->getMessage()]);
+            \Log::error('Inventory save error: ' . $e->getMessage());
+            $this->dispatch('showAlert', ['type' => 'error', 'title' => 'Gagal!', 'message' => 'Terjadi kesalahan saat menyimpan inventaris. Silakan coba lagi.']);
         }
     }
 
@@ -493,6 +504,23 @@ class ProductManagement extends Component
     public function render()
     {
         // Products Query
+        // OPTIMIZED: Single query for product counts instead of 3 separate queries
+        $productCounts = Product::query()
+            ->selectRaw('type, COUNT(*) as count')
+            ->when($this->searchQuery, function ($query) {
+                $query->where(function ($q) {
+                    $q->where('name', 'like', '%' . $this->searchQuery . '%')
+                        ->orWhere('description', 'like', '%' . $this->searchQuery . '%');
+                });
+            })
+            ->groupBy('type')
+            ->pluck('count', 'type')
+            ->toArray();
+
+        $liveProducts = $productCounts['live'] ?? 0;
+        $freshProducts = $productCounts['fresh'] ?? 0;
+        $supplyProducts = $productCounts['supply'] ?? 0;
+
         $productsQuery = Product::with(['category', 'owner.farmProfile'])
             ->when($this->searchQuery, function ($query) {
                 $query->where(function ($q) {
@@ -505,10 +533,7 @@ class ProductManagement extends Component
             })
             ->orderBy('created_at', 'desc');
 
-        $products = $productsQuery->get();
-        $liveProducts = Product::live()->count();
-        $freshProducts = Product::freshType()->count();
-        $supplyProducts = Product::supply()->count();
+        $products = $productsQuery->limit(100)->get();
 
         // Categories
         $categories = Category::ordered()->get();

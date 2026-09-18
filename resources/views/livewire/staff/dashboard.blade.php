@@ -194,21 +194,7 @@
                                 </div>
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">
-                                @php
-                                    $statusClass = match($order->status) {
-                                        'pending' => 'bg-amber-50 text-amber-700',
-                                        'paid', 'approved' => 'bg-green-50 text-green-700',
-                                        'processing' => 'bg-blue-50 text-blue-700',
-                                        'ready_to_ship' => 'bg-violet-50 text-violet-700',
-                                        'shipped' => 'bg-purple-50 text-purple-700',
-                                        'delivered', 'completed' => 'bg-emerald-50 text-emerald-700',
-                                        'cancelled', 'rejected' => 'bg-red-50 text-red-700',
-                                        default => 'bg-slate-50 text-slate-600'
-                                    };
-                                @endphp
-                                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold {{ $statusClass }}">
-                                    {{ $order->status_label ?? ucfirst($order->status) }}
-                                </span>
+                                <x-ui.badge.status :status="$order->status" size="sm" :customLabel="$order->status_label ?? null" />
                             </td>
                             <td class="whitespace-nowrap px-6 py-4">
                                 <p class="text-sm text-slate-600">
@@ -229,13 +215,11 @@
                     @empty
                         <tr>
                             <td colspan="5" class="px-6 py-12">
-                                <div class="flex flex-col items-center justify-center text-center">
-                                    <div class="rounded-full bg-slate-100 p-4 text-slate-300 mb-3">
-                                        <i class="fa-solid fa-inbox text-3xl"></i>
-                                    </div>
-                                    <p class="text-sm font-medium text-slate-500">Belum ada pesanan</p>
-                                    <p class="mt-1 text-xs text-slate-400">Pesanan baru akan muncul di sini</p>
-                                </div>
+                                <x-ui.empty-state
+                                    icon="fa-inbox"
+                                    title="Belum ada pesanan"
+                                    description="Pesanan baru akan muncul di sini"
+                                />
                             </td>
                         </tr>
                     @endforelse

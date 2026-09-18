@@ -7,10 +7,8 @@
     <div class="space-y-3">
         @foreach ($faqs as $index => $faq)
             <article class="rounded-xl border border-slate-200 bg-white">
-                <button
-                    @click="openIndex = openIndex === {{ $index }} ? null : {{ $index }}"
-                    class="flex w-full items-center justify-between px-5 py-4 text-left"
-                >
+                <button @click="openIndex = openIndex === {{ $index }} ? null : {{ $index }}"
+                    class="cursor-pointer flex w-full items-center justify-between px-5 py-4 text-left">
                     <span class="font-semibold">{{ $faq['question'] }}</span>
                     <span class="text-sky-600" x-text="openIndex === {{ $index }} ? '-' : '+'"></span>
                 </button>

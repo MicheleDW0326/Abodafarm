@@ -87,11 +87,23 @@
                             <div
                                 x-data="{
                                     preview: null,
+                                    setDeliveryPhoto(file) {
+                                        const parent = this.$el.closest('[wire\\:id]');
+                                        if (parent && parent.__livewire) {
+                                            parent.__livewire.set('deliveryPhoto', file);
+                                        }
+                                    },
+                                    clearDeliveryPhoto() {
+                                        const parent = this.$el.closest('[wire\\:id]');
+                                        if (parent && parent.__livewire) {
+                                            parent.__livewire.set('deliveryPhoto', null);
+                                        }
+                                    },
                                     handleFileChange(event) {
                                         const file = event.target.files[0];
                                         if (file) {
                                             this.preview = URL.createObjectURL(file);
-                                            @this.set('deliveryPhoto', file);
+                                            this.setDeliveryPhoto(file);
                                         }
                                     }
                                 }"
@@ -109,7 +121,7 @@
                                     />
                                     <button
                                         type="button"
-                                        x-on:click="preview = null; $wire.set('deliveryPhoto', null); document.getElementById('photoInput').value = '';"
+                                        x-on:click="preview = null; clearDeliveryPhoto(); document.getElementById('photoInput').value = '';"
                                         class="absolute right-2 top-2 rounded-full bg-red-500 p-1.5 text-white shadow-lg transition-colors hover:bg-red-600"
                                     >
                                         <i class="fa-solid fa-times text-xs"></i>

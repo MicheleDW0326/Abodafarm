@@ -788,7 +788,11 @@
 
             Livewire.on('reset-copy-status', () => {
                 setTimeout(() => {
-                    @this.resetCopyStatus();
+                    // Get the first Livewire component on the page
+                    const component = document.querySelector('[wire\\:id]');
+                    if (component && component.__livewire) {
+                        component.__livewire.call('resetCopyStatus');
+                    }
                 }, 2000);
             });
         });

@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -47,14 +48,22 @@ class StaffManagement extends Component
 
     public function getRoleStatsProperty()
     {
-        $roles = ['admin', 'staf', 'peternak', 'pelanggan'];
-        $stats = [];
+        // OPTIMIZED: Single query with GROUP BY instead of N queries in loop
+        $stats = DB::table('model_has_roles')
+            ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
+            ->selectRaw('roles.name as role, COUNT(*) as count')
+            ->whereIn('roles.name', ['admin', 'staf', 'peternak', 'pelanggan'])
+            ->groupBy('roles.name')
+            ->pluck('count', 'role')
+            ->toArray();
 
-        foreach ($roles as $role) {
-            $stats[$role] = User::role($role)->count();
-        }
-
-        return $stats;
+        // Ensure all roles are present with default 0
+        return [
+            'admin' => $stats['admin'] ?? 0,
+            'staf' => $stats['staf'] ?? 0,
+            'peternak' => $stats['peternak'] ?? 0,
+            'pelanggan' => $stats['pelanggan'] ?? 0,
+        ];
     }
 
     public function openUserModal(?int $id = null)

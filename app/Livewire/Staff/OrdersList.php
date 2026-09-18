@@ -3,6 +3,7 @@
 namespace App\Livewire\Staff;
 
 use App\Models\Order;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -138,14 +139,25 @@ class OrdersList extends Component
     public function getStats(): array
     {
         $staffId = auth()->id();
-        $baseQuery = Order::query()->assignedToStaff($staffId);
+
+        // OPTIMIZED: Single query for all stats using CASE WHEN
+        $statsData = DB::table('orders')
+            ->where('assigned_staff_id', $staffId)
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status IN ('paid', 'approved', 'processing') THEN 1 ELSE 0 END) as processing,
+                SUM(CASE WHEN status = 'shipped' THEN 1 ELSE 0 END) as shipped,
+                SUM(CASE WHEN status IN ('delivered', 'completed') THEN 1 ELSE 0 END) as completed
+            ")
+            ->first();
 
         return [
-            'total' => (clone $baseQuery)->count(),
-            'pending' => (clone $baseQuery)->where('status', 'pending')->count(),
-            'processing' => (clone $baseQuery)->whereIn('status', ['paid', 'approved', 'processing'])->count(),
-            'shipped' => (clone $baseQuery)->where('status', 'shipped')->count(),
-            'completed' => (clone $baseQuery)->whereIn('status', ['delivered', 'completed'])->count(),
+            'total' => (int) $statsData->total,
+            'pending' => (int) $statsData->pending,
+            'processing' => (int) $statsData->processing,
+            'shipped' => (int) $statsData->shipped,
+            'completed' => (int) $statsData->completed,
         ];
     }
 

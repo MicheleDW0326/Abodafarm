@@ -3,11 +3,12 @@
 namespace App\Livewire;
 
 use App\Enums\PaymentStatusEnum;
+use App\Events\ClearCheckoutSession;
+use App\Events\PaymentReceived;
 use App\Models\Address;
 use App\Models\CustomerNotification;
 use App\Models\Order;
 use App\Models\OrderStatusLog;
-use App\Models\Payment;
 use App\Models\Promotion;
 use App\Services\FcmService;
 use App\Services\MidtransService;
@@ -29,85 +30,96 @@ class Checkout extends Component
     private const CHECKOUT_FORM_KEY = 'abodafarm_checkout_form';
     private const ORDER_ID_KEY = 'abodafarm_checkout_order_id';
 
+    protected $listeners = [
+        'echo:checkout.{currentUserId},checkout.session-cleared' => 'onSessionCleared',
+    ];
+
+    public function getCurrentUserIdProperty(): int
+    {
+        return auth()->id();
+    }
+
+    public function onSessionCleared(): void
+    {
+        // Clear checkout session when payment is completed via webhook
+        $this->clearCheckoutSession();
+    }
+
     public string $name = '';
-
     public string $phone = '';
-
     public string $address = '';
-
     public string $notes = '';
-
     public ?string $cartData = null;
-
     public bool $orderPlaced = false;
-
     public ?string $placedOrderNumber = null;
-
-    // Payment related properties
     public bool $showPaymentModal = false;
-
     public bool $isLoadingPayment = false;
-
     public ?string $snapToken = null;
-
     public ?int $currentOrderId = null;
-
     public ?string $errorMessage = null;
-
-    // Address properties
     public array $userAddresses = [];
-
     public ?int $selectedAddressId = null;
-
     public bool $useNewAddress = false;
-
     public string $newAddressLabel = '';
-
     public string $newFullAddress = '';
-
     public string $newProvince = '';
-
     public string $newCity = '';
-
     public string $newDistrict = '';
-
     public string $newPostalCode = '';
-
-    // Service area validation
     public bool $isInServiceArea = true;
     public ?string $serviceAreaMessage = null;
-
-    // Show address modal (for inline address creation)
     public bool $showAddressModal = false;
-
-    // Promo code properties
     public string $promoCode = '';
-
     public ?string $appliedPromoCode = null;
-
     public ?string $promoError = null;
-
     public ?string $promoSuccess = null;
-
     public ?float $discountAmount = null;
-
     public ?string $promoType = null;
-
     public ?string $promoName = null;
-
     public function mount(): void
     {
+        // Require authentication for checkout
+        if (!auth()->check()) {
+            Session::put('url.intended', '/checkout');
+            $this->redirect(route('login'), navigate: true);
+            return;
+        }
+        // Auto-fill user info if available
+        $user = auth()->user();
+        if ($user && empty($this->name)) {
+            $this->name = $user->name;
+        }
+        if ($user && empty($this->phone)) {
+            $this->phone = $user->phone ?? '';
+        }
         // Restore form state from session if exists
         $this->restoreFormState();
 
-        // Restore order ID if exists (for mid-order reload)
+        // Check for saved order ID from session
         $savedOrderId = Session::get(self::ORDER_ID_KEY);
+        $cartItems = $this->getCartItems();
+        $hasItemsInCart = !empty($cartItems);
+
         if ($savedOrderId) {
             $this->currentOrderId = $savedOrderId;
-            $order = Order::find($savedOrderId);
+            $order = Order::with('payment')->find($savedOrderId);
+
             if ($order) {
-                $this->placedOrderNumber = $order->order_number;
-                $this->orderPlaced = true;
+                // If cart is empty AND previous order is completed, clear session and start fresh
+                if (!$hasItemsInCart && $order->payment && $order->payment->isCompleted()) {
+                    $this->clearCheckoutSession();
+                    $this->restoreFormState();
+                }
+                // If payment is pending, restore the order form
+                elseif ($order->payment_status !== \App\Enums\PaymentStatusEnum::PAID) {
+                    $this->placedOrderNumber = $order->order_number;
+                    $this->orderPlaced = true;
+                }
+                // If cart has items, keep session to allow re-payment or continue
+                elseif ($hasItemsInCart) {
+                    $this->placedOrderNumber = $order->order_number;
+                    $this->orderPlaced = true;
+                }
             }
         }
 
@@ -116,7 +128,6 @@ class Checkout extends Component
 
         $this->loadUserAddresses();
     }
-
     protected function restorePromoState(): void
     {
         $promoService = new PromoService();
@@ -134,7 +145,6 @@ class Checkout extends Component
             }
         }
     }
-
     /**
      * Restore form state from session.
      */
@@ -186,6 +196,30 @@ class Checkout extends Component
     {
         Session::forget(self::CHECKOUT_FORM_KEY);
         Session::forget(self::ORDER_ID_KEY);
+    }
+
+    /**
+     * Clear entire checkout session state.
+     * Called when payment is completed or when starting fresh checkout.
+     */
+    protected function clearCheckoutSession(): void
+    {
+        Session::forget(self::CHECKOUT_FORM_KEY);
+        Session::forget(self::ORDER_ID_KEY);
+        Session::forget(self::CART_SESSION_KEY);
+
+        // Reset all properties to initial state
+        $this->currentOrderId = null;
+        $this->placedOrderNumber = null;
+        $this->orderPlaced = false;
+        $this->showPaymentModal = false;
+        $this->snapToken = null;
+        $this->appliedPromoCode = null;
+        $this->discountAmount = null;
+        $this->promoType = null;
+        $this->promoName = null;
+        $this->promoError = null;
+        $this->promoSuccess = null;
     }
 
     public function loadUserAddresses(): void
@@ -457,15 +491,6 @@ class Checkout extends Component
             $this->discountAmount = $promoValidation['discount'];
         }
 
-        // Get courier notes if using saved address
-        $courierNotes = null;
-        if ($this->selectedAddressId) {
-            $address = Address::find($this->selectedAddressId);
-            if ($address) {
-                $courierNotes = $address->courier_notes;
-            }
-        }
-
         $order = DB::transaction(function () use ($items): Order {
             // Calculate final total with discount
             $subtotal = $this->cartTotal();
@@ -489,6 +514,7 @@ class Checkout extends Component
 
             $order->items()->createMany(array_map(
                 static fn(array $item): array => [
+                    'product_id' => $item['product_id'] ?? null,
                     'product_name' => $item['name'],
                     'product_image' => $item['image'] ?? null,
                     'unit_price' => (int) $item['price'],
@@ -563,9 +589,6 @@ class Checkout extends Component
             // Check if payment already exists - use eager loaded relation
             $existingPayment = $order->payment;
 
-            // Check if payment already exists
-            $existingPayment = $order->payment;
-
             if ($existingPayment && $existingPayment->isCompleted()) {
                 $this->errorMessage = 'Pembayaran sudah selesai.';
                 $this->isLoadingPayment = false;
@@ -584,11 +607,11 @@ class Checkout extends Component
                 'order_id' => $this->currentOrderId,
             ]);
         } catch (\Exception $e) {
-            $this->errorMessage = 'Gagal membuat token pembayaran: ' . $e->getMessage();
             \Log::error('Midtrans Snap Token Error', [
                 'order_id' => $this->currentOrderId,
                 'error' => $e->getMessage(),
             ]);
+            $this->errorMessage = 'Gagal membuat token pembayaran. Silakan coba beberapa saat lagi.';
         } finally {
             $this->isLoadingPayment = false;
         }
@@ -655,6 +678,9 @@ class Checkout extends Component
                         // Send payment success notification
                         $this->sendPaymentSuccessNotification($order);
 
+                        // Clear checkout session after successful payment
+                        $this->clearCheckoutSession();
+
                         $order->refresh();
                         $order->payment->refresh();
                     }
@@ -674,8 +700,10 @@ class Checkout extends Component
         } catch (\Exception $e) {
             // Check if it's a "Transaction not found" error
             $errorMessage = $e->getMessage();
-            if (str_contains($errorMessage, 'Transaction doesn\'t exist') ||
-                str_contains($errorMessage, '404')) {
+            if (
+                str_contains($errorMessage, 'Transaction doesn\'t exist') ||
+                str_contains($errorMessage, '404')
+            ) {
                 // Clear the old Snap token to allow creating a new one
                 if ($order && $order->payment) {
                     $order->payment->update(['snap_token' => null]);
@@ -689,23 +717,9 @@ class Checkout extends Component
                     'order_id' => $this->currentOrderId,
                     'error' => $errorMessage,
                 ]);
+                $this->errorMessage = 'Gagal memuat status pembayaran. Silakan coba beberapa saat lagi.';
             }
         }
-    }
-
-    /**
-     * Check if payment is completed.
-     */
-    #[Computed]
-    public function isPaymentCompleted(): bool
-    {
-        if (!$this->currentOrderId) {
-            return false;
-        }
-
-        $order = Order::with('payment')->find($this->currentOrderId);
-
-        return $order && $order->payment && $order->payment->isCompleted();
     }
 
     /**
@@ -734,11 +748,6 @@ class Checkout extends Component
             'paid_at' => $order->payment->paid_at?->format('d/m/Y H:i'),
             'transaction_id' => $order->payment->transaction_id,
         ];
-    }
-
-    public function cartItems(): array
-    {
-        return $this->getCartItems();
     }
 
     /**
@@ -787,11 +796,6 @@ class Checkout extends Component
         ));
     }
 
-    public function discountAmountValue(): float
-    {
-        return $this->discountAmount ?? 0;
-    }
-
     public function shippingCost(): int
     {
         // Free shipping if promo type is 'free_shipping'
@@ -819,29 +823,6 @@ class Checkout extends Component
             $discount += 20000; // Add shipping cost as savings
         }
         return $discount;
-    }
-
-    public function formattedDiscount(): string
-    {
-        return 'Rp ' . number_format($this->discountAmount ?? 0, 0, ',', '.');
-    }
-
-    public function formattedSubtotal(): string
-    {
-        return 'Rp ' . number_format($this->cartTotal(), 0, ',', '.');
-    }
-
-    public function formattedShipping(): string
-    {
-        if ($this->shippingCost() === 0) {
-            return 'GRATIS';
-        }
-        return 'Rp ' . number_format($this->shippingCost(), 0, ',', '.');
-    }
-
-    public function formattedFinalTotal(): string
-    {
-        return 'Rp ' . number_format($this->discountedTotal(), 0, ',', '.');
     }
 
     /**
@@ -1008,6 +989,19 @@ class Checkout extends Component
         $this->discountAmount = null;
         $this->promoType = null;
         $this->promoName = null;
+    }
+
+    /**
+     * Submit checkout form via wire:submit.
+     * This method is called by Livewire's form submission mechanism.
+     */
+    public function submitCheckout(): void
+    {
+        // Get cart data from the hidden input or property
+        $cartJson = $this->cartData;
+
+        // Call placeOrder with the cart data
+        $this->placeOrder($cartJson);
     }
 
     public function render()

@@ -7,6 +7,7 @@ use App\Models\Review;
 use App\Models\ReviewReport;
 use App\Services\ReviewService;
 use App\Services\TrustService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -58,13 +59,26 @@ class ReviewModeration extends Component
 
     public function getStatsProperty(): array
     {
+        // OPTIMIZED: Single query with GROUP BY instead of 6 separate queries
+        $reviewStats = Review::query()
+            ->selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN status = \'pending\' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = \'approved\' THEN 1 ELSE 0 END) as approved,
+                SUM(CASE WHEN status = \'rejected\' THEN 1 ELSE 0 END) as rejected,
+                SUM(CASE WHEN is_visible = 0 THEN 1 ELSE 0 END) as hidden
+            ')
+            ->first();
+
+        $pendingReports = ReviewReport::pending()->count();
+
         return [
-            'total' => Review::count(),
-            'pending' => Review::where('status', 'pending')->count(),
-            'approved' => Review::where('status', 'approved')->count(),
-            'rejected' => Review::where('status', 'rejected')->count(),
-            'hidden' => Review::where('is_visible', false)->count(),
-            'pending_reports' => ReviewReport::pending()->count(),
+            'total' => (int) $reviewStats->total,
+            'pending' => (int) $reviewStats->pending,
+            'approved' => (int) $reviewStats->approved,
+            'rejected' => (int) $reviewStats->rejected,
+            'hidden' => (int) $reviewStats->hidden,
+            'pending_reports' => (int) $pendingReports,
         ];
     }
 

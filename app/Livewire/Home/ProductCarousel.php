@@ -2,10 +2,8 @@
 
 namespace App\Livewire\Home;
 
-use Livewire\Attributes\Lazy;
 use Livewire\Component;
 
-#[Lazy]
 class ProductCarousel extends Component
 {
     public array $products = [];

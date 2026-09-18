@@ -3,6 +3,7 @@
 namespace App\Livewire\Peternak;
 
 use App\Models\Order;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -32,10 +33,22 @@ class Shipments extends Component
 
         $shipments = $shipmentsQuery->get();
 
-        $statsQuery = Order::cart()->whereHas('items.product', fn($q) => $q->where('owner_id', $userId));
+        // OPTIMIZED: Single query for stats using CASE WHEN
+        $statsData = DB::table('orders as o')
+            ->join('order_items as oi', 'o.id', '=', 'oi.order_id')
+            ->join('products as p', 'oi.product_id', '=', 'p.id')
+            ->where('p.owner_id', $userId)
+            ->where('o.order_type', 'cart')
+            ->whereIn('o.status', ['shipped', 'processing'])
+            ->selectRaw("
+                SUM(CASE WHEN o.status = 'shipped' THEN 1 ELSE 0 END) as in_transit,
+                SUM(CASE WHEN o.status = 'processing' THEN 1 ELSE 0 END) as processing
+            ")
+            ->first();
+
         $stats = [
-            'in_transit' => (clone $statsQuery)->where('status', 'shipped')->count(),
-            'processing' => (clone $statsQuery)->where('status', 'processing')->count(),
+            'in_transit' => (int) $statsData->in_transit,
+            'processing' => (int) $statsData->processing,
         ];
 
         return view('livewire.peternak.shipments', [

@@ -7,61 +7,34 @@
     </div>
 
     {{-- Stats --}}
-    <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <div class="rounded-lg border border-slate-200 bg-white p-5">
-            <div class="flex items-center gap-3">
-                <div class="rounded-lg bg-emerald-100 p-3">
-                    <i class="fa-solid fa-users text-emerald-600 text-xl"></i>
-                </div>
-                <div>
-                    <p class="text-2xl font-bold text-slate-900">{{ $stats['total'] }}</p>
-                    <p class="text-sm text-slate-500">Total Pelanggan</p>
-                </div>
-            </div>
-        </div>
-        <div class="rounded-lg border border-slate-200 bg-white p-5">
-            <div class="flex items-center gap-3">
-                <div class="rounded-lg bg-blue-100 p-3">
-                    <i class="fa-solid fa-user-plus text-blue-600 text-xl"></i>
-                </div>
-                <div>
-                    <p class="text-2xl font-bold text-slate-900">{{ $stats['newThisMonth'] }}</p>
-                    <p class="text-sm text-slate-500">Baru Bulan Ini</p>
-                </div>
-            </div>
-        </div>
-        <div class="rounded-lg border border-slate-200 bg-white p-5">
-            <div class="flex items-center gap-3">
-                <div class="rounded-lg bg-violet-100 p-3">
-                    <i class="fa-solid fa-user-check text-violet-600 text-xl"></i>
-                </div>
-                <div>
-                    <p class="text-2xl font-bold text-slate-900">{{ $stats['activeCustomers'] }}</p>
-                    <p class="text-sm text-slate-500">Aktif 30 Hari</p>
-                </div>
-            </div>
-        </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <x-ui.card.stat
+            icon="fa-users"
+            label="Total Pelanggan"
+            :value="$stats['total']"
+            color="emerald"
+        />
+        <x-ui.card.stat
+            icon="fa-user-plus"
+            label="Baru Bulan Ini"
+            :value="$stats['newThisMonth']"
+            color="blue"
+        />
+        <x-ui.card.stat
+            icon="fa-user-check"
+            label="Aktif 30 Hari"
+            :value="$stats['activeCustomers']"
+            color="violet"
+        />
     </div>
 
     {{-- Search --}}
     <div class="flex items-center justify-between gap-4">
-        <div class="relative flex-1 max-w-md">
-            <input
-                type="text"
-                wire:model.live.debounce.300ms="searchQuery"
-                placeholder="Cari pelanggan, email, telepon..."
-                class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-10 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-            <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-            @if($searchQuery)
-                <button
-                    wire:click="$set('searchQuery', '')"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                    <i class="fa-solid fa-times-circle"></i>
-                </button>
-            @endif
-        </div>
+        <x-ui.search.input
+            wire:model.live.debounce.300ms="searchQuery"
+            placeholder="Cari pelanggan, email, telepon..."
+            class="max-w-md"
+        />
         <p class="text-sm text-slate-500">
             {{ $customers->total() }} pelanggan
         </p>
@@ -145,11 +118,12 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center">
-                            <div class="flex flex-col items-center text-slate-400">
-                                <i class="fa-solid fa-users text-4xl mb-3"></i>
-                                <p>Belum ada pelanggan</p>
-                            </div>
+                        <td colspan="6" class="px-6 py-12">
+                            <x-ui.empty-state
+                                icon="fa-users"
+                                title="Belum ada pelanggan"
+                                description="Pelanggan akan muncul setelah ada yang mendaftar"
+                            />
                         </td>
                     </tr>
                 @endforelse
@@ -230,9 +204,7 @@
                         </div>
                         <div class="text-right">
                             <p class="font-semibold text-slate-900">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</p>
-                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {{ $order->status_badge_class }}">
-                                {{ $order->status_label }}
-                            </span>
+                            <x-ui.badge.status :status="$order->status" size="sm" />
                         </div>
                     </div>
                 @empty

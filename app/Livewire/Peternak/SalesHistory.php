@@ -43,26 +43,25 @@ class SalesHistory extends Component
         $totalItems = $sales->sum('quantity');
         $totalOrders = $sales->pluck('order_id')->unique()->count();
 
-        // Stats using new FK-based relationships
+        // OPTIMIZED: Single query for all stats using CASE WHEN
+        $statsData = DB::table('order_items as oi')
+            ->join('orders as o', 'oi.order_id', '=', 'o.id')
+            ->join('products as p', 'oi.product_id', '=', 'p.id')
+            ->where('p.owner_id', $userId)
+            ->whereBetween('o.placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
+            ->selectRaw("
+                SUM(CASE WHEN o.status IN ('completed', 'delivered', 'approved', 'ready_for_delivery') THEN oi.subtotal ELSE 0 END) as total_revenue,
+                (SELECT COUNT(DISTINCT id) FROM orders WHERE order_type = 'inquiry' AND EXISTS (SELECT 1 FROM order_items WHERE order_id = orders.id AND product_id IN (SELECT id FROM products WHERE owner_id = ?)) AND status = 'pending') as pending_bookings,
+                (SELECT COUNT(DISTINCT id) FROM orders WHERE order_type = 'inquiry' AND EXISTS (SELECT 1 FROM order_items WHERE order_id = orders.id AND product_id IN (SELECT id FROM products WHERE owner_id = ?)) AND status = 'approved') as approved_bookings,
+                (SELECT COUNT(DISTINCT id) FROM orders WHERE order_type = 'inquiry' AND EXISTS (SELECT 1 FROM order_items WHERE order_id = orders.id AND product_id IN (SELECT id FROM products WHERE owner_id = ?)) AND status = 'ready_for_delivery') as ready_for_delivery
+            ", [$userId, $userId, $userId])
+            ->first();
+
         $stats = [
-            'total_revenue' => OrderItem::join('products', 'order_items.product_id', '=', 'products.id')
-                ->join('orders', 'order_items.order_id', '=', 'orders.id')
-                ->where('products.owner_id', $userId)
-                ->whereIn('orders.status', $completedStatuses)
-                ->whereBetween('orders.placed_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-                ->sum('order_items.subtotal'),
-            'pending_bookings' => Order::booking()
-                ->whereHas('items.product', fn($q) => $q->where('owner_id', $userId))
-                ->where('status', 'pending')
-                ->count(),
-            'approved_bookings' => Order::booking()
-                ->whereHas('items.product', fn($q) => $q->where('owner_id', $userId))
-                ->where('status', 'approved')
-                ->count(),
-            'ready_for_delivery' => Order::booking()
-                ->whereHas('items.product', fn($q) => $q->where('owner_id', $userId))
-                ->where('status', 'ready_for_delivery')
-                ->count(),
+            'total_revenue' => (float) $statsData->total_revenue,
+            'pending_bookings' => (int) $statsData->pending_bookings,
+            'approved_bookings' => (int) $statsData->approved_bookings,
+            'ready_for_delivery' => (int) $statsData->ready_for_delivery,
         ];
 
         return view('livewire.peternak.sales-history', [

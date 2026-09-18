@@ -60,19 +60,43 @@ class IncomingBookings extends Component
 
         $bookings = $bookingsQuery->get();
 
-        // Stats
-        $statsQuery = Order::booking();
-        if (!$isAdminOrStaff) {
-            $statsQuery->whereHas('items.product', fn($q) => $q->where('owner_id', $userId));
+        // Stats - OPTIMIZED: Single query with CASE WHEN instead of 6 clone queries
+        if ($isAdminOrStaff) {
+            $statsData = DB::table('orders')
+                ->where('order_type', 'inquiry')
+                ->selectRaw("
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'survey_scheduled' THEN 1 ELSE 0 END) as survey_scheduled,
+                    SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+                    SUM(CASE WHEN status = 'ready_for_delivery' THEN 1 ELSE 0 END) as ready_for_delivery,
+                    SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected
+                ")
+                ->first();
+        } else {
+            $statsData = DB::table('orders as o')
+                ->join('order_items as oi', 'o.id', '=', 'oi.order_id')
+                ->join('products as p', 'oi.product_id', '=', 'p.id')
+                ->where('o.order_type', 'inquiry')
+                ->where('p.owner_id', $userId)
+                ->selectRaw("
+                    COUNT(DISTINCT o.id) as total,
+                    SUM(CASE WHEN o.status = 'pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN o.status = 'survey_scheduled' THEN 1 ELSE 0 END) as survey_scheduled,
+                    SUM(CASE WHEN o.status = 'approved' THEN 1 ELSE 0 END) as approved,
+                    SUM(CASE WHEN o.status = 'ready_for_delivery' THEN 1 ELSE 0 END) as ready_for_delivery,
+                    SUM(CASE WHEN o.status = 'rejected' THEN 1 ELSE 0 END) as rejected
+                ")
+                ->first();
         }
 
         $stats = [
-            'total' => (clone $statsQuery)->count(),
-            'pending' => (clone $statsQuery)->where('status', 'pending')->count(),
-            'survey_scheduled' => (clone $statsQuery)->where('status', 'survey_scheduled')->count(),
-            'approved' => (clone $statsQuery)->where('status', 'approved')->count(),
-            'ready_for_delivery' => (clone $statsQuery)->where('status', 'ready_for_delivery')->count(),
-            'rejected' => (clone $statsQuery)->where('status', 'rejected')->count(),
+            'total' => (int) $statsData->total,
+            'pending' => (int) $statsData->pending,
+            'survey_scheduled' => (int) $statsData->survey_scheduled,
+            'approved' => (int) $statsData->approved,
+            'ready_for_delivery' => (int) $statsData->ready_for_delivery,
+            'rejected' => (int) $statsData->rejected,
         ];
 
         $selectedBooking = null;

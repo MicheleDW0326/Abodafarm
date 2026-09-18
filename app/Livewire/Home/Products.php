@@ -408,7 +408,7 @@ class Products extends Component
                 'product_id' => $this->bookingProduct['id'] ?? null,
                 'trace' => $e->getTraceAsString(),
             ]);
-            $this->dispatch('alert', type: 'error', message: 'Terjadi kesalahan: ' . $e->getMessage());
+            $this->dispatch('alert', type: 'error', message: 'Terjadi kesalahan saat mengajukan booking. Silakan coba beberapa saat lagi.');
         } finally {
             $this->isSubmitting = false;
         }

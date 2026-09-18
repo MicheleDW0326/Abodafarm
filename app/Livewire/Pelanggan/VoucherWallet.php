@@ -4,6 +4,7 @@ namespace App\Livewire\Pelanggan;
 
 use App\Models\Marketing\CustomerVoucher;
 use App\Services\CampaignService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -48,36 +49,71 @@ class VoucherWallet extends Component
         return $this->campaignService->getUserVouchers(auth()->id(), $this->activeTab);
     }
 
-    public function getAvailableCountProperty(): int
+    public function getVoucherStatsProperty(): array
     {
         if (!auth()->check()) {
-            return 0;
+            return [
+                'available' => 0,
+                'used' => 0,
+                'expired' => 0,
+                'expiring' => 0,
+            ];
         }
-        return $this->campaignService->getUserVouchers(auth()->id(), 'available')->count();
+
+        $userId = auth()->id();
+
+        // OPTIMIZED: Single query for all voucher counts
+        $now = now();
+        $threeDaysLater = $now->copy()->addDays(3);
+
+        $counts = DB::table('customer_vouchers as cv')
+            ->join('promotions as p', 'cv.promotion_id', '=', 'p.id')
+            ->where('cv.user_id', $userId)
+            ->selectRaw("
+                SUM(CASE
+                    WHEN cv.used_at IS NULL AND (p.expires_at IS NULL OR p.expires_at >= ?) THEN 1 ELSE 0
+                END) as available,
+                SUM(CASE WHEN cv.used_at IS NOT NULL THEN 1 ELSE 0 END) as used,
+                SUM(CASE
+                    WHEN cv.used_at IS NULL AND p.expires_at IS NOT NULL AND p.expires_at < ? THEN 1 ELSE 0
+                END) as expired,
+                SUM(CASE
+                    WHEN cv.used_at IS NULL
+                        AND p.expires_at IS NOT NULL
+                        AND p.expires_at >= ?
+                        AND p.expires_at <= ?
+                    THEN 1 ELSE 0
+                END) as expiring
+            ", [$now, $now, $now, $threeDaysLater])
+            ->first();
+
+        return [
+            'available' => (int) ($counts->available ?? 0),
+            'used' => (int) ($counts->used ?? 0),
+            'expired' => (int) ($counts->expired ?? 0),
+            'expiring' => (int) ($counts->expiring ?? 0),
+        ];
+    }
+
+    // Backward compatible property accessors
+    public function getAvailableCountProperty(): int
+    {
+        return $this->voucherStats['available'] ?? 0;
     }
 
     public function getUsedCountProperty(): int
     {
-        if (!auth()->check()) {
-            return 0;
-        }
-        return $this->campaignService->getUserVouchers(auth()->id(), 'used')->count();
+        return $this->voucherStats['used'] ?? 0;
     }
 
     public function getExpiredCountProperty(): int
     {
-        if (!auth()->check()) {
-            return 0;
-        }
-        return $this->campaignService->getUserVouchers(auth()->id(), 'expired')->count();
+        return $this->voucherStats['expired'] ?? 0;
     }
 
     public function getExpiringCountProperty(): int
     {
-        if (!auth()->check()) {
-            return 0;
-        }
-        return $this->campaignService->getExpiringVouchers(auth()->id(), 3)->count();
+        return $this->voucherStats['expiring'] ?? 0;
     }
 
     public function render()

@@ -16,13 +16,22 @@
              return $wire.favoritedIds.includes(productId);
          },
          setType(type) {
-             @this.set('typeFilter', type);
+             const parent = this.$el.closest('[wire\\:id]');
+             if (parent && parent.__livewire) {
+                 parent.__livewire.set('typeFilter', type);
+             }
          },
          setCategory(id) {
-             @this.set('selectedCategory', id);
+             const parent = this.$el.closest('[wire\\:id]');
+             if (parent && parent.__livewire) {
+                 parent.__livewire.set('selectedCategory', id);
+             }
          },
          clearFilters() {
-             @this.call('clearFilters');
+             const parent = this.$el.closest('[wire\\:id]');
+             if (parent && parent.__livewire) {
+                 parent.__livewire.call('clearFilters');
+             }
          }
      }"
      @show-login-required.window="showLoginModal = true">

@@ -155,7 +155,7 @@
         <div class="notification-message">
             Halo {{ $userName }},
             <br><br>
-            {{ $message }}
+            {{ $bodyText }}
         </div>
 
         @if($orderNumber)

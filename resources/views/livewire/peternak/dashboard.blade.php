@@ -15,81 +15,56 @@
     </div>
 
     {{-- Main Stats Cards --}}
-    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-5">
         {{-- Total Revenue --}}
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-            <div class="mb-3 flex items-start justify-between">
-                <div class="rounded-lg bg-purple-50 p-2.5 text-purple-600">
-                    <i class="fa-solid fa-coins text-lg"></i>
-                </div>
-                @if($stats['revenueChange'] != 0)
-                    <span class="rounded-full px-2 py-0.5 text-xs font-bold {{ $stats['revenueChange'] >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-500' }}">
-                        {{ $stats['revenueChange'] >= 0 ? '+' : '' }}{{ $stats['revenueChange'] }}%
-                    </span>
-                @endif
-            </div>
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Total Pendapatan</p>
-            <p class="mt-1 text-xl font-bold text-slate-900">{{ $formatRupiah($stats['totalRevenue']) }}</p>
-            <p class="mt-1 text-xs text-slate-500">Bulan ini: {{ $formatRupiah($stats['thisMonthRevenue']) }}</p>
-        </article>
+        <x-ui.card.stat
+            icon="fa-coins"
+            label="Total Pendapatan"
+            :value="$formatRupiah($stats['totalRevenue'])"
+            :change="($stats['revenueChange'] != 0) ? (($stats['revenueChange'] >= 0 ? '+' : '') . $stats['revenueChange'] . '%') : null"
+            :trend="($stats['revenueChange'] >= 0) ? 'up' : 'down'"
+            color="purple"
+            sub="Bulan ini: {{ $formatRupiah($stats['thisMonthRevenue']) }}"
+        />
 
         {{-- Bookings --}}
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-            <div class="mb-3 flex items-start justify-between">
-                <div class="rounded-lg bg-blue-50 p-2.5 text-blue-600">
-                    <i class="fa-solid fa-calendar-check text-lg"></i>
-                </div>
-                <span class="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-600">
-                    {{ $stats['activeBookings'] }} Aktif
-                </span>
-            </div>
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Booking</p>
-            <p class="mt-1 text-xl font-bold text-slate-900">{{ number_format($stats['totalBookings']) }}</p>
-            <p class="mt-1 text-xs text-slate-500">Total booking masuk</p>
-        </article>
+        <x-ui.card.stat
+            icon="fa-calendar-check"
+            label="Booking"
+            :value="number_format($stats['totalBookings'])"
+            :badge="$stats['activeBookings'] . ' Aktif'"
+            color="blue"
+            sub="Total booking masuk"
+        />
 
         {{-- Completed Orders --}}
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-            <div class="mb-3 flex items-start justify-between">
-                <div class="rounded-lg bg-emerald-50 p-2.5 text-emerald-600">
-                    <i class="fa-solid fa-check-double text-lg"></i>
-                </div>
-            </div>
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Selesai</p>
-            <p class="mt-1 text-xl font-bold text-slate-900">{{ number_format($stats['completedOrders']) }}</p>
-            <p class="mt-1 text-xs text-slate-500">Pesanan selesai</p>
-        </article>
+        <x-ui.card.stat
+            icon="fa-check-double"
+            label="Selesai"
+            :value="number_format($stats['completedOrders'])"
+            color="emerald"
+            sub="Pesanan selesai"
+        />
 
         {{-- Reviews --}}
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-            <div class="mb-3 flex items-start justify-between">
-                <div class="rounded-lg bg-amber-50 p-2.5 text-amber-600">
-                    <i class="fa-solid fa-star text-lg"></i>
-                </div>
-            </div>
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Ulasan</p>
-            <p class="mt-1 text-xl font-bold text-slate-900">{{ number_format($stats['totalReviews']) }}</p>
-            <p class="mt-1 text-xs text-slate-500">Ulasan dari pelanggan</p>
-        </article>
+        <x-ui.card.stat
+            icon="fa-star"
+            label="Ulasan"
+            :value="number_format($stats['totalReviews'])"
+            color="amber"
+            sub="Ulasan dari pelanggan"
+        />
 
         {{-- Average Rating --}}
-        <article class="rounded-2xl border border-slate-100 bg-white p-5 shadow-xs">
-            <div class="mb-3 flex items-start justify-between">
-                <div class="rounded-lg bg-rose-50 p-2.5 text-rose-600">
-                    <i class="fa-solid fa-heart text-lg"></i>
-                </div>
-            </div>
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Rating Rata-rata</p>
-            <div class="mt-1 flex items-center gap-2">
-                <p class="text-xl font-bold text-slate-900">{{ $stats['avgRating'] }}</p>
-                <div class="flex items-center gap-0.5">
-                    @for($i = 1; $i <= 5; $i++)
-                        <i class="fa-solid fa-star text-xs {{ $i <= round($stats['avgRating']) ? 'text-amber-400' : 'text-slate-200' }}"></i>
-                    @endfor
-                </div>
-            </div>
-            <p class="mt-1 text-xs text-slate-500">Berdasarkan {{ $stats['totalReviews'] }} ulasan</p>
-        </article>
+        <x-ui.card.stat
+            icon="fa-heart"
+            label="Rating Rata-rata"
+            :value="$stats['avgRating'] . '/5'"
+            color="rose"
+            :showStars="true"
+            :starsCount="round($stats['avgRating'])"
+            sub="Berdasarkan {{ $stats['totalReviews'] }} ulasan"
+        />
     </div>
 
     {{-- Charts Row --}}
@@ -208,10 +183,11 @@
                     @endforeach
                 </div>
             @else
-                <div class="flex flex-col items-center justify-center py-12 text-center">
-                    <i class="fa-solid fa-box-open text-4xl text-slate-200 mb-3"></i>
-                    <p class="text-sm text-slate-400">Belum ada data penjualan</p>
-                </div>
+                <x-ui.empty-state
+                    icon="fa-box-open"
+                    title="Belum ada data penjualan"
+                    description="Produk terlaris akan muncul setelah ada penjualan"
+                />
             @endif
         </section>
 
@@ -258,10 +234,11 @@
                     @endforeach
                 </div>
             @else
-                <div class="flex flex-col items-center justify-center py-12 text-center">
-                    <i class="fa-solid fa-comment-dots text-4xl text-slate-200 mb-3"></i>
-                    <p class="text-sm text-slate-400">Belum ada ulasan</p>
-                </div>
+                <x-ui.empty-state
+                    icon="fa-comment-dots"
+                    title="Belum ada ulasan"
+                    description="Ulasan dari pelanggan akan muncul di sini"
+                />
             @endif
         </section>
     </div>
