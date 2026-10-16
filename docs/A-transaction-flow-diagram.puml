@@ -1,0 +1,192 @@
+
+@startuml AbodaFarm_TransactionFlow
+
+!define RECTANGLE class
+
+skinparam backgroundColor #FFFFFF
+skinparam activity {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontSize 11
+    DiamondBackgroundColor #FFF3E0
+    DiamondBorderColor #FF9800
+}
+
+skinparam arrow {
+    Color #424242
+    Thickness 1.5
+}
+
+skinparam note {
+    BackgroundColor #FFF8E1
+    BorderColor #FFC107
+    FontSize 10
+}
+
+start
+
+:#ABODAFARM CHECKOUT & ORDER TRANSACTION#;
+
+:**[START]** Customer memilih produk;
+
+:**[STEP 1]** Add to Cart
+- Sistem cek stok
+- Jika stok cukup → Tambahkan ke cart
+- Jika tidak → Tampilkan error;
+
+if (Stok Tersedia?) then (Ya)
+    :Cart Updated;
+else (Tidak)
+    stop
+endif
+
+:**[STEP 2]** View Cart
+- Tampilkan item
+- Hitung subtotal;
+
+:**[STEP 3]** Checkout
+- Validate cart items
+- Check price changes;
+
+if (Items Valid?) then (Ya)
+    :Proceed to Checkout;
+else (Tidak)
+    :Update Cart & Recalculate;
+endif
+
+:**[STEP 4]** Select/Add Address
+- Pilih dari alamat tersimpan
+- Atau tambah alamat baru
+- Set sebagai default;
+
+:**[STEP 5]** Apply Promo Code (Optional)
+- Input kode promo
+- Validate: expiry, min purchase, usage limit
+- Calculate discount;
+
+note right
+    **Validasi Promo:**
+    - is_active = true
+    - starts_at <= now
+    - expires_at >= now
+    - usage_count < usage_limit
+    - min_purchase_amount <= subtotal
+end note
+
+if (Promo Valid?) then (Ya)
+    :Apply Discount;
+    :Recalculate Total;
+else (Tidak)
+    :Show Error;
+endif
+
+:**[STEP 6]** Select Payment Method
+- Credit Card
+- Bank Transfer
+- E-Wallet
+- COD;
+
+:**[STEP 7]** Generate Order
+- Create order record
+- Create order items
+- Generate order_number
+- Calculate total_amount
+- Reserve stock;
+
+note right
+    **Database Operations:**
+    INSERT orders
+    INSERT order_items
+    UPDATE products.stock
+    INSERT inventory_logs
+end note
+
+:**[STEP 8]** Initiate Payment
+- Call Midtrans API
+- Get snap_token
+- Redirect to payment page;
+
+:**[STEP 9]** Customer Complete Payment;
+
+:**[STEP 10]** Midtrans Callback
+- Webhook notification
+- Check transaction_status;
+
+if (Payment Success?) then (Ya)
+    :#81C784 **PAID**;
+    :Update order status;
+    :Update inventory;
+    :Send notifications;
+    note right
+        **Notifications:**
+        - Customer: Payment Success
+        - Admin: New Order Alert
+        - Farmer: Order includes their product
+    end note
+else (No/Expired)
+    if (Payment Failed?) then (Ya)
+        :#EF5350 **FAILED**;
+        :Release reserved stock;
+        :Send failure notification;
+    else (Expired)
+        :#FFA726 **EXPIRED**;
+        :Cancel order;
+        :Release reserved stock;
+    endif
+endif
+
+:**[STEP 11]** Post-Payment Processing;
+
+if (Order Type?) then (CART)
+    :Admin assigns staff;
+    :#FFB74D **PROCESSING**;
+else (INQUIRY/BOOKING)
+    :Notify Farmer;
+    :#FFB74D **PENDING APPROVAL**;
+endif
+
+:**[STEP 12]** Order Fulfillment;
+
+if (Order Type?) then (CART)
+    :Staff prepares items;
+    :Staff ships order;
+    :#42A5F5 **SHIPPED**;
+    :Driver delivers;
+    :#5C6BC0 **DELIVERED**;
+    :Customer confirms receipt;
+    :#3F51B5 **COMPLETED**;
+else (INQUIRY)
+    :Farmer reviews booking;
+    if (Farmer Approve?) then (Ya)
+        :#81C784 **APPROVED**;
+        :Decrement stock;
+        :Schedule delivery;
+    else (Reject)
+        :#EF5350 **REJECTED**;
+        :Notify customer;
+        stop
+    endif
+endif
+
+:**[STEP 13]** Post-Completion;
+
+if (Order Completed?) then (Ya)
+    :Generate invoice;
+    :Update customer loyalty points;
+    :Send review invitation;
+    note right
+        **Post-Completion:**
+        - loyalty_points += calculated
+        - total_orders += 1
+        - total_spent += amount
+    end note
+else (Cancelled/Rejected)
+    :Release stock if reserved;
+    :Process refund if paid;
+endif
+
+:#TRANSACTION COMPLETE#;
+
+stop
+
+@enduml

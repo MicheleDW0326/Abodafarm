@@ -1,0 +1,244 @@
+@startuml Staff_UseCase
+!theme plain
+top to bottom direction
+
+' ============================================
+' STAFF USE CASE DIAGRAM
+' AbodaFarm - Staff Operations Module
+' ============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+skinparam packagePadding 5
+skinparam boxPadding 5
+
+' === ACTORS ===
+left to right direction
+
+actor "Staf" as Staf
+actor "Admin" as Admin
+actor "Peternak\n(Farmer)" as Peternak
+actor "Pelanggan\n(Customer)" as Pelanggan
+actor "Sistem FCM\n(Notifications)" as FCM
+actor "Driver" as Driver
+
+' === SYSTEM BOUNDARY ===
+rectangle "AbodaFarm - Staff Operations Module" {
+
+    ' --- Order Management ---
+    package "Order Management\n(Manajemen Pesanan)" #LightYellow {
+        usecase "UC-51\nDaftar Pesanan" as UC51
+        usecase "Lihat Detail Pesanan" as ViewOrderDetail
+        usecase "Filter Pesanan\n(Filter Orders)" as FilterOrder
+        usecase "Search Pesanan\n(Search Orders)" as SearchOrder
+        usecase "Print Invoice" as PrintInvoice
+    }
+
+    ' --- Delivery Management ---
+    package "Delivery Management\n(Manajemen Pengiriman)" #LightGreen {
+        usecase "UC-52\nKelola Pengiriman" as UC52
+        usecase "UC-53\nAssign Driver" as UC53
+        usecase "Pilih Driver" as SelectDriver
+        usecase "Atur Rute\n(Set Route)" as SetRoute
+        usecase "UC-54\nUpdate Status Kirim" as UC54
+        usecase "Status Persiapan\n(Preparing)" as StatusPrep
+        usecase "Status Siap Kirim\n(Ready to Ship)" as StatusReady
+        usecase "Status Dalam Pengiriman\n(Out for Delivery)" as StatusShip
+        usecase "Status Diterima\n(Delivered)" as StatusDeliv
+    }
+
+    ' --- Delivery Proof ---
+    package "Delivery Proof\n(Bukti Pengiriman)" #LightCyan {
+        usecase "UC-55\nInput Bukti Kirim" as UC55
+        usecase "Upload Foto Barang" as UploadPhoto
+        usecase "Input Tanda Tangan\n(Receiver Signature)" as SignReceipt
+        usecase "Input GPS Location" as GPSLoc
+        usecase "Catat Penerima\n(Record Receiver)" as RecordReceiver
+        usecase "Catat Kondisi Barang\n(Record Condition)" as RecordCondition
+    }
+
+    ' --- Delivery Tracking ---
+    package "Delivery Tracking\n(Lacak Pengiriman)" #LightPink {
+        usecase "Lacak Pengiriman\n(Track Delivery)" as TrackDelivery
+        usecase "Lihat Timeline" as ViewTimeline
+        usecase "Update Lokasi\n(Update Location)" as UpdateLocation
+        usecase "Laporkan Masalah\n(Report Issue)" as ReportIssue
+    }
+
+    ' --- History & Reports ---
+    package "History & Reports\n(Riwayat & Laporan)" #Lavender {
+        usecase "UC-56\nRiwayat Pengiriman" as UC56
+        usecase "Filter Riwayat\n(Filter History)" as FilterHistory
+        usecase "Export Laporan\n(Export Report)" as ExportReport
+        usecase "Statistik Harian\n(Daily Stats)" as DailyStats
+    }
+
+    ' --- Operations ---
+    package "Operations\n(Operasional)" #MistyRose {
+        usecase "UC-57\nKelola Operasional" as UC57
+        usecase "Kelola Armada\n(Manage Fleet)" as ManageFleet
+        usecase "Kelola Jadwal\n(Manage Schedule)" as ManageSchedule
+        usecase "Kelola Area\n(Manage Area)" as ManageArea
+        usecase "Kelola Driver" as ManageDriver
+    }
+
+    ' --- Notifications ---
+    package "Notifications\n(Notifikasi)" #HoneyDew {
+        usecase "UC-58\nNotifikasi" as UC58
+        usecase "Pesanan Baru\n(Order Assigned)" as OrderAssigned
+        usecase "Update Status\n(Status Update)" as StatusUpdate
+        usecase "Pengiriman Selesai\n(Delivery Complete)" as DelivComplete
+    }
+
+}
+
+' === RELATIONSHIPS ===
+
+' Staf Actor - All Features
+Staf --> UC51
+Staf --> ViewOrderDetail
+Staf --> FilterOrder
+Staf --> SearchOrder
+Staf --> PrintInvoice
+Staf --> UC52
+Staf --> UC53
+Staf --> SelectDriver
+Staf --> SetRoute
+Staf --> UC54
+Staf --> StatusPrep
+Staf --> StatusReady
+Staf --> StatusShip
+Staf --> StatusDeliv
+Staf --> UC55
+Staf --> UploadPhoto
+Staf --> SignReceipt
+Staf --> GPSLoc
+Staf --> RecordReceiver
+Staf --> RecordCondition
+Staf --> TrackDelivery
+Staf --> ViewTimeline
+Staf --> UpdateLocation
+Staf --> ReportIssue
+Staf --> UC56
+Staf --> FilterHistory
+Staf --> ExportReport
+Staf --> DailyStats
+Staf --> UC57
+Staf --> ManageFleet
+Staf --> ManageSchedule
+Staf --> ManageArea
+Staf --> ManageDriver
+Staf --> UC58
+Staf --> OrderAssigned
+Staf --> StatusUpdate
+Staf --> DelivComplete
+
+' Driver Actor - Limited Access
+Driver --> TrackDelivery
+Driver --> UpdateLocation
+Driver --> StatusShip
+Driver --> StatusDeliv
+Driver --> UC55
+
+' External Systems
+FCM --> UC58
+FCM --> OrderAssigned
+FCM --> StatusUpdate
+FCM --> DelivComplete
+
+' === INCLUDE RELATIONSHIPS ===
+UC51 .-> ViewOrderDetail : <<include>>
+UC51 .-> FilterOrder : <<include>>
+UC51 .-> SearchOrder : <<include>>
+UC51 .-> PrintInvoice : <<include>>
+UC52 .-> UC53 : <<include>>
+UC52 .-> UC54 : <<include>>
+UC52 .-> UC55 : <<include>>
+UC52 .-> TrackDelivery : <<include>>
+UC53 .-> SelectDriver : <<include>>
+UC53 .-> SetRoute : <<include>>
+UC54 .-> StatusPrep : <<include>>
+UC54 .-> StatusReady : <<include>>
+UC54 .-> StatusShip : <<include>>
+UC54 .-> StatusDeliv : <<include>>
+UC55 .-> UploadPhoto : <<include>>
+UC55 .-> SignReceipt : <<include>>
+UC55 .-> GPSLoc : <<include>>
+UC55 .-> RecordReceiver : <<include>>
+UC55 .-> RecordCondition : <<include>>
+TrackDelivery .-> ViewTimeline : <<include>>
+TrackDelivery .-> UpdateLocation : <<include>>
+UC56 .-> FilterHistory : <<include>>
+UC56 .-> ExportReport : <<include>>
+UC56 .-> DailyStats : <<include>>
+UC57 .-> ManageFleet : <<include>>
+UC57 .-> ManageSchedule : <<include>>
+UC57 .-> ManageArea : <<include>>
+UC57 .-> ManageDriver : <<include>>
+
+' === EXTEND RELATIONSHIPS ===
+TrackDelivery .-> ReportIssue : <<extend>>
+
+' === DELIVERY STATUS FLOW ===
+note as DeliveryFlow
+**DELIVERY STATUS FLOW:**
+
+[Pending] → [Preparing] → [Ready] → [Out for Delivery] → [Delivered] → [Completed]
+
+**Status Definitions:**
+• Pending: Order received, awaiting preparation
+• Preparing: Staff preparing the package
+• Ready: Package ready for driver pickup
+• Out for Delivery: Driver en route
+• Delivered: Package received by customer
+• Completed: Customer confirmed receipt
+end note
+
+' === NOTES ===
+note bottom of UC52
+**Delivery Management:**
+• View all assigned deliveries
+• Assign drivers to deliveries
+• Real-time tracking
+• Handle delivery issues
+• Generate delivery reports
+end note
+
+note bottom of UC53
+**Assign Driver Process:**
+1. View available drivers
+2. Select appropriate driver
+3. Assign vehicle
+4. Set delivery route
+5. Set estimated delivery time
+end note
+
+note bottom of UC54
+**Update Delivery Status:**
+• Preparing → Mark items being packed
+• Ready → Mark ready for pickup
+• Shipped → Driver picked up
+• Delivered → Customer received
+end note
+
+note bottom of UC55
+**Delivery Proof Requirements:**
+• Photo of delivered package (required)
+• Customer/receiver signature (required)
+• GPS coordinates of delivery location
+• Receiver name & contact
+• Delivery time timestamp
+• Condition of package
+end note
+
+note bottom of UC57
+**Operations Management:**
+• Fleet: Vehicles & capacity
+• Schedule: Driver shift management
+• Area: Delivery coverage zones
+• Driver: Driver profiles & availability
+end note
+
+@enduml

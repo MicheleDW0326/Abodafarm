@@ -1,0 +1,134 @@
+@startuml CheckoutSequence
+
+title AbodaFarm Checkout Transaction Sequence
+
+actor Customer
+participant "Shop Page" as Shop
+participant "Cart System" as Cart
+participant "Checkout Page" as Checkout
+participant "Address Service" as Address
+participant "Promotion Service" as Promo
+participant "Order Service" as Order
+database "orders" as OrdersDB
+database "order_items" as ItemsDB
+database "products" as ProductsDB
+database "inventory_logs" as InvLogs
+database "payments" as PaymentsDB
+participant "Midtrans API" as Midtrans
+participant "Notification Service" as Notify
+
+== PRE-ORDER PHASE ==
+
+Customer -> Shop : Browse Products
+Shop -> ProductsDB : SELECT products (filter, pagination)
+ProductsDB --> Shop : Product List
+Shop --> Customer : Display Products
+
+Customer -> Shop : Add to Cart (product_id, qty)
+Shop -> ProductsDB : SELECT stock WHERE id = ?
+alt Stock Available
+    Shop -> Cart : Add Item
+    Cart --> Customer : Cart Updated
+else Stock Insufficient
+    Shop --> Customer : Error: Stock Habis
+end
+
+== CHECKOUT PHASE ==
+
+Customer -> Cart : View Cart
+Cart --> Customer : Display Cart Items
+
+Customer -> Cart : Proceed to Checkout
+Cart -> Checkout : Initialize Checkout
+
+Checkout -> Customer : Show Address Selection
+Customer -> Checkout : Select/Create Address
+Checkout -> Address : GET /addresses?user_id=?
+Address --> Checkout : Address List
+Checkout -> Customer : Display Addresses
+
+Customer -> Checkout : Apply Promo Code (optional)
+Checkout -> Promo : Validate Promo
+Promo -> Promo : Check: is_active, expiry, usage_limit
+alt Promo Valid
+    Promo --> Checkout : Promo Details + Discount
+    Checkout -> Checkout : Recalculate Total
+else Promo Invalid
+    Promo --> Checkout : Error
+end
+
+== ORDER CREATION ==
+
+Customer -> Checkout : Confirm Order
+Checkout -> Order : Create Order
+Order -> OrdersDB : INSERT orders
+Order -> Order : Generate order_number
+Order -> Order : Calculate totals
+
+loop For each item in cart
+    Order -> ItemsDB : INSERT order_items
+    Order -> Order : Collect product_id, quantity
+end
+
+Order -> Order : Reserve Stock
+loop For each item
+    Order -> ProductsDB : UPDATE stock = stock - qty
+    Order -> InvLogs : INSERT inventory_logs (type=reserve)
+end
+
+Order -> Promo : Record Promo Usage (if used)
+alt Promo Applied
+    Order -> Promo : INSERT promotion_usages
+end
+
+Order --> Checkout : Order Created (order_id)
+
+== PAYMENT PHASE ==
+
+Checkout -> Customer : Show Payment Options
+Customer -> Checkout : Select Payment Method
+
+Checkout -> Order : Initiate Payment
+Order -> PaymentsDB : INSERT payments (status=pending)
+Order -> Midtrans : POST /snap/v1/tokenize
+Midtrans --> Order : snap_token
+Order --> Checkout : Redirect URL
+
+Checkout -> Customer : Redirect to Midtrans Payment Page
+
+== PAYMENT CONFIRMATION ==
+
+Customer -> Midtrans : Complete Payment
+Midtrans -> PaymentsDB : UPDATE transaction_status
+Midtrans -> Order : Webhook POST /notification
+
+alt Payment Success
+    Order -> OrdersDB : UPDATE status = 'paid'
+    Order -> InvLogs : INSERT (type=confirmed)
+    Order -> Notify : Send Payment Success Notification
+    Notify -> Customer : Email/FCM
+
+else Payment Failed/Expired
+    Order -> Order : Release Reserved Stock
+    loop For each item
+        Order -> ProductsDB : UPDATE stock = stock + qty
+        Order -> InvLogs : INSERT (type=release)
+    end
+    Order -> OrdersDB : UPDATE status = 'cancelled'
+    Order -> Notify : Send Failure Notification
+end
+
+Order --> Customer : Order Status Update
+
+== POST-PAYMENT ==
+
+alt Order Type = CART
+    Order -> OrdersDB : Status = processing
+    Order -> Notify : Notify Admin/Staff
+
+else Order Type = INQUIRY
+    Order -> OrdersDB : Status = pending_approval
+    Order -> Notify : Notify Farmer
+end
+
+@enduml

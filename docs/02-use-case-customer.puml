@@ -1,0 +1,198 @@
+@startuml Customer_UseCase
+!theme plain
+top to bottom direction
+
+' ============================================
+' CUSTOMER USE CASE DIAGRAM
+' AbodaFarm - Pelanggan Module
+' ============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+
+' === ACTORS ===
+left to right direction
+
+actor "Guest\n(Tamu)" as Guest
+actor "Pelanggan\n(Customer)" as Pelanggan
+actor "Sistem Midtrans\n(Payment Gateway)" as Midtrans
+actor "Sistem FCM\n(Notifications)" as FCM
+
+' === SYSTEM BOUNDARY ===
+rectangle "AbodaFarm - Customer Module" {
+
+    ' --- Catalog & Browsing ---
+    package "Catalog & Browsing\n(Katalog Produk)" #LightYellow {
+        usecase "UC-03\nLihat Katalog" as UC03
+        usecase "UC-04\nSearch Produk" as UC04
+        usecase "UC-05\nFilter Produk" as UC05
+        usecase "UC-06\nDetail Produk" as UC06
+        usecase "Lihat Review\n(View Reviews)" as ViewReview
+    }
+
+    ' --- Shopping Cart ---
+    package "Shopping Cart\n(Keranjang)" #LightGreen {
+        usecase "UC-07\nTambah ke Keranjang" as UC07
+        usecase "Lihat Keranjang" as ViewCart
+        usecase "Update Jumlah\n(Update Quantity)" as UpdateQty
+        usecase "Hapus Item\n(Remove Item)" as RemoveItem
+        usecase "Kosongkan Keranjang\n(Clear Cart)" as ClearCart
+    }
+
+    ' --- Checkout Process ---
+    package "Checkout\n(Pembayaran)" #LightCyan {
+        usecase "UC-08\nCheckout" as UC08
+        usecase "UC-16\nKelola Alamat" as UC16
+        usecase "Tambah Alamat" as AddAddr
+        usecase "Pilih Alamat\n(Select Address)" as SelectAddr
+        usecase "Tambah Catatan\n(Add Notes)" as AddNotes
+        usecase "Hitung Ulang\n(Recalculate)" as Recalculate
+    }
+
+    ' --- Payment ---
+    package "Payment\n(Pembayaran)" #LightPink {
+        usecase "UC-09\nPembayaran" as UC09
+        usecase "Pilih Metode Bayar\n(Select Payment Method)" as SelectPay
+        usecase "Konfirmasi Bayar\n(Confirm Payment)" as ConfirmPay
+        usecase "UC-18\nGunakan Kode Promo" as UC18
+        usecase "Lihat Ringkasan\n(View Summary)" as ViewSummary
+    }
+
+    ' --- Booking (Inquiry) for Live Animals ---
+    package "Booking/Inquiry\n(Booking Ternak)" #Lavender {
+        usecase "UC-10\nBuat Booking" as UC10
+        usecase "Pilih Jadwal\n(Select Schedule)" as SelectSchedule
+        usecase "Upload Dokumen\n(Upload Documents)" as UploadDoc
+        usecase "UC-11\nSetujui/Tolak Booking" as UC11
+        usecase "Negosiasi Harga\n(Price Negotiation)" as Negotiate
+    }
+
+    ' --- Order Tracking ---
+    package "Order Tracking\n(Lacak Pesanan)" #MistyRose {
+        usecase "UC-12\nLacak Pesanan" as UC12
+        usecase "UC-20\nLihat Notifikasi" as UC20
+        usecase "UC-13\nKonfirmasi Penerimaan" as UC13
+        usecase "UC-22\nRiwayat Pesanan" as UC22
+        usecase "Batalkan Pesanan\n(Cancel Order)" as CancelOrder
+    }
+
+    ' --- Customer Features ---
+    package "Customer Features\n(Fitur Pelanggan)" #HoneyDew {
+        usecase "UC-14\nReview Produk" as UC14
+        usecase "UC-15\nReview Peternak" as UC15
+        usecase "UC-17\nWishlist/Favorit" as UC17
+        usecase "UC-19\nKlaim Voucher" as UC19
+        usecase "UC-21\nKelola Profil" as UC21
+        usecase "UC-23\nWallet & Poin" as UC23
+    }
+
+}
+
+' === RELATIONSHIPS ===
+
+' Guest - Browse Only
+Guest --> UC03
+Guest --> UC04
+Guest --> UC05
+Guest --> UC06
+Guest --> ViewReview
+
+' Pelanggan - Full Access
+Pelanggan --> UC03
+Pelanggan --> UC04
+Pelanggan --> UC05
+Pelanggan --> UC06
+Pelanggan --> ViewReview
+Pelanggan --> UC07
+Pelanggan --> ViewCart
+Pelanggan --> UpdateQty
+Pelanggan --> RemoveItem
+Pelanggan --> ClearCart
+Pelanggan --> UC08
+Pelanggan --> UC16
+Pelanggan --> AddAddr
+Pelanggan --> SelectAddr
+Pelanggan --> AddNotes
+Pelanggan --> Recalculate
+Pelanggan --> UC09
+Pelanggan --> SelectPay
+Pelanggan --> ConfirmPay
+Pelanggan --> UC18
+Pelanggan --> ViewSummary
+Pelanggan --> UC10
+Pelanggan --> SelectSchedule
+Pelanggan --> UploadDoc
+Pelanggan --> UC11
+Pelanggan --> Negotiate
+Pelanggan --> UC12
+Pelanggan --> UC20
+Pelanggan --> UC13
+Pelanggan --> CancelOrder
+Pelanggan --> UC22
+Pelanggan --> UC14
+Pelanggan --> UC15
+Pelanggan --> UC17
+Pelanggan --> UC19
+Pelanggan --> UC21
+Pelanggan --> UC23
+
+' External Systems
+Midtrans --> UC09
+FCM --> UC20
+
+' === INCLUDE RELATIONSHIPS ===
+UC08 .-> UC16 : <<include>>
+UC08 .-> AddNotes : <<include>>
+UC08 .-> UC18 : <<include>>
+UC08 .-> Recalculate : <<include>>
+UC09 .-> SelectPay : <<include>>
+UC09 .-> ViewSummary : <<include>>
+UC09 .-> UC18 : <<include>>
+UC10 .-> SelectSchedule : <<include>>
+UC10 .-> UploadDoc : <<include>>
+UC12 .-> UC20 : <<include>>
+UC22 .-> UC12 : <<include>>
+
+' === EXTEND RELATIONSHIPS ===
+UC14 .-> UC15 : <<extend>>
+CancelOrder .-> UC22 : <<extend>>
+
+' === NOTES ===
+note bottom of UC07
+**Add to Cart Rules:**
+• Validate stock availability
+• Session-based cart storage
+• Real-time price calculation
+• Max quantity per product: 99
+end note
+
+note bottom of UC09
+**Payment Process:**
+1. Generate Midtrans Snap Token
+2. Display payment UI
+3. Customer completes payment
+4. Webhook notification
+5. Update order status
+end note
+
+note bottom of UC10
+**Booking (Inquiry) for Live Animals:**
+• Select farm & animal
+• Choose visit schedule
+• Upload required documents
+• Wait for farmer approval
+• Negotiate price if needed
+end note
+
+note bottom of UC14
+**Review Requirements:**
+• Only after order completed
+• Rating: 1-5 stars
+• With photo (optional)
+• Text review (min 10 characters)
+• One review per product per order
+end note
+
+@enduml

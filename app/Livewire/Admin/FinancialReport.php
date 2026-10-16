@@ -136,17 +136,19 @@ class FinancialReport extends Component
     public function getPaymentsReport(): array
     {
         // OPTIMIZED: Single query with GROUP BY instead of loading all to memory
+        // Note: Payment model uses 'transaction_status' column, not 'status'
+        // and 'gross_amount' column, not 'amount'
         $paymentStats = Payment::whereBetween('created_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
             ->selectRaw("
                 COUNT(*) as total_transactions,
-                SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) as successful_payments,
-                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_payments,
-                SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) as total_collected
+                SUM(CASE WHEN transaction_status IN ('settlement', 'capture') THEN 1 ELSE 0 END) as successful_payments,
+                SUM(CASE WHEN transaction_status IN ('deny', 'cancel', 'expire') THEN 1 ELSE 0 END) as failed_payments,
+                SUM(CASE WHEN transaction_status IN ('settlement', 'capture') THEN gross_amount ELSE 0 END) as total_collected
             ")
             ->first();
 
         $paymentMethods = Payment::whereBetween('created_at', [$this->dateFrom, $this->dateTo . ' 23:59:59'])
-            ->selectRaw('payment_type as type, COUNT(*) as count, SUM(amount) as amount')
+            ->selectRaw('payment_type as type, COUNT(*) as count, SUM(gross_amount) as amount')
             ->groupBy('payment_type')
             ->get()
             ->toArray();

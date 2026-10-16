@@ -1,0 +1,112 @@
+@startuml Delivery_UseCase
+!theme plain
+top to bottom direction
+
+' ============================================
+' DELIVERY USE CASE DIAGRAM
+' AbodaFarm - Delivery Operations
+' ============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+skinparam packagePadding 5
+skinparam boxPadding 5
+
+left to right direction
+
+actor "Pelanggan" as Customer
+actor "Staf" as Staff
+actor "Driver" as Driver
+actor "Peternak" as Farmer
+actor "Sistem Notifikasi" as Notification
+actor "Layanan Peta/GPS" as Maps
+
+rectangle "AbodaFarm - Delivery System" {
+    package "Persiapan Pengiriman" #LightYellow {
+        usecase "UC-190\nKelola Pengiriman" as ManageDelivery
+        usecase "UC-191\nAssign Driver" as AssignDriver
+        usecase "UC-192\nPilih Driver" as SelectDriver
+        usecase "UC-193\nAtur Rute" as SetRoute
+        usecase "UC-194\nUpdate Status Kirim" as UpdateStatus
+        usecase "UC-195\nStatus Persiapan" as Preparing
+        usecase "UC-196\nStatus Siap Kirim" as ReadyToShip
+        usecase "Print Invoice dan Label" as PrintDocuments
+        usecase "Siapkan Hewan Hidup" as PrepareAnimals
+    }
+
+    package "Pickup dan Perjalanan" #LightGreen {
+        usecase "UC-197\nStatus Dalam Pengiriman" as InTransit
+        usecase "UC-198\nStatus Diterima" as Delivered
+        usecase "Lihat Rute Pengiriman" as ViewRoute
+        usecase "Bagikan Lokasi Langsung" as ShareLocation
+        usecase "Konfirmasi Serah Terima" as ConfirmHandover
+        usecase "Reschedule Pengiriman" as Reschedule
+        usecase "Kembalikan Paket ke Hub" as ReturnPackage
+    }
+
+    package "Bukti Pengiriman" #LightCyan {
+        usecase "UC-200\nInput Bukti Kirim" as DeliveryProof
+        usecase "Upload Foto Barang" as UploadPhoto
+        usecase "Input Tanda Tangan" as Signature
+        usecase "Input Lokasi GPS" as GPSLocation
+        usecase "Catat Nama Penerima" as ReceiverName
+        usecase "Catat Kondisi Barang" as PackageCondition
+    }
+
+    package "Tracking dan Penyelesaian" #LightPink {
+        usecase "Lacak Pengiriman" as TrackDelivery
+        usecase "Konfirmasi Penerimaan" as ConfirmReceipt
+        usecase "Laporkan Masalah" as ReportIssue
+        usecase "Investigasi Masalah" as InvestigateIssue
+        usecase "Selesaikan Masalah" as ResolveIssue
+        usecase "Submit Review" as SubmitReview
+        usecase "Terima Notifikasi Pengiriman" as DeliveryNotification
+    }
+}
+
+Staff --> ManageDelivery
+Staff --> AssignDriver
+Staff --> SelectDriver
+Staff --> SetRoute
+Staff --> UpdateStatus
+Staff --> Preparing
+Staff --> ReadyToShip
+Staff --> PrintDocuments
+Staff --> ConfirmHandover
+Staff --> InvestigateIssue
+Staff --> ResolveIssue
+
+Farmer --> PrepareAnimals
+Farmer --> TrackDelivery
+
+Driver --> InTransit
+Driver --> Delivered
+Driver --> ViewRoute
+Driver --> ShareLocation
+Driver --> ConfirmHandover
+Driver --> DeliveryProof
+Driver --> Reschedule
+Driver --> ReturnPackage
+
+Customer --> TrackDelivery
+Customer --> ConfirmReceipt
+Customer --> ReportIssue
+Customer --> SubmitReview
+Customer --> Signature
+
+Notification --> DeliveryNotification
+Maps --> SetRoute
+Maps --> GPSLocation
+
+ManageDelivery ..> AssignDriver : <<include>>
+ManageDelivery ..> UpdateStatus : <<include>>
+DeliveryProof ..> UploadPhoto : <<include>>
+DeliveryProof ..> Signature : <<include>>
+DeliveryProof ..> GPSLocation : <<include>>
+DeliveryProof ..> ReceiverName : <<include>>
+DeliveryProof ..> PackageCondition : <<include>>
+ReportIssue ..> InvestigateIssue : <<include>>
+
+@enduml

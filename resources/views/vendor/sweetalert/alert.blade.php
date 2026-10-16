@@ -20,7 +20,7 @@
 
                 if (confirmDeleteElement) {
                     event.preventDefault();
-                    Swal.fire({!! Session::pull('alert.delete') !!}).then(function(result) {
+                    Swal.fire(@json(Session::pull('alert.delete'))).then(function(result) {
                         if (result.isConfirmed) {
                             var form = document.createElement('form');
                             form.action = confirmDeleteElement.href;
@@ -37,7 +37,7 @@
             });
 
             @if (Session::has('alert.config'))
-                Swal.fire({!! Session::pull('alert.config') !!});
+                Swal.fire(@json(Session::pull('alert.config')));
             @endif
         </script>
     @endif

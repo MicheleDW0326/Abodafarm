@@ -239,9 +239,12 @@ class SmartSearch extends Component
             return e($text);
         }
 
+        // Escape the search term to prevent XSS
+        $escapedTerm = e($term);
+
         return preg_replace(
             '/(' . preg_quote($term, '/') . ')/i',
-            '<mark class="bg-amber-100 text-amber-800 px-0.5 rounded font-semibold">$1</mark>',
+            '<mark class="bg-amber-100 text-amber-800 px-0.5 rounded font-semibold">' . $escapedTerm . '</mark>',
             e($text)
         );
     }

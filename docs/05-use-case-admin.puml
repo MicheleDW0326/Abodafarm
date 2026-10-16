@@ -1,0 +1,351 @@
+@startuml Admin_UseCase
+!theme plain
+top to bottom direction
+
+' ============================================
+' ADMIN USE CASE DIAGRAM
+' AbodaFarm - Administrator Module
+' ============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+
+' === ACTORS ===
+left to right direction
+
+actor "Admin" as Admin
+actor "Staf" as Staf
+actor "Peternak\n(Farmer)" as Peternak
+actor "Pelanggan\n(Customer)" as Pelanggan
+
+' === SYSTEM BOUNDARY ===
+rectangle "AbodaFarm - Admin Module" {
+
+    ' --- Product Management ---
+    package "Product Management\n(Manajemen Produk)" #LightYellow {
+        usecase "UC-61\nKelola Produk" as UC61
+        usecase "Tambah Produk" as AddProduct
+        usecase "Edit Produk" as EditProduct
+        usecase "Hapus Produk" as DeleteProduct
+        usecase "UC-62\nImport Excel" as UC62
+        usecase "Export Produk\n(Export Products)" as ExportProduct
+        usecase "UC-63\nKelola Kategori" as UC63
+        usecase "Tambah Kategori" as AddCategory
+        usecase "Edit Kategori" as EditCategory
+        usecase "Hapus Kategori" as DeleteCategory
+    }
+
+    ' --- Order Management ---
+    package "Order Management\n(Manajemen Pesanan)" #LightGreen {
+        usecase "UC-64\nKelola Pesanan" as UC64
+        usecase "Lihat Semua Pesanan" as ViewAllOrders
+        usecase "Filter Pesanan\n(Filter Orders)" as FilterOrders
+        usecase "Detail Pesanan" as OrderDetail
+        usecase "Batalkan Pesanan\n(Cancel Order)" as CancelOrder
+        usecase "Assign Staff" as AssignStaff
+        usecase "Edit Pesanan\n(Edit Order)" as EditOrder
+    }
+
+    ' --- User Management ---
+    package "User Management\n(Manajemen User)" #LightCyan {
+        usecase "UC-65\nKelola Pelanggan" as UC65
+        usecase "Lihat Pelanggan" as ViewCustomers
+        usecase "Edit Pelanggan" as EditCustomer
+        usecase "Hapus Pelanggan\n(Delete Customer)" as DeleteCustomer
+        usecase "UC-66\nKelola Staf" as UC66
+        usecase "Tambah Staf" as AddStaff
+        usecase "Edit Staf" as EditStaff
+        usecase "Hapus Staf" as DeleteStaff
+        usecase "Assign Role" as AssignRole
+    }
+
+    ' --- Farmer Management ---
+    package "Farmer Management\n(Manajemen Peternak)" #LightPink {
+        usecase "UC-70\nVerifikasi Peternak" as UC70
+        usecase "Lihat Detail Farm" as ViewFarmDetail
+        usecase "Approve Farm" as ApproveFarm
+        usecase "Reject Farm" as RejectFarm
+        usecase "Suspend Farm" as SuspendFarm
+        usecase "Lihat Riwayat Farm" as FarmHistory
+    }
+
+    ' --- Marketing ---
+    package "Marketing\n(Pemasaran)" #Lavender {
+        usecase "UC-67\nKelola Promo" as UC67
+        usecase "Buat Kode Promo" as CreatePromo
+        usecase "Edit Promo" as EditPromo
+        usecase "Hapus Promo\n(Delete Promo)" as DeletePromo
+        usecase "UC-68\nKelola Kampanye" as UC68
+        usecase "Buat Kampanye" as CreateCampaign
+        usecase "Pause/Resume Kampanye" as PauseCampaign
+        usecase "Kelola Voucher" as ManageVoucher
+        usecase "Statistik Kampanye\n(Campaign Stats)" as CampaignStats
+    }
+
+    ' --- Content Management ---
+    package "Content Management\n(Manajemen Konten)" #MistyRose {
+        usecase "UC-76\nKelola Konten" as UC76
+        usecase "Kelola FAQ" as ManageFAQ
+        usecase "Kelola Testimonial" as ManageTesti
+        usecase "Kelola Hero Slide" as ManageHero
+        usecase "Kelola Statistik\n(Manage Stats)" as ManageStats
+        usecase "Kelola Artikel\n(Manage Articles)" as ManageArticles
+    }
+
+    ' --- Reviews & Moderation ---
+    package "Reviews & Moderation\n(Moderasi Ulasan)" #HoneyDew {
+        usecase "UC-69\nModerasi Review" as UC69
+        usecase "Approve Review" as ApproveReview
+        usecase "Reject Review" as RejectReview
+        usecase "Hapus Review" as DeleteReview
+        usecase "Lihat Laporan\n(View Reports)" as ViewReports
+        usecase "Blokir User\n(Block User)" as BlockUser
+    }
+
+    ' --- Reports & Analytics ---
+    package "Reports & Analytics\n(Laporan & Analitik)" #LightGray {
+        usecase "UC-71\nLaporan Keuangan" as UC71
+        usecase "Revenue Report" as RevenueReport
+        usecase "Profit Report" as ProfitReport
+        usecase "UC-72\nDashboard Analitik" as UC72
+        usecase "Sales Analytics" as SalesAnalytics
+        usecase "User Analytics" as UserAnalytics
+        usecase "Product Analytics" as ProductAnalytics
+        usecase "UC-73\nExport Laporan" as UC73
+    }
+
+    ' --- Settings ---
+    package "Settings\n(Pengaturan)" #LightBlue {
+        usecase "UC-74\nPengaturan Toko" as UC74
+        usecase "Pengaturan Umum\n(General Settings)" as GenSettings
+        usecase "Pengaturan Logo" as LogoSettings
+        usecase "Pengaturan Contact" as ContactSettings
+        usecase "Pengaturan Payment" as PaymentSettings
+        usecase "UC-75\nArea Pengiriman" as UC75
+        usecase "Tambah Area" as AddArea
+        usecase "Edit Biaya Ongkir\n(Edit Shipping Fee)" as EditFee
+        usecase "Hapus Area\n(Delete Area)" as DeleteArea
+    }
+
+}
+
+' === RELATIONSHIPS ===
+
+' Admin Actor - All Features
+Admin --> UC61
+Admin --> AddProduct
+Admin --> EditProduct
+Admin --> DeleteProduct
+Admin --> UC62
+Admin --> ExportProduct
+Admin --> UC63
+Admin --> AddCategory
+Admin --> EditCategory
+Admin --> DeleteCategory
+Admin --> UC64
+Admin --> ViewAllOrders
+Admin --> FilterOrders
+Admin --> OrderDetail
+Admin --> CancelOrder
+Admin --> EditOrder
+Admin --> AssignStaff
+Admin --> UC65
+Admin --> ViewCustomers
+Admin --> EditCustomer
+Admin --> DeleteCustomer
+Admin --> UC66
+Admin --> AddStaff
+Admin --> EditStaff
+Admin --> DeleteStaff
+Admin --> AssignRole
+Admin --> UC70
+Admin --> ViewFarmDetail
+Admin --> ApproveFarm
+Admin --> RejectFarm
+Admin --> SuspendFarm
+Admin --> FarmHistory
+Admin --> UC67
+Admin --> CreatePromo
+Admin --> EditPromo
+Admin --> DeletePromo
+Admin --> UC68
+Admin --> CreateCampaign
+Admin --> PauseCampaign
+Admin --> ManageVoucher
+Admin --> CampaignStats
+Admin --> UC76
+Admin --> ManageFAQ
+Admin --> ManageTesti
+Admin --> ManageHero
+Admin --> ManageStats
+Admin --> ManageArticles
+Admin --> UC69
+Admin --> ApproveReview
+Admin --> RejectReview
+Admin --> DeleteReview
+Admin --> ViewReports
+Admin --> BlockUser
+Admin --> UC71
+Admin --> RevenueReport
+Admin --> ProfitReport
+Admin --> UC72
+Admin --> SalesAnalytics
+Admin --> UserAnalytics
+Admin --> ProductAnalytics
+Admin --> UC73
+Admin --> UC74
+Admin --> GenSettings
+Admin --> LogoSettings
+Admin --> ContactSettings
+Admin --> PaymentSettings
+Admin --> UC75
+Admin --> AddArea
+Admin --> EditFee
+Admin --> DeleteArea
+
+' === INCLUDE RELATIONSHIPS ===
+UC61 .-> AddProduct : <<include>>
+UC61 .-> EditProduct : <<include>>
+UC61 .-> DeleteProduct : <<include>>
+UC61 .-> UC62 : <<include>>
+UC61 .-> ExportProduct : <<include>>
+UC63 .-> AddCategory : <<include>>
+UC63 .-> EditCategory : <<include>>
+UC63 .-> DeleteCategory : <<include>>
+UC64 .-> ViewAllOrders : <<include>>
+UC64 .-> FilterOrders : <<include>>
+UC64 .-> OrderDetail : <<include>>
+UC64 .-> CancelOrder : <<include>>
+UC64 .-> EditOrder : <<include>>
+UC64 .-> AssignStaff : <<include>>
+UC65 .-> ViewCustomers : <<include>>
+UC65 .-> EditCustomer : <<include>>
+UC65 .-> DeleteCustomer : <<include>>
+UC66 .-> AddStaff : <<include>>
+UC66 .-> EditStaff : <<include>>
+UC66 .-> DeleteStaff : <<include>>
+UC66 .-> AssignRole : <<include>>
+UC70 .-> ViewFarmDetail : <<include>>
+UC70 .-> FarmHistory : <<include>>
+UC67 .-> CreatePromo : <<include>>
+UC67 .-> EditPromo : <<include>>
+UC67 .-> DeletePromo : <<include>>
+UC68 .-> CreateCampaign : <<include>>
+UC68 .-> PauseCampaign : <<include>>
+UC68 .-> ManageVoucher : <<include>>
+UC68 .-> CampaignStats : <<include>>
+UC76 .-> ManageFAQ : <<include>>
+UC76 .-> ManageTesti : <<include>>
+UC76 .-> ManageHero : <<include>>
+UC76 .-> ManageStats : <<include>>
+UC76 .-> ManageArticles : <<include>>
+UC69 .-> ApproveReview : <<include>>
+UC69 .-> RejectReview : <<include>>
+UC69 .-> DeleteReview : <<include>>
+UC69 .-> ViewReports : <<include>>
+UC69 .-> BlockUser : <<include>>
+UC71 .-> RevenueReport : <<include>>
+UC71 .-> ProfitReport : <<include>>
+UC71 .-> UC73 : <<include>>
+UC72 .-> SalesAnalytics : <<include>>
+UC72 .-> UserAnalytics : <<include>>
+UC72 .-> ProductAnalytics : <<include>>
+UC72 .-> UC73 : <<include>>
+UC74 .-> GenSettings : <<include>>
+UC74 .-> LogoSettings : <<include>>
+UC74 .-> ContactSettings : <<include>>
+UC74 .-> PaymentSettings : <<include>>
+UC75 .-> AddArea : <<include>>
+UC75 .-> EditFee : <<include>>
+UC75 .-> DeleteArea : <<include>>
+
+' === CAMPAIGN TYPES ===
+note as CampaignTypes
+**MARKETING CAMPAIGN TYPES:**
+
+1. Birthday Campaign
+2. New Customer Campaign
+3. Loyal Customer Campaign
+4. Weekend Sale
+5. Flash Sale
+6. Seasonal Campaign
+7. Free Shipping
+8. Cashback
+9. Cart Abandonment Recovery
+10. Review Reward
+11. Manual Campaign
+end note
+
+' === CAMPAIGN RULES ===
+note as CampaignRules
+**CAMPAIGN RULES:**
+
+• Minimum Order Amount
+• Customer Total Orders
+• Customer Total Spent
+• Province/City
+• Payment Method
+• Category/Product
+• Day of Week
+• First Order Only
+• Registered Date Range
+end note
+
+' === NOTES ===
+note bottom of UC62
+**Import Excel:**
+• Download template per product type
+• Validation rules per category
+• Bulk insert with progress
+• Error reporting & fix
+• Max 1000 rows per import
+end note
+
+note bottom of UC66
+**Staff Management:**
+• CRUD staff accounts
+• Assign roles (Admin/Staf)
+• Set permissions
+• View staff activity log
+• Reset staff password
+end note
+
+note bottom of UC70
+**Farmer Verification:**
+• Check farm documents (license, photos)
+• Verify farm location
+• Check product quality
+• Verify owner identity
+• Approve or reject with reason
+end note
+
+note bottom of UC68
+**Campaign Management:**
+• Create campaign with rules
+• Set budget & usage limits
+• Auto-generate vouchers
+• Schedule start/end date
+• Track campaign performance
+end note
+
+note bottom of UC71
+**Financial Reports:**
+• Daily/Weekly/Monthly/Yearly
+• Revenue breakdown by category
+• Order statistics
+• Profit margin analysis
+• Tax reports
+end note
+
+note bottom of UC75
+**Delivery Areas:**
+• Province/City coverage
+• Fee per area
+• Estimated delivery days
+• Active/inactive status
+• Special handling requirements
+end note
+
+@enduml

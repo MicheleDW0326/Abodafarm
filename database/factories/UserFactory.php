@@ -33,7 +33,25 @@ class UserFactory extends Factory
             'two_factor_secret' => null,
             'two_factor_recovery_codes' => null,
             'two_factor_confirmed_at' => null,
+            'loyalty_points' => 0,
+            'total_orders' => 0,
+            'total_spent' => 0,
         ];
+    }
+
+    public function admin(): static
+    {
+        return $this;
+    }
+
+    public function staff(): static
+    {
+        return $this;
+    }
+
+    public function farmer(): static
+    {
+        return $this;
     }
 
     /**

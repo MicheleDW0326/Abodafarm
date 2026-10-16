@@ -4,6 +4,7 @@
     cartItems: [],
     stockInfo: {},
     isCheckingStock: false,
+    _processingKeys: new Set(), // Guard against duplicate processing
 
     init() {
         // Load cart from localStorage
@@ -59,8 +60,20 @@
 
     async handleAddToCart(product) {
         const key = product.key || 'product_' + product.id + '_' + (product.type || 'fresh');
-        const existing = this.cartItems.find(item => item.key === key);
-        const currentQty = existing ? existing.qty : 0;
+
+        // GUARD: Prevent duplicate processing for same product
+        // This prevents race conditions when user clicks rapidly or when multiple events fire
+        if (this._processingKeys.has(key)) {
+            console.log('[Cart] Already processing:', key);
+            return;
+        }
+        this._processingKeys.add(key);
+        console.log('[Cart] Processing add to cart for:', key, '| Current items in cart:', this.cartItems.length);
+
+        // Re-fetch existing item after we set the processing flag
+        // (in case of async race, the item might have been added by another call)
+        let existing = this.cartItems.find(item => item.key === key);
+        let currentQty = existing ? existing.qty : 0;
 
         // Check stock from server
         try {
@@ -68,10 +81,15 @@
             const data = await response.json();
             const availableStock = data.stock || 0;
 
+            // Re-check existing after async fetch
+            existing = this.cartItems.find(item => item.key === key);
+            currentQty = existing ? existing.qty : 0;
+
             if (!data.available) {
                 window.dispatchEvent(new CustomEvent('alert', {
                     detail: { type: 'error', title: 'Stok Habis', message: 'Maaf, stok produk ini sudah habis.' }
                 }));
+                this._processingKeys.delete(key);
                 return;
             }
 
@@ -79,12 +97,14 @@
                 window.dispatchEvent(new CustomEvent('alert', {
                     detail: { type: 'warning', title: 'Stok Terbatas', message: `Maaf, hanya ${availableStock} unit tersedia. Anda sudah memiliki ${currentQty} di keranjang.` }
                 }));
+                this._processingKeys.delete(key);
                 return;
             }
 
             // Add to cart
             if (existing) {
                 existing.qty++;
+                console.log('[Cart] Updated existing item qty:', existing.qty);
             } else {
                 this.cartItems.push({
                     key: key,
@@ -96,17 +116,22 @@
                     qty: 1,
                     added_at: new Date().toISOString()
                 });
+                console.log('[Cart] Added new item to cart');
             }
 
             this.saveCart();
+            console.log('[Cart] Cart saved. Total items:', this.cartItems.length, '| Cart count:', this.cartCount, '| Total:', this.cartTotal);
             window.dispatchEvent(new CustomEvent('cart-item-added', {
                 detail: { name: product.name, key: key }
             }));
             window.dispatchEvent(new Event('cart-updated'));
 
         } catch (error) {
-            console.error('Stock check failed:', error);
+            console.error('[Cart] Stock check failed:', error);
             // Proceed without stock check if API fails
+            // Re-check existing after error
+            existing = this.cartItems.find(item => item.key === key);
+
             if (existing) {
                 existing.qty++;
             } else {
@@ -122,10 +147,16 @@
                 });
             }
             this.saveCart();
+            console.log('[Cart] Fallback: Cart saved. Total items:', this.cartItems.length);
             window.dispatchEvent(new CustomEvent('cart-item-added', {
                 detail: { name: product.name, key: key }
             }));
             window.dispatchEvent(new Event('cart-updated'));
+        } finally {
+            // Cleanup processing flag after a short delay to ensure all events are processed
+            setTimeout(() => {
+                this._processingKeys.delete(key);
+            }, 300);
         }
     },
 

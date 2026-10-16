@@ -1,0 +1,91 @@
+' AbodaFarm Simplified ERD - Core Relationships
+' Focus on main business entities and flows
+
+@startuml AbodaFarm_Simplified_ERD
+
+skinparam componentStyle uml2
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #2C3E50
+skinparam dpi 150
+
+' Package containers with colors
+package "AUTH" #F0F8FF {
+    entity "users\n(id, name, email, password,\nrole, loyalty_points,\ncustomer_level_id)" as users {
+    }
+
+    entity "customer_levels\n(id, name, display_name,\ncolor, discount_percent)" as customer_levels {
+    }
+}
+
+package "CATALOG" #E8F5E9 {
+    entity "categories\n(id, name, slug, icon,\nis_active, sort_order)" as categories {
+    }
+
+    entity "products\n(id, category_id, owner_id,\nname, slug, price,\ntype, status, stock)" as products {
+    }
+}
+
+package "ORDERS" #FFF3E0 {
+    entity "orders\n(id, user_id, order_number,\norder_type, status,\ntotal_amount)" as orders {
+    }
+
+    entity "order_items\n(id, order_id, product_id,\nquantity, unit_price)" as order_items {
+    }
+
+    entity "payments\n(id, order_id, transaction_id,\npayment_type, transaction_status)" as payments {
+    }
+}
+
+package "REVIEWS" #FCE4EC {
+    entity "reviews\n(id, user_id, order_id,\nproduct_id, rating,\nreview_type, status)" as reviews {
+    }
+}
+
+package "FARM" #F3E5F5 {
+    entity "farm_profiles\n(id, user_id, farm_name,\nrating, is_verified,\ntotal_revenue)" as farm_profiles {
+    }
+}
+
+package "PROMOTIONS" #FFFDE7 {
+    entity "promotions\n(id, code, type,\ndiscount_value, usage_limit)" as promotions {
+    }
+}
+
+package "NOTIFICATIONS" #ECEFF1 {
+    entity "customer_notifications\n(id, user_id, type,\ntitle, message, is_read)" as customer_notifications {
+    }
+}
+
+' ============================================================
+' CORE RELATIONSHIPS
+' ============================================================
+
+' User relationships
+users ||--o{ products : owns
+users ||--o| customer_levels : belongs_to
+users ||--o{ orders : places
+users ||--o{ reviews : writes
+users ||--o{ customer_notifications : receives
+
+' Category -> Products
+categories ||--o{ products : contains
+
+' Order flow
+users ||--o{ orders : places
+orders ||--o{ order_items : contains
+order_items }o--|| products : references
+orders ||--o| payments : has
+
+' Review connections
+orders ||--o{ reviews : generates
+products ||--o{ reviews : receives
+users ||--o{ reviews : writes
+
+' Farm profile
+users ||--|| farm_profiles : has
+
+' Promotion usage
+users ||--o{ promotions : uses
+orders ||--o{ promotions : applied
+
+@enduml

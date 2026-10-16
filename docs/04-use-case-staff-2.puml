@@ -1,0 +1,178 @@
+@startuml Staff_UseCase_Part2
+!theme plain
+top to bottom direction
+
+' ============================================
+' STAFF USE CASE DIAGRAM - PART 2
+' Delivery Proof, Tracking, History, Operations, Notifications
+' ============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+skinparam packagePadding 5
+skinparam boxPadding 5
+
+' === ACTORS ===
+left to right direction
+
+actor "Staf" as Staf
+actor "Driver" as Driver
+actor "Sistem FCM\n(Notifications)" as FCM
+actor "Pelanggan\n(Customer)" as Pelanggan
+
+' === SYSTEM BOUNDARY ===
+rectangle "AbodaFarm - Staff Operations Module (Part 2)" {
+
+    ' --- Delivery Proof ---
+    package "Delivery Proof\n(Bukti Pengiriman)" #LightCyan {
+        usecase "UC-55\nInput Bukti Kirim" as UC55
+        usecase "Upload Foto Barang" as UploadPhoto
+        usecase "Input Tanda Tangan\n(Receiver Signature)" as SignReceipt
+        usecase "Input GPS Location" as GPSLoc
+        usecase "Catat Penerima\n(Record Receiver)" as RecordReceiver
+        usecase "Catat Kondisi Barang\n(Record Condition)" as RecordCondition
+    }
+
+    ' --- Delivery Tracking ---
+    package "Delivery Tracking\n(Lacak Pengiriman)" #LightPink {
+        usecase "Lacak Pengiriman\n(Track Delivery)" as TrackDelivery
+        usecase "Lihat Timeline" as ViewTimeline
+        usecase "Update Lokasi\n(Update Location)" as UpdateLocation
+        usecase "Laporkan Masalah\n(Report Issue)" as ReportIssue
+    }
+
+    ' --- History & Reports ---
+    package "History & Reports\n(Riwayat & Laporan)" #Lavender {
+        usecase "UC-56\nRiwayat Pengiriman" as UC56
+        usecase "Filter Riwayat\n(Filter History)" as FilterHistory
+        usecase "Export Laporan\n(Export Report)" as ExportReport
+        usecase "Statistik Harian\n(Daily Stats)" as DailyStats
+    }
+
+    ' --- Operations ---
+    package "Operations\n(Operasional)" #MistyRose {
+        usecase "UC-57\nKelola Operasional" as UC57
+        usecase "Kelola Armada\n(Manage Fleet)" as ManageFleet
+        usecase "Kelola Jadwal\n(Manage Schedule)" as ManageSchedule
+        usecase "Kelola Area\n(Manage Area)" as ManageArea
+        usecase "Kelola Driver" as ManageDriver
+    }
+
+    ' --- Notifications ---
+    package "Notifications\n(Notifikasi)" #HoneyDew {
+        usecase "UC-58\nNotifikasi" as UC58
+        usecase "Pesanan Baru\n(Order Assigned)" as OrderAssigned
+        usecase "Update Status\n(Status Update)" as StatusUpdate
+        usecase "Pengiriman Selesai\n(Delivery Complete)" as DelivComplete
+    }
+
+}
+
+' === RELATIONSHIPS ===
+
+' Staf Actor - Delivery Proof
+Staf --> UC55
+Staf --> UploadPhoto
+Staf --> SignReceipt
+Staf --> GPSLoc
+Staf --> RecordReceiver
+Staf --> RecordCondition
+
+' Driver Actor - Delivery Proof & Tracking
+Driver --> UC55
+Driver --> TrackDelivery
+Driver --> UpdateLocation
+
+' FCM - Notifications
+FCM --> UC58
+FCM --> OrderAssigned
+FCM --> StatusUpdate
+FCM --> DelivComplete
+
+' Pelanggan - Track Delivery
+Pelanggan --> TrackDelivery
+
+' Staf - Tracking
+Staf --> TrackDelivery
+Staf --> ViewTimeline
+Staf --> UpdateLocation
+Staf --> ReportIssue
+
+' Staf - History & Reports
+Staf --> UC56
+Staf --> FilterHistory
+Staf --> ExportReport
+Staf --> DailyStats
+
+' Staf - Operations
+Staf --> UC57
+Staf --> ManageFleet
+Staf --> ManageSchedule
+Staf --> ManageArea
+Staf --> ManageDriver
+
+' Staf - Notifications
+Staf --> UC58
+Staf --> OrderAssigned
+Staf --> StatusUpdate
+Staf --> DelivComplete
+
+' === INCLUDE RELATIONSHIPS ===
+UC55 .> UploadPhoto : <<include>>
+UC55 .> SignReceipt : <<include>>
+UC55 .> GPSLoc : <<include>>
+UC55 .> RecordReceiver : <<include>>
+UC55 .> RecordCondition : <<include>>
+
+TrackDelivery .> ViewTimeline : <<include>>
+TrackDelivery .> UpdateLocation : <<include>>
+
+UC56 .> FilterHistory : <<include>>
+UC56 .> ExportReport : <<include>>
+UC56 .> DailyStats : <<include>>
+
+UC57 .> ManageFleet : <<include>>
+UC57 .> ManageSchedule : <<include>>
+UC57 .> ManageArea : <<include>>
+UC57 .> ManageDriver : <<include>>
+
+' === EXTEND RELATIONSHIPS ===
+TrackDelivery .> ReportIssue : <<extends>>
+
+' === NOTES ===
+note bottom of UC55
+**Delivery Proof Requirements:**
+• Photo of delivered package (required)
+• Customer/receiver signature (required)
+• GPS coordinates of delivery location
+• Receiver name & contact
+• Delivery time timestamp
+• Condition of package
+end note
+
+note bottom of UC57
+**Operations Management:**
+• Fleet: Vehicles & capacity
+• Schedule: Driver shift management
+• Area: Delivery coverage zones
+• Driver: Driver profiles & availability
+end note
+
+note bottom of UC58
+**Notification Types:**
+• Order Assigned: New delivery to driver
+• Status Update: Delivery status changes
+• Delivery Complete: Successful delivery confirmed
+end note
+
+note bottom of TrackDelivery
+**Delivery Tracking Features:**
+• Real-time location updates
+• Timeline of delivery events
+• Customer can track their order
+• Report issues if problems arise
+end note
+
+@enduml

@@ -346,7 +346,7 @@
         <div class="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
             <!-- Single Banner Container -->
             <div class="relative">
-                @foreach($heroBanners as $index => $banner)
+                @foreach($heroBanners ?? [] as $index => $banner)
                     <div x-show="activeBanner === {{ $index }}"
                          x-transition:enter="transition ease-out duration-500"
                          x-transition:enter-start="opacity-0 translate-x-8"
@@ -402,7 +402,7 @@
 
             <!-- Banner Navigation -->
             <div class="mt-12 flex items-center justify-center gap-4">
-                @foreach($heroBanners as $index => $banner)
+                @foreach($heroBanners ?? [] as $index => $banner)
                     <button @click="activeBanner = {{ $index }}"
                             class="transition-all duration-300 ease-out"
                             :class="activeBanner === {{ $index }} ? 'w-8 h-3 bg-white rounded-full shadow-lg shadow-white/50' : 'w-3 h-3 bg-white/40 rounded-full hover:bg-white/60'">
@@ -594,7 +594,7 @@
                                             :class="!$wire.location ? 'bg-emerald-50 text-emerald-700 font-semibold' : ''">
                                         Semua Lokasi
                                     </button>
-                                    @foreach($locations as $key => $name)
+                                    @foreach($locations ?? [] as $key => $name)
                                         <button wire:click="setLocation('{{ $key }}')"
                                                 class="block w-full px-3 py-2 text-left text-xs text-slate-600 hover:bg-emerald-50"
                                                 :class="$wire.location === '{{ $key }}' ? 'bg-emerald-50 text-emerald-700 font-semibold' : ''">
@@ -609,7 +609,7 @@
                         <div>
                             <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Berat</label>
                             <div class="flex flex-wrap gap-1.5">
-                                @foreach($weightRanges as $key => $label)
+                                @foreach($weightRanges ?? [] as $key => $label)
                                     <button wire:click="setWeightRange('{{ $key }}')"
                                             :class="$wire.weightRange === '{{ $key }}' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'"
                                             class="rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all">
@@ -623,7 +623,7 @@
                         <div>
                             <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Umur</label>
                             <div class="flex flex-wrap gap-1.5">
-                                @foreach($ageRanges as $key => $label)
+                                @foreach($ageRanges ?? [] as $key => $label)
                                     <button wire:click="setAgeRange('{{ $key }}')"
                                             :class="$wire.ageRange === '{{ $key }}' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'"
                                             class="rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all">
@@ -637,7 +637,7 @@
                         <div>
                             <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Jenis Kelamin</label>
                             <div class="flex flex-wrap gap-1.5">
-                                @foreach($genderOptions as $key => $label)
+                                @foreach($genderOptions ?? [] as $key => $label)
                                     <button wire:click="setGender('{{ $key }}')"
                                             :class="$wire.gender === '{{ $key }}' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'"
                                             class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-all">
@@ -651,7 +651,7 @@
                         <div>
                             <label class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">Rating</label>
                             <div class="flex flex-wrap gap-1.5">
-                                @foreach($ratingOptions as $rating => $label)
+                                @foreach($ratingOptions ?? [] as $rating => $label)
                                     <button wire:click="setMinRating({{ $rating }})"
                                             :class="$wire.minRating === {{ $rating }} ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'"
                                             class="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all">
@@ -769,7 +769,7 @@
                 <i class="fa-solid fa-border-all transition-transform group-hover:scale-110"></i>
                 Semua Kategori
             </button>
-            @foreach($categories as $category)
+            @foreach($categories ?? [] as $category)
                 <button wire:click="selectCategory({{ $category['id'] }})"
                         :class="$wire.selectedCategory === {{ $category['id'] }} ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-200/50 border-transparent' : 'bg-white text-slate-700 hover:bg-emerald-50 border-slate-200'"
                         class="group flex items-center gap-2.5 rounded-xl border px-5 py-3 text-sm font-semibold shadow-sm transition-all duration-300">
@@ -1198,7 +1198,7 @@
                         Kategori
                     </h4>
                     <ul class="mt-4 space-y-2.5 text-sm text-slate-600">
-                        @foreach($categories as $category)
+                        @foreach($categories ?? [] as $category)
                             <li><a href="#" class="group flex items-center gap-2 transition hover:text-emerald-600">
                                 <i class="fa-solid fa-chevron-right text-xs text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-emerald-500"></i>
                                 {{ $category['name'] }}

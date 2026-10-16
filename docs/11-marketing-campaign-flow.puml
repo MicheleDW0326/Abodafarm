@@ -1,0 +1,92 @@
+@startuml Marketing_UseCase
+!theme plain
+top to bottom direction
+
+' ============================================
+' MARKETING USE CASE DIAGRAM
+' AbodaFarm - Campaign Engine
+' ============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+skinparam packagePadding 5
+skinparam boxPadding 5
+
+left to right direction
+
+actor "Admin" as Admin
+actor "Pelanggan" as Customer
+actor "Sistem Pesanan" as OrderSystem
+actor "Sistem Notifikasi" as Notification
+actor "Scheduler" as Scheduler
+
+rectangle "AbodaFarm - Marketing System" {
+    package "Campaign Management" #LightYellow {
+        usecase "Buat Kampanye" as CreateCampaign
+        usecase "Pilih Tipe Kampanye" as SelectCampaignType
+        usecase "Atur Rules Kampanye" as DefineRules
+        usecase "Konfigurasi Detail Kampanye" as ConfigureCampaign
+        usecase "Atur Budget dan Usage Limit" as DefineLimits
+        usecase "Aktifkan atau Pause Kampanye" as ManageCampaignStatus
+        usecase "Lihat Dashboard Kampanye" as CampaignDashboard
+    }
+
+    package "Voucher dan Eligibility" #LightGreen {
+        usecase "Generate Voucher" as GenerateVoucher
+        usecase "Validasi Eligibility Customer" as CheckEligibility
+        usecase "Validasi Kampanye Aktif" as CheckActive
+        usecase "Validasi Usage Limit" as CheckUsageLimit
+        usecase "Klaim Voucher" as ClaimVoucher
+        usecase "Lihat Voucher" as ViewVoucher
+        usecase "Gunakan Kode Promo" as ApplyVoucher
+    }
+
+    package "Reward dan Analytics" #LightCyan {
+        usecase "Terapkan Diskon" as ApplyDiscount
+        usecase "Catat Penggunaan Voucher" as RecordUsage
+        usecase "Hitung Cashback" as CalculateCashback
+        usecase "Kirim Review Reward" as ReviewReward
+        usecase "Update Campaign Analytics" as UpdateAnalytics
+        usecase "Lihat Statistik Kampanye" as ViewStatistics
+    }
+}
+
+Admin --> CreateCampaign
+Admin --> SelectCampaignType
+Admin --> DefineRules
+Admin --> ConfigureCampaign
+Admin --> DefineLimits
+Admin --> ManageCampaignStatus
+Admin --> CampaignDashboard
+Admin --> ViewStatistics
+
+Customer --> ClaimVoucher
+Customer --> ViewVoucher
+Customer --> ApplyVoucher
+Customer --> ApplyDiscount
+
+OrderSystem --> CheckEligibility
+OrderSystem --> CheckActive
+OrderSystem --> CheckUsageLimit
+OrderSystem --> ApplyDiscount
+OrderSystem --> RecordUsage
+
+Notification --> ReviewReward
+Notification --> GenerateVoucher
+Scheduler --> UpdateAnalytics
+
+CreateCampaign ..> SelectCampaignType : <<include>>
+CreateCampaign ..> DefineRules : <<include>>
+CreateCampaign ..> ConfigureCampaign : <<include>>
+CreateCampaign ..> DefineLimits : <<include>>
+CreateCampaign ..> GenerateVoucher : <<include>>
+ApplyVoucher ..> CheckEligibility : <<include>>
+ApplyVoucher ..> CheckActive : <<include>>
+ApplyVoucher ..> CheckUsageLimit : <<include>>
+ApplyVoucher ..> ApplyDiscount : <<include>>
+ApplyDiscount ..> RecordUsage : <<include>>
+RecordUsage ..> UpdateAnalytics : <<include>>
+
+@enduml

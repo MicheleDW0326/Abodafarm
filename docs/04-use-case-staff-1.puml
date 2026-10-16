@@ -1,0 +1,134 @@
+@startuml Staff_UseCase_Part1
+!theme plain
+top to bottom direction
+
+' ============================================
+' STAFF USE CASE DIAGRAM - PART 1
+' Order Management & Delivery Management
+' ============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+skinparam packagePadding 5
+skinparam boxPadding 5
+
+' === ACTORS ===
+left to right direction
+
+actor "Staf" as Staf
+actor "Peternak\n(Farmer)" as Peternak
+actor "Pelanggan\n(Customer)" as Pelanggan
+actor "Driver" as Driver
+
+' === SYSTEM BOUNDARY ===
+rectangle "AbodaFarm - Staff Operations Module (Part 1)" {
+
+    ' --- Order Management ---
+    package "Order Management\n(Manajemen Pesanan)" #LightYellow {
+        usecase "UC-51\nDaftar Pesanan" as UC51
+        usecase "Lihat Detail Pesanan" as ViewOrderDetail
+        usecase "Filter Pesanan\n(Filter Orders)" as FilterOrder
+        usecase "Search Pesanan\n(Search Orders)" as SearchOrder
+        usecase "Print Invoice" as PrintInvoice
+    }
+
+    ' --- Delivery Management ---
+    package "Delivery Management\n(Manajemen Pengiriman)" #LightGreen {
+        usecase "UC-52\nKelola Pengiriman" as UC52
+        usecase "UC-53\nAssign Driver" as UC53
+        usecase "Pilih Driver" as SelectDriver
+        usecase "Atur Rute\n(Set Route)" as SetRoute
+        usecase "UC-54\nUpdate Status Kirim" as UC54
+        usecase "Status Persiapan\n(Preparing)" as StatusPrep
+        usecase "Status Siap Kirim\n(Ready to Ship)" as StatusReady
+        usecase "Status Dalam Pengiriman\n(Out for Delivery)" as StatusShip
+        usecase "Status Diterima\n(Delivered)" as StatusDeliv
+    }
+
+}
+
+' === RELATIONSHIPS ===
+
+' Staf Actor - Order Management
+Staf --> UC51
+Staf --> ViewOrderDetail
+Staf --> FilterOrder
+Staf --> SearchOrder
+Staf --> PrintInvoice
+
+' Staf Actor - Delivery Management
+Staf --> UC52
+Staf --> UC53
+Staf --> SelectDriver
+Staf --> SetRoute
+Staf --> UC54
+Staf --> StatusPrep
+Staf --> StatusReady
+Staf --> StatusShip
+Staf --> StatusDeliv
+
+' Driver Actor
+Driver --> StatusShip
+Driver --> StatusDeliv
+
+' === INCLUDE RELATIONSHIPS ===
+UC51 .> ViewOrderDetail : <<include>>
+UC51 .> FilterOrder : <<include>>
+UC51 .> SearchOrder : <<include>>
+UC51 .> PrintInvoice : <<include>>
+
+UC52 .> UC53 : <<include>>
+UC52 .> UC54 : <<include>>
+
+UC53 .> SelectDriver : <<include>>
+UC53 .> SetRoute : <<include>>
+
+UC54 .> StatusPrep : <<include>>
+UC54 .> StatusReady : <<include>>
+UC54 .> StatusShip : <<include>>
+UC54 .> StatusDeliv : <<include>>
+
+' === NOTES ===
+note bottom of UC51
+**Order Management:**
+• View all orders
+• Filter by status/date
+• Search by order ID
+• View order details
+• Print invoices
+end note
+
+note bottom of UC52
+**Delivery Management:**
+• View all assigned deliveries
+• Assign drivers to deliveries
+• Real-time tracking
+• Handle delivery issues
+• Generate delivery reports
+end note
+
+note bottom of UC53
+**Assign Driver Process:**
+1. View available drivers
+2. Select appropriate driver
+3. Assign vehicle
+4. Set delivery route
+5. Set estimated delivery time
+end note
+
+note bottom of UC54
+**Update Delivery Status:**
+• Preparing → Mark items being packed
+• Ready → Mark ready for pickup
+• Shipped → Driver picked up
+• Delivered → Customer received
+end note
+
+note bottom of UC52
+**DELIVERY STATUS FLOW:**
+[Pending] → [Preparing] → [Ready] → [Out for Delivery] → [Delivered] → [Completed]
+end note
+
+@enduml

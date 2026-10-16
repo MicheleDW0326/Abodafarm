@@ -1,0 +1,197 @@
+@startuml
+!theme plain
+top to bottom direction
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+
+left to right direction
+
+actor "Pelanggan" as Customer
+actor "Peternak" as Farmer
+actor "Admin" as Admin
+
+rectangle "AbodaFarm - Booking System" {
+
+    package "Pilih Produk" #LightYellow {
+        usecase "Lihat Produk Ternak" as ViewLivestock
+        usecase "Lihat Detail Ternak" as ViewAnimalDetail
+        usecase "Lihat Profil Peternakan" as ViewFarmProfile
+        usecase "Cek Ketersediaan" as CheckAvail
+    }
+
+    package "Pengajuan Booking" #LightGreen {
+        usecase "Mulai Booking" as StartBooking
+        usecase "Pilih Peternakan" as SelectFarm
+        usecase "Pilih Jadwal Kunjungan" as SelectDate
+        usecase "Upload Dokumen" as UploadDocs
+        usecase "Tambah Catatan" as AddNotes
+        usecase "Kirim Pengajuan" as SubmitBooking
+        usecase "Validasi Data" as ValidateData
+    }
+
+    package "Tinjauan Peternak" #LightCyan {
+        usecase "Terima Notifikasi" as ReceiveNotif
+        usecase "Lihat Detail Pengajuan" as ViewBookingDetail
+        usecase "Periksa Profil Pelanggan" as ReviewCustomer
+        usecase "Periksa Ketersediaan Ternak" as CheckAnimal
+        usecase "Periksa Dokumen" as ReviewDocs
+    }
+
+    package "Keputusan Peternak" #LightPink {
+        usecase "Terima Booking" as ApproveBooking
+        usecase "Tolak Booking" as RejectBooking
+        usecase "Beri Alasan Penolakan" as RejectReason
+    }
+
+    package "Negosiasi Jadwal" #Lavender {
+        usecase "Usulkan Jadwal Baru" as ProposeSchedule
+        usecase "Terima Jadwal" as AcceptSchedule
+        usecase "Tolak Jadwal" as RejectSchedule
+        usecase "Batalkan Negosiasi" as CancelNegotiation
+    }
+
+    package "Negosiasi Harga" #HoneyDew {
+        usecase "Kirim Penawaran" as SendOffer
+        usecase "Lihat Penawaran" as ViewOffer
+        usecase "Terima Penawaran" as AcceptOffer
+        usecase "Kirim Tawaran Baru" as CounterOffer
+        usecase "Tolak Penawaran" as RejectOffer
+    }
+
+    package "Kontrak dan Perjanjian" #MistyRose {
+        usecase "Generate Kontrak" as GenerateContract
+        usecase "Tanda Tangan Digital" as DigitalSign
+        usecase "Terima Kontrak" as AcceptContract
+        usecase "Tolak Kontrak" as RejectContract
+    }
+
+    package "Pembayaran" #LightGray {
+        usecase "Generate Link Pembayaran" as GenPayLink
+        usecase "Pilih Metode Bayar" as SelectPayMethod
+        usecase "Lakukan Pembayaran" as MakePayment
+        usecase "Terima Pembayaran" as ReceivePayment
+    }
+
+    package "Persiapan dan Serah Terima" #LightBlue {
+        usecase "Siapkan Ternak" as PrepareAnimal
+        usecase "Notifikasi Tim Kirim" as NotifyTeam
+        usecase "Kunjungan Peternakan" as FarmVisit
+        usecase "Periksa Ternak" as InspectAnimal
+        usecase "Serah Terima Ternak" as HandoverAnimal
+        usecase "Konfirmasi Serah Terima" as ConfirmHandover
+    }
+
+    package "Penyelesaian" #LightCoral {
+        usecase "Update Status Selesai" as MarkComplete
+        usecase "Generate Laporan" as GenerateReport
+        usecase "Kirim Permintaan Review" as SendReviewReq
+    }
+}
+
+Customer --> ViewLivestock
+Customer --> ViewAnimalDetail
+Customer --> ViewFarmProfile
+Customer --> CheckAvail
+
+Customer --> StartBooking
+Customer --> SelectFarm
+Customer --> SelectDate
+Customer --> UploadDocs
+Customer --> AddNotes
+Customer --> SubmitBooking
+
+Farmer --> ReceiveNotif
+Farmer --> ViewBookingDetail
+Farmer --> ReviewCustomer
+Farmer --> CheckAnimal
+Farmer --> ReviewDocs
+
+Farmer --> ApproveBooking
+Farmer --> RejectBooking
+Farmer --> RejectReason
+
+Farmer --> ProposeSchedule
+Farmer --> AcceptSchedule
+Farmer --> RejectSchedule
+
+Farmer --> SendOffer
+Farmer --> AcceptOffer
+Farmer --> CounterOffer
+Farmer --> RejectOffer
+
+Farmer --> GenerateContract
+Farmer --> DigitalSign
+Farmer --> AcceptContract
+Farmer --> RejectContract
+
+Farmer --> PrepareAnimal
+Farmer --> NotifyTeam
+Farmer --> HandoverAnimal
+
+Customer --> ProposeSchedule
+Customer --> AcceptSchedule
+Customer --> RejectSchedule
+
+Customer --> ViewOffer
+Customer --> AcceptOffer
+Customer --> CounterOffer
+Customer --> RejectOffer
+
+Customer --> AcceptContract
+Customer --> RejectContract
+
+Customer --> GenPayLink
+Customer --> SelectPayMethod
+Customer --> MakePayment
+
+Customer --> FarmVisit
+Customer --> InspectAnimal
+Customer --> ConfirmHandover
+
+Customer --> SendReviewReq
+
+Admin --> ReceiveNotif
+Admin --> ViewBookingDetail
+
+ViewLivestock .-> ViewAnimalDetail : <<include>>
+ViewLivestock .-> ViewFarmProfile : <<include>>
+ViewLivestock .-> CheckAvail : <<include>>
+
+StartBooking .-> SelectFarm : <<include>>
+StartBooking .-> SelectDate : <<include>>
+StartBooking .-> UploadDocs : <<include>>
+SubmitBooking .-> ValidateData : <<include>>
+
+ViewBookingDetail .-> ReviewCustomer : <<include>>
+ViewBookingDetail .-> CheckAnimal : <<include>>
+ViewBookingDetail .-> ReviewDocs : <<include>>
+
+ApproveBooking .-> ProposeSchedule : <<include>>
+
+ProposeSchedule .-> AcceptSchedule : <<include>>
+ProposeSchedule .-> RejectSchedule : <<include>>
+
+SendOffer .-> AcceptOffer : <<include>>
+SendOffer .-> CounterOffer : <<include>>
+
+GenerateContract .-> DigitalSign : <<include>>
+GenerateContract .-> AcceptContract : <<include>>
+
+MakePayment .-> GenPayLink : <<include>>
+MakePayment .-> SelectPayMethod : <<include>>
+ReceivePayment .-> MarkComplete : <<include>>
+
+HandoverAnimal .-> ConfirmHandover : <<include>>
+MarkComplete .-> GenerateReport : <<include>>
+MarkComplete .-> SendReviewReq : <<include>>
+
+RejectBooking .-> RejectReason : <<extends>>
+RejectSchedule .-> CancelNegotiation : <<extends>>
+RejectOffer .-> CancelNegotiation : <<extends>>
+RejectContract .-> CancelNegotiation : <<extends>>
+CounterOffer .-> CancelNegotiation : <<extends>>
+
+@enduml

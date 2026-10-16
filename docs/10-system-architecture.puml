@@ -1,0 +1,112 @@
+@startuml System_UseCase
+!theme plain
+top to bottom direction
+
+' ============================================
+' SYSTEM USE CASE DIAGRAM
+' AbodaFarm - Platform Integration
+' ============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+skinparam packagePadding 5
+skinparam boxPadding 5
+
+left to right direction
+
+actor "Guest" as Guest
+actor "Pelanggan" as Customer
+actor "Peternak" as Farmer
+actor "Staf" as Staff
+actor "Admin" as Admin
+actor "Driver" as Driver
+actor "Midtrans" as PaymentGateway
+actor "Firebase FCM" as FCM
+actor "Google Maps" as Maps
+actor "Email/SMS Service" as Messaging
+
+rectangle "AbodaFarm System" {
+    package "Access dan Interface" #LightYellow {
+        usecase "Akses Web Browser" as WebAccess
+        usecase "Akses Mobile/PWA" as MobileAccess
+        usecase "Akses Dashboard Admin" as AdminAccess
+        usecase "Autentikasi dan Otorisasi" as Authentication
+        usecase "Kelola Session dan Rate Limit" as SessionSecurity
+    }
+
+    package "Core Business Services" #LightGreen {
+        usecase "Kelola Produk dan Kategori" as ProductManagement
+        usecase "Kelola Keranjang dan Harga" as CartPricing
+        usecase "Kelola Pesanan" as OrderManagement
+        usecase "Kelola Booking" as BookingManagement
+        usecase "Kelola Pembayaran" as PaymentManagement
+        usecase "Kelola Pengiriman" as ShippingManagement
+        usecase "Kelola Marketing dan Voucher" as MarketingManagement
+        usecase "Kelola Review" as ReviewManagement
+    }
+
+    package "Data dan Otomasi" #LightCyan {
+        usecase "Simpan Data Transaksi" as StoreTransactions
+        usecase "Simpan File dan Bukti" as StoreFiles
+        usecase "Kirim Notifikasi" as SendNotifications
+        usecase "Jalankan Queue dan Scheduler" as RunJobs
+        usecase "Export Laporan" as ExportReports
+        usecase "Catat Analytics" as RecordAnalytics
+    }
+}
+
+Guest --> WebAccess
+Customer --> WebAccess
+Customer --> MobileAccess
+Customer --> Authentication
+Customer --> ProductManagement
+Customer --> CartPricing
+Customer --> OrderManagement
+Customer --> BookingManagement
+Customer --> PaymentManagement
+Customer --> ShippingManagement
+Customer --> MarketingManagement
+Customer --> ReviewManagement
+
+Farmer --> WebAccess
+Farmer --> Authentication
+Farmer --> ProductManagement
+Farmer --> OrderManagement
+Farmer --> BookingManagement
+Farmer --> ShippingManagement
+Farmer --> ReviewManagement
+
+Staff --> WebAccess
+Staff --> Authentication
+Staff --> OrderManagement
+Staff --> ShippingManagement
+Staff --> ExportReports
+
+Admin --> AdminAccess
+Admin --> Authentication
+Admin --> ProductManagement
+Admin --> OrderManagement
+Admin --> MarketingManagement
+Admin --> RecordAnalytics
+
+Driver --> MobileAccess
+Driver --> Authentication
+Driver --> ShippingManagement
+
+PaymentGateway --> PaymentManagement
+FCM --> SendNotifications
+Maps --> ShippingManagement
+Messaging --> SendNotifications
+
+WebAccess ..> Authentication : <<include>>
+MobileAccess ..> Authentication : <<include>>
+OrderManagement ..> StoreTransactions : <<include>>
+PaymentManagement ..> StoreTransactions : <<include>>
+ShippingManagement ..> StoreFiles : <<include>>
+MarketingManagement ..> SendNotifications : <<include>>
+RunJobs ..> SendNotifications : <<include>>
+ExportReports ..> StoreTransactions : <<include>>
+
+@enduml

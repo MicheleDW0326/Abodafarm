@@ -33,15 +33,12 @@ class Checkout extends Component
     protected $listeners = [
         'echo:checkout.{currentUserId},checkout.session-cleared' => 'onSessionCleared',
     ];
-
     public function getCurrentUserIdProperty(): int
     {
         return auth()->id();
     }
-
     public function onSessionCleared(): void
     {
-        // Clear checkout session when payment is completed via webhook
         $this->clearCheckoutSession();
     }
 
@@ -639,26 +636,19 @@ class Checkout extends Component
             $order = Order::with('payment')->find($this->currentOrderId);
 
             if ($order && $order->payment) {
-                // Refresh status from Midtrans
                 $midtransStatus = MidtransService::checkTransactionStatus($order->order_number);
 
                 if ($midtransStatus) {
-                    // Update payment record
                     $order->payment->update([
                         'transaction_id' => $midtransStatus->transaction_id ?? $order->payment->transaction_id,
                         'payment_type' => $midtransStatus->payment_type ?? $order->payment->payment_type,
                         'transaction_status' => $midtransStatus->transaction_status ?? $order->payment->transaction_status,
                         'fraud_status' => $midtransStatus->fraud_status ?? $order->payment->fraud_status,
                     ]);
-
-                    // If payment is completed
                     if (in_array($midtransStatus->transaction_status, ['capture', 'settlement'])) {
-                        // Check if stock was already decremented (idempotency - may have been done by webhook)
                         $alreadyPaid = $order->payment && $order->payment->paid_at !== null;
 
                         $order->payment->update(['paid_at' => now()]);
-
-                        // Use new FK-based state machine for payment status
                         OrderStateMachine::setPaymentStatus(
                             $order,
                             PaymentStatusEnum::PAID,
@@ -666,45 +656,30 @@ class Checkout extends Component
                             auth()->id(),
                             'Pembayaran berhasil via Midtrans'
                         );
-
-                        // Decrement stock only if not already done (for cart orders only)
                         if (!$alreadyPaid && $order->order_type === Order::TYPE_CART) {
                             $this->decrementOrderStock($order);
                         }
-
-                        // Record promotion usage if applicable
                         $this->recordPromotionUsage($order);
-
-                        // Send payment success notification
                         $this->sendPaymentSuccessNotification($order);
-
-                        // Clear checkout session after successful payment
                         $this->clearCheckoutSession();
 
                         $order->refresh();
                         $order->payment->refresh();
                     }
-
-                    // Handle expired/cancelled transactions
                     if (in_array($midtransStatus->transaction_status, ['expire', 'cancel', 'deny'])) {
-                        // Mark the existing Snap token as invalid so a new one can be created
                         $order->payment->update(['snap_token' => null]);
                     }
                 } else {
-                    // Transaction not found in Midtrans - clear old Snap token
-                    // This allows creating a new payment session
                     $order->payment->update(['snap_token' => null]);
                     $this->errorMessage = 'Sesi pembayaran sebelumnya tidak valid. Silakan coba bayar lagi.';
                 }
             }
         } catch (\Exception $e) {
-            // Check if it's a "Transaction not found" error
             $errorMessage = $e->getMessage();
             if (
                 str_contains($errorMessage, 'Transaction doesn\'t exist') ||
                 str_contains($errorMessage, '404')
             ) {
-                // Clear the old Snap token to allow creating a new one
                 if ($order && $order->payment) {
                     $order->payment->update(['snap_token' => null]);
                 }
@@ -721,10 +696,6 @@ class Checkout extends Component
             }
         }
     }
-
-    /**
-     * Get payment status for display.
-     */
     #[Computed]
     public function paymentStatus(): ?array
     {
@@ -802,12 +773,11 @@ class Checkout extends Component
         if ($this->promoType === 'free_shipping') {
             return 0;
         }
-        return 20000; // Default shipping cost
+        return 20000;
     }
 
     public function discountedTotal(): int
     {
-        // Total = subtotal + shipping - discount
         $subtotal = $this->cartTotal();
         $shipping = $this->shippingCost();
         $discount = $this->discountAmount ?? 0;
@@ -817,34 +787,22 @@ class Checkout extends Component
 
     public function totalSavings(): int
     {
-        // Total savings = discount amount + shipping (if free shipping)
         $discount = $this->discountAmount ?? 0;
         if ($this->promoType === 'free_shipping') {
-            $discount += 20000; // Add shipping cost as savings
+            $discount += 20000;
         }
         return $discount;
     }
-
-    /**
-     * Get Midtrans client key for frontend.
-     */
     public function getMidtransClientKey(): string
     {
         return config('services.midtrans.client_key', '');
     }
 
-    /**
-     * Auto-save form state when any tracked property is updated.
-     * This ensures form data persists on page reload.
-     */
     public function updated($property, $value): void
     {
-        // Don't save during payment modal operations
         if ($this->showPaymentModal) {
             return;
         }
-
-        // Don't save sensitive fields or UI-only properties
         $skipProperties = [
             'snapToken',
             'showPaymentModal',
@@ -881,18 +839,32 @@ class Checkout extends Component
     /**
      * Validate stock for all cart items.
      * Returns array of error messages if any items have insufficient stock.
+     * OPTIMIZED: Single query for all products instead of N+1.
      */
     protected function validateCartStock(array $items): array
     {
         $errors = [];
-        $productModel = new \App\Models\Product();
+
+        // Get all product IDs from cart
+        $productIds = collect($items)
+            ->pluck('product_id')
+            ->filter()
+            ->unique()
+            ->toArray();
+
+        if (empty($productIds)) {
+            return $errors;
+        }
+
+        // Single query to get all products
+        $products = \App\Models\Product::whereIn('id', $productIds)->get()->keyBy('id');
 
         foreach ($items as $item) {
             if (!isset($item['product_id'])) {
                 continue; // Skip items without product_id (legacy items)
             }
 
-            $product = $productModel->find($item['product_id']);
+            $product = $products->get($item['product_id']);
 
             if (!$product) {
                 $errors[] = "Produk '{$item['name']}' tidak ditemukan.";
@@ -911,13 +883,24 @@ class Checkout extends Component
 
     /**
      * Decrement stock for all items in an order.
+     * OPTIMIZED: Batch update instead of N+1 queries.
      */
     protected function decrementOrderStock(Order $order): void
     {
+        // Eager load products if not already loaded
+        $order->loadMissing('items.product');
+
+        // Collect product updates
+        $productQuantities = [];
         foreach ($order->items as $item) {
             if ($item->product_id && $item->product) {
-                $item->product->decrement('stock', $item->quantity);
+                $productQuantities[$item->product_id] = ($productQuantities[$item->product_id] ?? 0) + $item->quantity;
             }
+        }
+
+        // Batch decrement each product by the total quantity ordered
+        foreach ($productQuantities as $productId => $totalQuantity) {
+            \App\Models\Product::where('id', $productId)->decrement('stock', $totalQuantity);
         }
     }
 

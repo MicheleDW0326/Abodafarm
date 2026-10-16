@@ -1,0 +1,841 @@
+' AbodaFarm Entity Relationship Diagram
+' Generated for AbodaFarm Laravel 13 + Livewire 4 System
+' Use PlantUML extension in VS Code to view
+
+@startuml AbodaFarm_ERD
+
+' ============================================================
+' STYLE CONFIGURATION
+' ============================================================
+skinparam componentStyle uml2
+skinparam handwritten false
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontColor #2C3E50
+skinparam defaultFontSize 12
+skinparam dpi 150
+
+' Entity styling
+skinparam entity {
+    BackgroundColor #E8F5E9
+    BorderColor #27AE60
+    FontStyle bold
+    FontSize 11
+    Padding 10
+}
+
+skinparam relationship {
+    BackgroundColor transparent
+    BorderColor #34495E
+    FontSize 10
+    Arrowsize 0.8
+}
+
+' ============================================================
+' PACKAGES - GROUP BY MODULE
+' ============================================================
+package "AUTH & USERS" {
+    entity "users" as users {
+        * id : bigint PK
+        --
+        * name : varchar(255)
+        * email : varchar(255) UNIQUE
+        * password : varchar(255)
+        * email_verified_at : timestamp
+        * remember_token : varchar(100)
+        * two_factor_secret : text
+        * two_factor_recovery_codes : text
+        * created_at : timestamp
+        * updated_at : timestamp
+        --
+        # role : varchar(50)
+        # loyalty_points : integer
+        # total_orders : integer
+        # total_spent : decimal(10,2)
+        # total_reviews : integer
+        # last_order_at : timestamp
+        # customer_level_id : bigint FK
+    }
+
+    entity "roles" as roles {
+        * id : bigint PK
+        --
+        * name : varchar(255) UNIQUE
+        * guard_name : varchar(255)
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "model_has_roles" as model_has_roles {
+        * role_id : bigint PK
+        * model_type : varchar(255) PK
+        * model_id : bigint PK
+    }
+
+    entity "customer_levels" as customer_levels {
+        * id : bigint PK
+        --
+        * name : varchar(50)
+        * display_name : varchar(100)
+        * min_points : integer
+        * max_points : integer
+        * color : varchar(20)
+        * discount_percent : decimal(5,2)
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "fcm_tokens" as fcm_tokens {
+        * id : bigint PK
+        --
+        * user_id : bigint FK
+        * token : text
+        * device_type : varchar(20)
+        * is_active : boolean
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+}
+
+package "PRODUCTS & CATEGORIES" {
+    entity "categories" as categories {
+        * id : bigint PK
+        --
+        * name : varchar(255)
+        * slug : varchar(255) UNIQUE
+        * description : text
+        * icon : varchar(100)
+        * image : varchar(255)
+        * is_active : boolean
+        * sort_order : integer
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "products" as products {
+        * id : bigint PK
+        --
+        * category_id : bigint FK
+        * owner_id : bigint FK (users.id)
+        --
+        * name : varchar(255)
+        * slug : varchar(255) UNIQUE
+        * description : text
+        * price : decimal(12,2)
+        * discount_price : decimal(12,2)
+        * discount_percent : decimal(5,2)
+        * image : varchar(255)
+        * images : json
+        * type : varchar(20) <<live|fresh|supply>>
+        * status : varchar(20) <<available|pre_order|in_care|sold>>
+        * stock : integer
+        * unit : varchar(50)
+        * is_featured : boolean
+        --
+        ' Livestock specific fields
+        * weight : decimal(10,2)
+        * age : varchar(50)
+        * sex : varchar(20)
+        * origin : varchar(100)
+        * condition : varchar(100)
+        * breed : varchar(100)
+        * barn_location : varchar(100)
+        --
+        ' Fresh meat specific
+        * weight_per_unit : decimal(10,2)
+        --
+        ' Supply specific
+        * specifications : json
+        * how_to_use : text
+        * shipping_info : text
+        --
+        ' Rating fields
+        * rating : decimal(3,2)
+        * total_reviews : integer
+        * rating_1_count : integer
+        * rating_2_count : integer
+        * rating_3_count : integer
+        * rating_4_count : integer
+        * rating_5_count : integer
+        --
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "inventory_logs" as inventory_logs {
+        * id : bigint PK
+        --
+        * product_id : bigint FK
+        * recorded_by : bigint FK
+        --
+        * type : varchar(20) <<in|out|adjustment>>
+        * quantity : integer
+        * previous_stock : integer
+        * new_stock : integer
+        * reason : varchar(255)
+        * reference_type : varchar(50)
+        * reference_id : bigint
+        * created_at : timestamp
+    }
+
+    entity "care_records" as care_records {
+        * id : bigint PK
+        --
+        * product_id : bigint FK
+        * user_id : bigint FK
+        --
+        * record_type : varchar(50)
+        * title : varchar(255)
+        * description : text
+        * record_date : date
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "product_views" as product_views {
+        * id : bigint PK
+        --
+        * user_id : bigint FK
+        * product_id : bigint FK
+        * viewed_at : timestamp
+        * created_at : timestamp
+    }
+}
+
+package "ORDERS & TRANSACTIONS" {
+    entity "orders" as orders {
+        * id : bigint PK
+        --
+        * user_id : bigint FK
+        * assigned_staff_id : bigint FK (nullable)
+        * assigned_by : bigint FK (nullable)
+        --
+        * order_number : varchar(50) UNIQUE
+        * order_type : varchar(20) <<cart|inquiry>>
+        * customer_name : varchar(255)
+        * customer_phone : varchar(20)
+        * customer_address : text
+        * notes : text
+        * total_items : integer
+        * total_amount : decimal(14,2)
+        * status : varchar(30)
+        * placed_at : timestamp
+        * preferred_delivery_date : date
+        * pickup_location : varchar(255)
+        * admin_notes : text
+        --
+        ' Payment status FK
+        # payment_status_id : bigint FK
+        ' Booking status FK
+        # booking_status_id : bigint FK
+        ' Shipment status FK
+        # shipment_status_id : bigint FK
+        --
+        ' Shipping
+        * tracking_number : varchar(100)
+        * shipping_carrier : varchar(100)
+        * shipped_at : timestamp
+        * delivered_at : timestamp
+        --
+        ' Delivery assignment
+        * estimated_delivery_time : timestamp
+        * delivery_notes : text
+        * vehicle_info : varchar(100)
+        * courier_name : varchar(100)
+        * delivery_started_at : timestamp
+        --
+        ' Delivery proof
+        * receiver_name : varchar(255)
+        * delivery_photo : varchar(255)
+        * delivery_note : text
+        * delivery_completed_at : timestamp
+        * delivery_latitude : decimal(10,8)
+        * delivery_longitude : decimal(11,8)
+        --
+        ' Completion
+        * completed_at : timestamp
+        * completed_by_customer : boolean
+        * completed_automatically : boolean
+        --
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "order_items" as order_items {
+        * id : bigint PK
+        --
+        * order_id : bigint FK
+        * product_id : bigint FK (nullable)
+        --
+        * product_name : varchar(255)
+        * product_image : varchar(255)
+        * quantity : integer
+        * unit_price : decimal(12,2)
+        * subtotal : decimal(14,2)
+        * notes : text
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "payments" as payments {
+        * id : bigint PK
+        --
+        * order_id : bigint FK UNIQUE
+        --
+        * transaction_id : varchar(100) UNIQUE
+        * payment_type : varchar(50)
+        * gross_amount : decimal(14,2)
+        * transaction_status : varchar(30)
+        * fraud_status : varchar(20)
+        * snap_token : text
+        * paid_at : timestamp
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "order_status_logs" as order_status_logs {
+        * id : bigint PK
+        --
+        * order_id : bigint FK
+        --
+        * from_status : varchar(30)
+        * to_status : varchar(30)
+        * triggered_by_type : varchar(30)
+        * triggered_by_id : bigint
+        * notes : text
+        * created_at : timestamp
+    }
+
+    entity "order_statuses" as order_statuses {
+        * id : bigint PK
+        --
+        * code : varchar(30) UNIQUE
+        * name : varchar(100)
+        * type : varchar(20)
+        * description : text
+        * sort_order : integer
+        * color : varchar(20)
+        * icon : varchar(50)
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "booking_statuses" as booking_statuses {
+        * id : bigint PK
+        --
+        * code : varchar(30) UNIQUE
+        * name : varchar(100)
+        * type : varchar(20)
+        * description : text
+        * sort_order : integer
+        * color : varchar(20)
+        * icon : varchar(50)
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "shipment_statuses" as shipment_statuses {
+        * id : bigint PK
+        --
+        * code : varchar(30) UNIQUE
+        * name : varchar(100)
+        * type : varchar(20)
+        * description : text
+        * sort_order : integer
+        * color : varchar(20)
+        * icon : varchar(50)
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+}
+
+package "DELIVERY & SHIPPING" {
+    entity "deliveries" as deliveries {
+        * id : bigint PK
+        --
+        * order_id : bigint FK UNIQUE
+        * assigned_staff_id : bigint FK (nullable)
+        * assigned_by : bigint FK (nullable)
+        --
+        * delivery_code : varchar(50) UNIQUE
+        * tracking_number : varchar(100)
+        * courier_name : varchar(100)
+        * vehicle_type : varchar(50)
+        * delivery_method : varchar(50)
+        * estimated_delivery : timestamp
+        * shipped_at : timestamp
+        * delivered_at : timestamp
+        * status : varchar(30)
+        * previous_status : varchar(30)
+        * proof_photo : varchar(255)
+        * customer_signature : varchar(255)
+        * delivery_notes : text
+        * receiver_name : varchar(255)
+        * latitude : decimal(10,8)
+        * longitude : decimal(11,8)
+        * attempt_count : integer
+        * last_attempt_at : timestamp
+        * failure_reason : text
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "delivery_timelines" as delivery_timelines {
+        * id : bigint PK
+        --
+        * delivery_id : bigint FK
+        * created_by : bigint FK (nullable)
+        --
+        * status : varchar(30)
+        * status_label : varchar(100)
+        * notes : text
+        * timestamp : timestamp
+        * created_at : timestamp
+    }
+
+    entity "delivery_areas" as delivery_areas {
+        * id : bigint PK
+        --
+        * name : varchar(255)
+        * province : varchar(100)
+        * city : varchar(100)
+        * district : varchar(100)
+        * is_active : boolean
+        * delivery_fee : decimal(10,2)
+        * estimated_days : integer
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+}
+
+package "REVIEWS & RATINGS" {
+    entity "reviews" as reviews {
+        * id : bigint PK
+        --
+        * user_id : bigint FK
+        * order_id : bigint FK
+        * product_id : bigint FK (nullable)
+        * farmer_id : bigint FK (nullable)
+        --
+        * review_type : varchar(20) <<product|farmer>>
+        * rating : integer (1-5)
+        * title : varchar(255)
+        * content : text
+        * status : varchar(20) <<pending|approved|rejected>>
+        * is_visible : boolean
+        * admin_notes : text
+        * ip_address : varchar(45)
+        * user_agent : text
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "review_photos" as review_photos {
+        * id : bigint PK
+        --
+        * review_id : bigint FK
+        --
+        * photo : varchar(255)
+        * sort_order : integer
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "review_videos" as review_videos {
+        * id : bigint PK
+        --
+        * review_id : bigint FK
+        --
+        * video_url : varchar(500)
+        * thumbnail : varchar(255)
+        * sort_order : integer
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "review_likes" as review_likes {
+        * id : bigint PK
+        --
+        * review_id : bigint FK
+        * user_id : bigint FK
+        --
+        * created_at : timestamp
+    }
+
+    entity "review_reports" as review_reports {
+        * id : bigint PK
+        --
+        * review_id : bigint FK
+        * user_id : bigint FK
+        --
+        * reason : varchar(50)
+        * description : text
+        * status : varchar(20)
+        * admin_notes : text
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+}
+
+package "FARM PROFILES & SOCIAL" {
+    entity "farm_profiles" as farm_profiles {
+        * id : bigint PK
+        --
+        * user_id : bigint FK UNIQUE
+        --
+        * farm_name : varchar(255)
+        * description : text
+        * address : text
+        * phone : varchar(20)
+        * village : varchar(100)
+        * district : varchar(100)
+        * regency : varchar(100)
+        * province : varchar(100)
+        * image : varchar(255)
+        * cover_image : varchar(255)
+        * logo : varchar(255)
+        * rating : decimal(3,2)
+        * total_reviews : integer
+        * is_verified : boolean
+        * google_place_id : varchar(100)
+        * latitude : decimal(10,8)
+        * longitude : decimal(11,8)
+        --
+        ' Trust metrics
+        * trust_score : decimal(5,2)
+        * response_rate : decimal(5,2)
+        * response_time_hours : integer
+        * cancellation_rate : decimal(5,2)
+        --
+        ' Statistics
+        * products_sold : integer
+        * livestock_sold : integer
+        * total_revenue : decimal(14,2)
+        * completed_bookings : integer
+        * completed_orders : integer
+        * repeat_customers : integer
+        --
+        ' Badges
+        * badge_top_seller : boolean
+        * badge_fast_response : boolean
+        * badge_trusted_farmer : boolean
+        * badge_organic_certified : boolean
+        * badge_excellent_rating : boolean
+        * followers_count : integer
+        * last_response_at : timestamp
+        * badges_updated_at : timestamp
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "farm_galleries" as farm_galleries {
+        * id : bigint PK
+        --
+        * farm_profile_id : bigint FK
+        --
+        * image : varchar(255)
+        * caption : varchar(255)
+        * sort_order : integer
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "farmer_badges" as farmer_badges {
+        * id : bigint PK
+        --
+        * user_id : bigint FK
+        * badge_type : varchar(50)
+        * badge_name : varchar(100)
+        * icon : varchar(100)
+        * color : varchar(20)
+        * earned_at : timestamp
+        * expires_at : timestamp
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "farmer_followers" as farmer_followers {
+        * id : bigint PK
+        --
+        * farmer_id : bigint FK
+        * follower_id : bigint FK
+        --
+        * created_at : timestamp
+    }
+}
+
+package "ADDRESSES" {
+    entity "addresses" as addresses {
+        * id : bigint PK
+        --
+        * user_id : bigint FK
+        --
+        * label : varchar(50)
+        * recipient_name : varchar(255)
+        * phone : varchar(20)
+        * address : text
+        * province : varchar(100)
+        * city : varchar(100)
+        * district : varchar(100)
+        * postal_code : varchar(10)
+        * is_default : boolean
+        * is_active : boolean
+        * latitude : decimal(10,8)
+        * longitude : decimal(11,8)
+        * google_place_id : varchar(100)
+        * courier_notes : text
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+}
+
+package "PROMOTIONS & LOYALTY" {
+    entity "promotions" as promotions {
+        * id : bigint PK
+        --
+        * code : varchar(50) UNIQUE
+        * title : varchar(255)
+        * description : text
+        * type : varchar(20)
+        * discount_value : decimal(10,2)
+        * min_purchase_amount : decimal(12,2)
+        * max_discount_amount : decimal(12,2)
+        * usage_limit : integer
+        * usage_count : integer
+        * per_user_limit : integer
+        * is_active : boolean
+        * starts_at : timestamp
+        * expires_at : timestamp
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "promotion_usages" as promotion_usages {
+        * id : bigint PK
+        --
+        * promotion_id : bigint FK
+        * user_id : bigint FK
+        * order_id : bigint FK
+        --
+        * discount_amount : decimal(12,2)
+        * created_at : timestamp
+    }
+
+    entity "marketing_campaigns" as marketing_campaigns {
+        * id : bigint PK
+        --
+        * name : varchar(255)
+        * description : text
+        * type : varchar(50)
+        * status : varchar(20)
+        * starts_at : timestamp
+        * ends_at : timestamp
+        * target_audience : json
+        * created_by : bigint FK
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "campaign_rules" as campaign_rules {
+        * id : bigint PK
+        --
+        * campaign_id : bigint FK
+        --
+        * rule_type : varchar(50)
+        * rule_conditions : json
+        * action_type : varchar(50)
+        * action_value : json
+        * is_active : boolean
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+}
+
+package "NOTIFICATIONS" {
+    entity "customer_notifications" as customer_notifications {
+        * id : bigint PK
+        --
+        * user_id : bigint FK
+        --
+        * type : varchar(50)
+        * title : varchar(255)
+        * message : text
+        * data : json
+        * is_read : boolean
+        * read_at : timestamp
+        * created_at : timestamp
+    }
+
+    entity "peternak_notifications" as peternak_notifications {
+        * id : bigint PK
+        --
+        * user_id : bigint FK
+        --
+        * type : varchar(50)
+        * title : varchar(255)
+        * message : text
+        * data : json
+        * is_read : boolean
+        * read_at : timestamp
+        * created_at : timestamp
+    }
+
+    entity "staff_notifications" as staff_notifications {
+        * id : bigint PK
+        --
+        * user_id : bigint FK
+        --
+        * type : varchar(50)
+        * title : varchar(255)
+        * message : text
+        * data : json
+        * is_read : boolean
+        * read_at : timestamp
+        * created_at : timestamp
+    }
+}
+
+package "WISHLIST & FAVORITES" {
+    entity "favorites" as favorites {
+        * id : bigint PK
+        --
+        * user_id : bigint FK
+        * favoritable_type : varchar(255)
+        * favoritable_id : bigint
+        --
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+}
+
+package "CONTENT MANAGEMENT" {
+    entity "hero_slides" as hero_slides {
+        * id : bigint PK
+        --
+        * title : varchar(255)
+        * subtitle : text
+        * image : varchar(255)
+        * button_text : varchar(100)
+        * button_url : varchar(255)
+        * is_active : boolean
+        * sort_order : integer
+        * starts_at : timestamp
+        * ends_at : timestamp
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "testimonials" as testimonials {
+        * id : bigint PK
+        --
+        * user_id : bigint FK (nullable)
+        * name : varchar(255)
+        * location : varchar(255)
+        * content : text
+        * rating : integer
+        * image : varchar(255)
+        * is_active : boolean
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "faqs" as faqs {
+        * id : bigint PK
+        --
+        * question : text
+        * answer : text
+        * category : varchar(50)
+        * sort_order : integer
+        * is_active : boolean
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+
+    entity "farm_statistics" as farm_statistics {
+        * id : bigint PK
+        --
+        * user_id : bigint FK
+        --
+        * period : varchar(20)
+        * total_revenue : decimal(14,2)
+        * total_orders : integer
+        * total_products_sold : integer
+        * avg_order_value : decimal(12,2)
+        * period_start : date
+        * period_end : date
+        * created_at : timestamp
+        * updated_at : timestamp
+    }
+}
+
+' ============================================================
+' RELATIONSHIPS
+' ============================================================
+
+' Users & Authentication
+users ||--o{ roles : has_role
+users ||--o| customer_levels : belongs_to
+users ||--o{ fcm_tokens : has
+
+' Users & Products (Owner relationship)
+users ||--o{ products : owns
+users ||--o{ farm_profiles : has
+
+' Categories & Products
+categories ||--o{ products : contains
+
+' Products & Related
+products ||--o{ inventory_logs : has
+products ||--o{ care_records : has
+products ||--o{ product_views : has
+products ||--o{ favorites : has
+
+' Orders & Related
+users ||--o{ orders : places
+orders ||--o{ order_items : contains
+order_items }o--|| products : references
+orders ||--o| payments : has
+orders ||--|| order_statuses : references_payment
+orders ||--|| booking_statuses : references_booking
+orders ||--|| shipment_statuses : references_shipment
+orders ||--o{ order_status_logs : has
+orders ||--o| deliveries : has
+
+' Deliveries & Related
+deliveries ||--o{ delivery_timelines : has
+deliveries }o--|| users : assigned_staff
+
+' Reviews & Related
+users ||--o{ reviews : writes
+orders ||--o{ reviews : generates
+products ||--o{ reviews : receives
+users ||--o{ reviews : for_farmer
+reviews ||--o{ review_photos : has
+reviews ||--o{ review_videos : has
+reviews ||--o{ review_likes : has
+reviews ||--o{ review_reports : has
+
+' Farm Profiles & Related
+farm_profiles ||--o{ farm_galleries : has
+farm_profiles ||--o{ farmer_badges : has
+users ||--o{ farmer_followers : followed_by
+users ||--o{ farmer_followers : follows
+
+' Addresses
+users ||--o{ addresses : has
+
+' Promotions
+users ||--o{ promotion_usages : uses
+promotions ||--o{ promotion_usages : tracked
+orders ||--o{ promotion_usages : applied
+marketing_campaigns ||--o{ campaign_rules : has
+
+' Notifications
+users ||--o{ customer_notifications : receives
+users ||--o{ peternak_notifications : receives
+users ||--o{ staff_notifications : receives
+
+' Content
+users ||--o{ testimonials : writes
+users ||--o{ farm_statistics : has
+
+@enduml

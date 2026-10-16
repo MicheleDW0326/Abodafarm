@@ -1,0 +1,234 @@
+@startuml Farmer_UseCase
+!theme plain
+top to bottom direction
+
+' ============================================
+' FARMER USE CASE DIAGRAM
+' AbodaFarm - Peternak Module
+' ============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+
+' === ACTORS ===
+left to right direction
+
+actor "Peternak\n(Farmer)" as Peternak
+actor "Admin" as Admin
+actor "Pelanggan\n(Customer)" as Pelanggan
+actor "Sistem FCM\n(Notifications)" as FCM
+
+' === SYSTEM BOUNDARY ===
+rectangle "AbodaFarm - Peternak Module" {
+
+    ' --- Product Management ---
+    package "Product Management\n(Manajemen Produk)" #LightYellow {
+        usecase "UC-31\nDashboard Produk" as UC31
+        usecase "UC-32\nTambah Produk" as UC32
+        usecase "UC-33\nEdit Produk" as UC33
+        usecase "UC-34\nHapus Produk" as UC34
+        usecase "UC-35\nKelola Stok" as UC35
+        usecase "Update Stok" as UpdateStock
+        usecase "Riwayat Stok\n(Stock History)" as InvHistory
+    }
+
+    ' --- Livestock Management ---
+    package "Livestock Management\n(Manajemen Ternak)" #LightGreen {
+        usecase "UC-47\nKelola Care Records" as UC47
+        usecase "Catat Feeding" as RecordFeeding
+        usecase "Catat Vaccination" as RecordVaccine
+        usecase "Catat Health Check" as RecordHealth
+        usecase "Catat Cleaning" as RecordCleaning
+        usecase "Lihat Riwayat Care" as ViewCareHistory
+    }
+
+    ' --- Booking Management ---
+    package "Booking Management\n(Manajemen Booking)" #LightCyan {
+        usecase "UC-36\nBooking Masuk" as UC36
+        usecase "Lihat Detail Booking" as ViewBooking
+        usecase "UC-37\nSetujui/Tolak" as UC37
+        usecase "Jadwalkan Survei\n(Schedule Survey)" as ScheduleSurvey
+        usecase "Negosiasi Harga" as Negotiate
+        usecase " Kirim Penawaran\n(Send Offer)" as SendOffer
+    }
+
+    ' --- Order Management ---
+    package "Order Management\n(Manajemen Pesanan)" #LightPink {
+        usecase "UC-38\nKelola Pesanan" as UC38
+        usecase "UC-39\nUpdate Status Kirim" as UC39
+        usecase "Input Info Kirim\n(Shipping Info)" as ShipInfo
+        usecase "Lacak Pengiriman\n(Track Delivery)" as TrackShipment
+        usecase "Generate Dokumen\n(Generate Docs)" as GenerateDocs
+    }
+
+    ' --- Farm Profile ---
+    package "Farm Profile\n(Profil Peternakan)" #Lavender {
+        usecase "UC-40\nProfil Peternakan" as UC40
+        usecase "Edit Info Farm" as EditFarm
+        usecase "UC-45\nKelola Galeri" as UC45
+        usecase "Upload Foto" as UploadPhoto
+        usecase "Hapus Foto" as DeletePhoto
+        usecase "Atur Lokasi GPS" as SetLocation
+        usecase "Kelola Badge" as ManageBadge
+    }
+
+    ' --- Reviews & Ratings ---
+    package "Reviews & Ratings\n(Ulasan & Rating)" #MistyRose {
+        usecase "UC-43\nLihat Ulasan" as UC43
+        usecase "UC-44\nBalas Ulasan" as UC44
+        usecase "Lihat Rating\n(View Rating)" as ViewRating
+        usecase "Statistik Ulasan\n(Review Stats)" as ReviewStats
+    }
+
+    ' --- Analytics & Reports ---
+    package "Analytics & Reports\n(Analitik & Laporan)" #HoneyDew {
+        usecase "UC-41\nDashboard Analitik" as UC41
+        usecase "UC-42\nExport Laporan" as UC42
+        usecase "Lihat Revenue" as ViewRevenue
+        usecase "Lihat Statistik" as ViewStats
+        usecase "Trend Penjualan\n(Sales Trend)" as SalesTrend
+    }
+
+    ' --- Notifications ---
+    package "Notifications\n(Notifikasi)" #LightGray {
+        usecase "UC-46\nNotifikasi" as UC46
+        usecase "Booking Baru\n(New Booking Alert)" as NewBooking
+        usecase "Ulasan Baru\n(New Review Alert)" as NewReview
+        usecase "Pembayaran\n(Payment Alert)" as PaymentAlert
+    }
+
+}
+
+' === RELATIONSHIPS ===
+
+' Peternak Actor - All Features
+Peternak --> UC31
+Peternak --> UC32
+Peternak --> UC33
+Peternak --> UC34
+Peternak --> UC35
+Peternak --> UpdateStock
+Peternak --> InvHistory
+Peternak --> UC47
+Peternak --> RecordFeeding
+Peternak --> RecordVaccine
+Peternak --> RecordHealth
+Peternak --> RecordCleaning
+Peternak --> ViewCareHistory
+Peternak --> UC36
+Peternak --> ViewBooking
+Peternak --> UC37
+Peternak --> ScheduleSurvey
+Peternak --> Negotiate
+Peternak --> SendOffer
+Peternak --> UC38
+Peternak --> UC39
+Peternak --> ShipInfo
+Peternak --> TrackShipment
+Peternak --> GenerateDocs
+Peternak --> UC40
+Peternak --> EditFarm
+Peternak --> UC45
+Peternak --> UploadPhoto
+Peternak --> DeletePhoto
+Peternak --> SetLocation
+Peternak --> ManageBadge
+Peternak --> UC43
+Peternak --> UC44
+Peternak --> ViewRating
+Peternak --> ReviewStats
+Peternak --> UC41
+Peternak --> ViewRevenue
+Peternak --> ViewStats
+Peternak --> SalesTrend
+Peternak --> UC42
+Peternak --> UC46
+Peternak --> NewBooking
+Peternak --> NewReview
+Peternak --> PaymentAlert
+
+' External Systems
+FCM --> UC46
+FCM --> NewBooking
+FCM --> NewReview
+FCM --> PaymentAlert
+
+' === INCLUDE RELATIONSHIPS ===
+UC32 .-> UC31 : <<include>>
+UC33 .-> UC31 : <<include>>
+UC34 .-> UC31 : <<include>>
+UC35 .-> UpdateStock : <<include>>
+UC35 .-> InvHistory : <<include>>
+UC47 .-> RecordFeeding : <<include>>
+UC47 .-> RecordVaccine : <<include>>
+UC47 .-> RecordHealth : <<include>>
+UC47 .-> RecordCleaning : <<include>>
+UC36 .-> ViewBooking : <<include>>
+UC37 .-> UC38 : <<include>>
+UC37 .-> SendOffer : <<include>>
+UC38 .-> UC39 : <<include>>
+UC39 .-> ShipInfo : <<include>>
+UC39 .-> GenerateDocs : <<include>>
+UC40 .-> EditFarm : <<include>>
+UC40 .-> UC45 : <<include>>
+UC40 .-> SetLocation : <<include>>
+UC40 .-> ManageBadge : <<include>>
+UC45 .-> UploadPhoto : <<include>>
+UC45 .-> DeletePhoto : <<include>>
+UC41 .-> ViewRevenue : <<include>>
+UC41 .-> ViewStats : <<include>>
+UC41 .-> SalesTrend : <<include>>
+UC41 .-> UC42 : <<include>>
+UC43 .-> ReviewStats : <<include>>
+
+' === EXTEND RELATIONSHIPS ===
+UC44 .-> UC43 : <<extend>>
+
+' === NOTES ===
+note bottom of UC31
+**Product Dashboard Displays:**
+• Total products count
+• Low stock alerts
+• Recent bookings
+• Today's revenue
+• Best selling products
+end note
+
+note bottom of UC32
+**Add New Product:**
+1. Select category (Live/Fresh/Supply)
+2. Fill details (name, price, description)
+3. Upload photos (min 1, max 10)
+4. Set initial stock
+5. Set shipping info (for supplies)
+end note
+
+note bottom of UC37
+**Approve/Reject Booking:**
+1. Review customer inquiry details
+2. Check animal health status
+3. Approve → Assign visit schedule
+4. Reject → Provide reason
+5. Send notification to customer
+end note
+
+note bottom of UC47
+**Care Record Types:**
+• Feeding: Feed schedule & quantity
+• Vaccination: Vaccine name, date, batch
+• Health Check: Weight, condition, notes
+• Cleaning: Cage cleaning schedule
+end note
+
+note bottom of UC40
+**Farm Profile Completion:**
+• Basic info (name, description, address)
+• Location & GPS coordinates
+• Photos & gallery (min 3 photos)
+• Verification badge (by admin)
+• Operating hours
+end note
+
+@enduml

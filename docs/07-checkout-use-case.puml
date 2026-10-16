@@ -1,0 +1,140 @@
+@startuml Checkout_UseCase
+!theme plain
+top to bottom direction
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+
+' === ACTORS ===
+left to right direction
+
+actor "Pelanggan" as Customer
+actor "Sistem Midtrans" as Midtrans
+actor "Sistem Backend" as System
+
+' === SYSTEM BOUNDARY ===
+rectangle "AbodaFarm - Checkout System" {
+
+    package "Cart Review" #LightYellow {
+        usecase "Buka Keranjang" as ViewCart
+        usecase "Validasi Item" as ValidateItems
+        usecase "Hitung Subtotal" as CalcSubtotal
+    }
+
+    package "Alamat Pengiriman" #LightGreen {
+        usecase "Pilih Alamat" as SelectAddr
+        usecase "Tambah Alamat Baru" as AddAddr
+        usecase "Edit Alamat" as EditAddr
+        usecase "Hapus Alamat" as DeleteAddr
+        usecase "Set Alamat Default" as SetDefault
+    }
+
+    package "Opsi Pengiriman" #LightCyan {
+        usecase "Hitung Ongkos Kirim" as CalcShipping
+        usecase "Pilih Metode Kirim" as SelectShip
+        usecase "Pilih Kurir" as SelectCourier
+    }
+
+    package "Promo dan Diskon" #Lavender {
+        usecase "Lihat Promo Tersedia" as ViewPromo
+        usecase "Gunakan Kode Promo" as ApplyPromo
+        usecase "Hapus Promo" as RemovePromo
+        usecase "Hitung Ulang Total" as RecalcTotal
+    }
+
+    package "Pembayaran" #LightPink {
+        usecase "Pilih Metode Bayar" as SelectPayment
+        usecase "Generate Snap Token" as GenSnapToken
+        usecase "Bayar dengan Midtrans" as PayMidtrans
+        usecase "Konfirmasi Pembayaran" as ConfirmPay
+        usecase "Batalkan Pembayaran" as CancelPay
+        usecase "Coba Bayar Ulang" as RetryPay
+    }
+
+    package "Konfirmasi Pesanan" #HoneyDew {
+        usecase "Lihat Ringkasan" as ViewSummary
+        usecase "Konfirmasi Pesanan" as ConfirmOrder
+        usecase "Batalkan Pesanan" as CancelOrder
+    }
+
+    package "Setelah Pembayaran" #MistyRose {
+        usecase "Terima Webhook" as ReceiveWebhook
+        usecase "Update Status Pesanan" as UpdateStatus
+        usecase "Reservasi Stok" as ReserveStock
+        usecase "Buat Pesanan Kirim" as CreateShipOrder
+        usecase "Kirim Notifikasi" as SendNotif
+        usecase "Kirim Email Receipt" as SendEmail
+    }
+}
+
+Customer --> ViewCart
+Customer --> ValidateItems
+Customer --> CalcSubtotal
+
+Customer --> SelectAddr
+Customer --> AddAddr
+Customer --> EditAddr
+Customer --> DeleteAddr
+Customer --> SetDefault
+
+Customer --> CalcShipping
+Customer --> SelectShip
+Customer --> SelectCourier
+
+Customer --> ViewPromo
+Customer --> ApplyPromo
+Customer --> RemovePromo
+Customer --> RecalcTotal
+
+Customer --> SelectPayment
+Customer --> PayMidtrans
+Customer --> ConfirmPay
+Customer --> CancelPay
+Customer --> RetryPay
+
+Customer --> ViewSummary
+Customer --> ConfirmOrder
+Customer --> CancelOrder
+
+System --> ReceiveWebhook
+System --> UpdateStatus
+System --> ReserveStock
+System --> CreateShipOrder
+System --> SendNotif
+System --> SendEmail
+
+Midtrans --> GenSnapToken
+Midtrans --> PayMidtrans
+Midtrans --> ConfirmPay
+Midtrans --> ReceiveWebhook
+
+ViewCart .-> ValidateItems : <<include>>
+ValidateItems .-> CalcSubtotal : <<include>>
+
+SelectAddr .-> AddAddr : <<include>>
+SelectAddr .-> EditAddr : <<include>>
+SelectAddr .-> SetDefault : <<include>>
+
+CalcShipping .> SelectShip : <<include>>
+CalcShipping .> SelectCourier : <<include>>
+
+ViewSummary .> CalcShipping : <<include>>
+ViewSummary .> ApplyPromo : <<include>>
+
+ConfirmOrder .> SelectPayment : <<include>>
+ConfirmOrder .> ApplyPromo : <<include>>
+
+PayMidtrans .> GenSnapToken : <<include>>
+PayMidtrans .> ConfirmPay : <<include>>
+
+ReceiveWebhook .> UpdateStatus : <<include>>
+UpdateStatus .> ReserveStock : <<include>>
+UpdateStatus .> CreateShipOrder : <<include>>
+UpdateStatus .> SendNotif : <<include>>
+
+RetryPay .> CancelPay : <<extends>>
+CancelOrder .> CancelPay : <<extends>>
+
+@enduml

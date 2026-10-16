@@ -1,0 +1,319 @@
+@startuml AbodaFarm_UseCase_Diagram
+!theme plain
+
+' ============================================
+' ABODAFARM USE CASE DIAGRAM
+' Platform E-Commerce Peternakan
+' Portrait Orientation
+' ============================================
+
+' === CONFIGURATION ===
+top to bottom direction
+
+' Skin parameters for better readability
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+skinparam packageBackgroundColor #F0F0F0
+skinparam rectangleBackgroundColor #E8E8E8
+
+' === CUSTOM COLORS ===
+!define GUEST_COLOR #87CEEB
+!define PELANGGAN_COLOR #90EE90
+!define PETERNAK_COLOR #FFD700
+!define STAF_COLOR #FFA500
+!define ADMIN_COLOR #FF6B6B
+!define MIDTRANS_COLOR #ADD8E6
+!define FCM_COLOR #FFB6C1
+
+' === ACTORS ===
+left to right direction
+
+actor "Guest" as Guest
+actor "Pelanggan" as Pelanggan
+actor "Peternak" as Peternak
+actor "Staf" as Staf
+actor "Admin" as Admin
+actor "Midtrans" as Midtrans
+actor "FCM" as FCM
+
+' ============================================
+' MAIN SYSTEM BOUNDARY
+' ============================================
+
+rectangle "AbodaFarm System" {
+
+    ' === AUTHENTICATION PACKAGE ===
+    package "Authentication" #LightGray {
+        usecase "UC-01\nRegistrasi Akun" as UC01
+        usecase "UC-02\nLogin" as UC02
+    }
+
+    ' === CATALOG PACKAGE ===
+    package "Catalog & Shopping" #LightYellow {
+        usecase "UC-03\nLihat Katalog" as UC03
+        usecase "UC-04\nSearch Produk" as UC04
+        usecase "UC-05\nFilter Produk" as UC05
+        usecase "UC-06\nLihat Detail" as UC06
+        usecase "UC-07\nTambah Keranjang" as UC07
+    }
+
+    ' === CHECKOUT PACKAGE ===
+    package "Checkout & Payment" #LightGreen {
+        usecase "UC-08\nCheckout" as UC08
+        usecase "UC-09\nPembayaran" as UC09
+        usecase "UC-16\nKelola Alamat" as UC16
+        usecase "UC-18\nKode Promo" as UC18
+    }
+
+    ' === ORDER MANAGEMENT PACKAGE ===
+    package "Order Management" #LightCyan {
+        usecase "UC-10\nBuat Booking" as UC10
+        usecase "UC-11\nApprove Booking" as UC11
+        usecase "UC-12\nLacak Pesanan" as UC12
+        usecase "UC-13\nKonfirmasi Terima" as UC13
+        usecase "UC-22\nRiwayat Pesanan" as UC22
+    }
+
+    ' === CUSTOMER FEATURES PACKAGE ===
+    package "Customer Features" #LightPink {
+        usecase "UC-14\nReview Produk" as UC14
+        usecase "UC-15\nReview Peternak" as UC15
+        usecase "UC-17\nWishlist" as UC17
+        usecase "UC-19\nKlaim Voucher" as UC19
+        usecase "UC-21\nKelola Profil" as UC21
+        usecase "UC-23\nWallet & Poin" as UC23
+    }
+
+    ' === FARMER MANAGEMENT PACKAGE ===
+    package "Farmer Management" #LightSalmon {
+        usecase "UC-31\nKelola Produk" as UC31
+        usecase "UC-32\nTambah Produk" as UC32
+        usecase "UC-33\nEdit Produk" as UC33
+        usecase "UC-34\nHapus Produk" as UC34
+        usecase "UC-35\nKelola Stok" as UC35
+        usecase "UC-36\nBooking Masuk" as UC36
+        usecase "UC-37\nApprove/Reject" as UC37
+        usecase "UC-38\nKelola Pesanan" as UC38
+        usecase "UC-39\nStatus Kirim" as UC39
+        usecase "UC-40\nProfil Farms" as UC40
+        usecase "UC-41\nAnalitik" as UC41
+        usecase "UC-42\nExport Laporan" as UC42
+        usecase "UC-43\nLihat Ulasan" as UC43
+        usecase "UC-44\nBalas Ulasan" as UC44
+        usecase "UC-45\nKelola Galeri" as UC45
+        usecase "UC-47\nCare Records" as UC47
+    }
+
+    ' === STAFF OPERATIONS PACKAGE ===
+    package "Staff Operations" #Lavender {
+        usecase "UC-51\nDaftar Pesanan" as UC51
+        usecase "UC-52\nKelola Kirim" as UC52
+        usecase "UC-53\nAssign Driver" as UC53
+        usecase "UC-54\nUpdate Status" as UC54
+        usecase "UC-55\nBukti Kirim" as UC55
+        usecase "UC-56\nRiwayat Kirim" as UC56
+        usecase "UC-57\nOperasional" as UC57
+    }
+
+    ' === ADMIN MANAGEMENT PACKAGE ===
+    package "Admin Management" #MistyRose {
+        usecase "UC-61\nKelola Produk" as UC61
+        usecase "UC-62\nImport Excel" as UC62
+        usecase "UC-63\nKelola Kategori" as UC63
+        usecase "UC-64\nKelola Pesanan" as UC64
+        usecase "UC-65\nKelola Pelanggan" as UC65
+        usecase "UC-66\nKelola Staf" as UC66
+        usecase "UC-67\nKelola Promo" as UC67
+        usecase "UC-68\nKelola Kampanye" as UC68
+        usecase "UC-69\nModerasi Review" as UC69
+        usecase "UC-70\nVerifikasi Peternak" as UC70
+        usecase "UC-71\nLaporan Keuangan" as UC71
+        usecase "UC-72\nAnalitik Dashboard" as UC72
+        usecase "UC-73\nExport Laporan" as UC73
+        usecase "UC-74\nPengaturan Toko" as UC74
+        usecase "UC-75\nArea Pengiriman" as UC75
+        usecase "UC-76\nKelola Konten" as UC76
+    }
+
+    ' === NOTIFICATIONS PACKAGE ===
+    package "Notifications" #HoneyDew {
+        usecase "UC-20\nNotifikasi Pelanggan" as UC20
+        usecase "UC-46\nNotifikasi Peternak" as UC46
+        usecase "UC-58\nNotifikasi Staf" as UC58
+    }
+
+}
+
+' ============================================
+' ACTOR RELATIONSHIPS
+' ============================================
+
+' Guest Actor
+Guest --> UC01
+Guest --> UC02
+Guest --> UC03
+Guest --> UC04
+Guest --> UC05
+Guest --> UC06
+
+' Pelanggan Actor
+Pelanggan --> UC02
+Pelanggan --> UC03
+Pelanggan --> UC04
+Pelanggan --> UC05
+Pelanggan --> UC06
+Pelanggan --> UC07
+Pelanggan --> UC08
+Pelanggan --> UC09
+Pelanggan --> UC10
+Pelanggan --> UC11
+Pelanggan --> UC12
+Pelanggan --> UC13
+Pelanggan --> UC14
+Pelanggan --> UC15
+Pelanggan --> UC16
+Pelanggan --> UC17
+Pelanggan --> UC18
+Pelanggan --> UC19
+Pelanggan --> UC20
+Pelanggan --> UC21
+Pelanggan --> UC22
+Pelanggan --> UC23
+
+' Peternak Actor
+Peternak --> UC02
+Peternak --> UC31
+Peternak --> UC32
+Peternak --> UC33
+Peternak --> UC34
+Peternak --> UC35
+Peternak --> UC36
+Peternak --> UC37
+Peternak --> UC38
+Peternak --> UC39
+Peternak --> UC40
+Peternak --> UC41
+Peternak --> UC42
+Peternak --> UC43
+Peternak --> UC44
+Peternak --> UC45
+Peternak --> UC46
+Peternak --> UC47
+
+' Staf Actor
+Staf --> UC02
+Staf --> UC51
+Staf --> UC52
+Staf --> UC53
+Staf --> UC54
+Staf --> UC55
+Staf --> UC56
+Staf --> UC57
+Staf --> UC58
+
+' Admin Actor
+Admin --> UC02
+Admin --> UC61
+Admin --> UC62
+Admin --> UC63
+Admin --> UC64
+Admin --> UC65
+Admin --> UC66
+Admin --> UC67
+Admin --> UC68
+Admin --> UC69
+Admin --> UC70
+Admin --> UC71
+Admin --> UC72
+Admin --> UC73
+Admin --> UC74
+Admin --> UC75
+Admin --> UC76
+
+' Sistem Actors
+Midtrans --> UC09
+FCM --> UC20
+FCM --> UC46
+FCM --> UC58
+
+' ============================================
+' INCLUDE & EXTEND RELATIONSHIPS
+' ============================================
+
+' Include relationships
+UC08 .-> UC16 : <<include>>
+UC08 .-> UC18 : <<include>>
+UC09 .-> UC18 : <<include>>
+UC12 .-> UC20 : <<include>>
+UC37 .-> UC38 : <<include>>
+UC52 .-> UC53 : <<include>>
+UC52 .-> UC54 : <<include>>
+UC52 .-> UC55 : <<include>>
+UC64 .-> UC52 : <<include>>
+UC71 .-> UC73 : <<include>>
+UC72 .-> UC73 : <<include>>
+
+' Extend relationships
+UC10 .-> UC37 : <<extend>>
+UC14 .-> UC15 : <<extend>>
+UC41 .-> UC42 : <<extend>>
+UC64 .-> UC51 : <<extend>>
+
+' ============================================
+' LEGEND
+' ============================================
+
+legend right
+|= Symbol |= Actor Type |
+| (A) | Guest (External User) |
+| (B) | Pelanggan (Customer) |
+| (C) | Peternak (Farmer) |
+| (D) | Staf (Staff) |
+| (E) | Admin (Administrator) |
+| (F) | External System |
+endlegend
+
+' ============================================
+' NOTES
+' ============================================
+
+note bottom of UC01
+Registrasi akun baru
+dengan verifikasi email
+end note
+
+note bottom of UC09
+Integrasi Midtrans Snap Token
+untuk pembayaran aman
+end note
+
+note bottom of UC10
+Booking untuk ternak hidup
+(Cart Order = Daging Segar)
+(Inquiry Order = Ternak Hidup)
+end note
+
+note bottom of UC62
+Import bulk via Excel/CSV
+Mendukung: Livestock, Fresh, Supply
+end note
+
+note bottom of UC68
+Tipe Kampanye:
+- Birthday, New Customer
+- Loyalty, Weekend Sale
+- Flash Sale, Free Shipping
+- Cashback, Review Reward
+end note
+
+note bottom of UC47
+Tipe Care Record:
+- Feeding
+- Vaccination
+- Health Check
+- Cleaning
+end note
+
+@enduml

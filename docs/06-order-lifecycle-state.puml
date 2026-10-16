@@ -1,0 +1,151 @@
+@startuml Order_Lifecycle_State
+!theme plain
+top to bottom direction
+
+' ============================================
+' ORDER LIFECYCLE STATE DIAGRAM
+' AbodaFarm - Order State Machine
+' ============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam stateStyle extravertical
+skinparam state {
+    BackgroundColor #E8F5E9
+    BorderColor #2E7D32
+    FontSize 12
+}
+
+' === STATE DEFINITIONS ===
+
+[*] --> OrderCreated : Pelanggan membuat pesanan
+note on link
+**Trigger:** Add to Cart → Checkout → Payment
+**Initial State:** Cart items converted to order
+end note
+
+state "OrderCreated\n(Pesanan Dibuat)" as OrderCreated {
+    state "Menunggu Pembayaran" as WaitPay
+    state "Expired (30 menit)" as Expired
+}
+
+OrderCreated --> WaitPay : Payment initiated
+WaitPay --> Expired : Timeout 30 min
+Expired --> [*] : Order cancelled
+
+' Payment States
+state PaymentProcessing <<choice>>
+state PaymentSuccess <<choice>>
+state PaymentFailed <<choice>>
+
+WaitPay --> PaymentProcessing : Midtrans opened
+PaymentProcessing --> PaymentSuccess : Payment completed
+PaymentProcessing --> PaymentFailed : Payment error
+PaymentFailed --> WaitPay : Retry payment
+PaymentFailed --> OrderCancelled : Cancel order
+
+' Post Payment
+PaymentSuccess --> OrderConfirmed : Webhook received
+OrderConfirmed --> Preparing : Staff notified
+
+state "Preparing\n(Persiapan)" as Preparing {
+    state "Packing items" as Packing
+    state "Quality check" as QualityCheck
+}
+
+OrderConfirmed --> Preparing : Start preparation
+Preparing --> ReadyToShip : Preparation complete
+
+state ReadyToShip <<join>>
+state OutForDelivery <<choice>>
+
+ReadyToShip --> OutForDelivery : Driver picks up
+
+state "OutForDelivery\n(Sedang Dikirim)" as OutForDeliveryState {
+    state "In transit" as InTransit
+    state "Arriving" as Arriving
+}
+
+OutForDeliveryState --> InTransit : Driver departed
+InTransit --> Arriving : Near destination
+
+Arriving --> Delivered : Driver arrived
+
+' Delivery Confirmation
+state DeliveryConfirmed <<choice>>
+state DeliveryIssue <<choice>>
+
+Delivered --> DeliveryConfirmed : Customer confirms
+Delivered --> DeliveryIssue : Problem reported
+DeliveryIssue --> OutForDeliveryState : Reschedule delivery
+DeliveryIssue --> RefundProcessing : Refund requested
+
+DeliveryConfirmed --> OrderCompleted : Review submitted
+DeliveryConfirmed --> OrderCompleted : Auto-complete 7 days
+
+' Cancellation States
+state "OrderCancelled\n(Pesanan Dibatalkan)" as OrderCancelled {
+    state "Cancelled by customer" as CancelledByCustomer
+    state "Cancelled by admin" as CancelledByAdmin
+    state "Cancelled by system" as CancelledBySystem
+}
+
+OrderCreated --> OrderCancelled : Customer cancel
+PaymentSuccess --> OrderCancelled : Admin cancel
+Preparing --> OrderCancelled : Admin cancel
+
+' Refund States
+state RefundProcessing
+state RefundCompleted
+
+RefundProcessing --> RefundCompleted : Refund approved
+RefundCompleted --> [*]
+
+OrderCancelled --> RefundProcessing : Payment existed
+OrderCancelled --> [*] : No payment
+
+' Completion
+OrderCompleted --> [*] : Final state
+
+' === NOTES ===
+note right of OrderCreated
+**Order Created State:**
+• Cart converted to order
+• Stock reserved
+• Order number generated
+• Customer notified
+end note
+
+note right of WaitPay
+**Payment Timeout:**
+• 30 minute countdown
+• Reminder at 15 min
+• Auto-cancel at 0
+• Stock released
+end note
+
+note right of Preparing
+**Preparation Process:**
+• Staff assigned
+• Items packed
+• Quality check by staff
+• Ready for pickup
+end note
+
+note right of DeliveryIssue
+**Delivery Issues:**
+• Customer not home
+• Wrong address
+• Package damaged
+• Customer refused
+end note
+
+note right of DeliveryConfirmed
+**Delivery Confirmation:**
+• Customer confirms receipt
+• Photo proof verified
+• Transaction complete
+• Review opportunity
+end note
+
+@enduml

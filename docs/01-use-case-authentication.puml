@@ -1,0 +1,143 @@
+@startuml Authentication_UseCase
+!theme plain
+top to bottom direction
+
+' ============================================
+' AUTHENTICATION USE CASE DIAGRAM
+' AbodaFarm System
+' ============================================
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecaseStyle ellipse
+
+' === ACTORS ===
+left to right direction
+
+actor "Guest\n(Non-Logged In)" as Guest
+actor "Pelanggan" as Pelanggan
+actor "Peternak" as Peternak
+actor "Staf" as Staf
+actor "Admin" as Admin
+
+' === SYSTEM BOUNDARY ===
+rectangle "AbodaFarm - Authentication System" {
+
+    ' --- Registration ---
+    package "Registration\n(Registrasi)" #LightGray {
+        usecase "UC-01\nRegistrasi Akun" as UC01
+        usecase "Verifikasi Email\n(Email Verification)" as VerifEmail
+        usecase "Pilih Role\n(Role Selection)" as SelectRole
+    }
+
+    ' --- Authentication ---
+    package "Authentication\n(Autentikasi)" #LightYellow {
+        usecase "UC-02\nLogin" as UC02
+        usecase "Lupa Password\n(Forgot Password)" as ForgotPass
+        usecase "Reset Password\n(Reset Password)" as ResetPass
+        usecase "Logout" as Logout
+    }
+
+    ' --- Account Security ---
+    package "Account Security\n(Keamanan Akun)" #LightGreen {
+        usecase "2FA\n(Two-Factor Auth)" as TwoFA
+        usecase "Ganti Password\n(Change Password)" as ChangePass
+        usecase "Session Timeout" as SessionTimeout
+    }
+
+    ' --- Profile Management ---
+    package "Profile Management\n(Manajemen Profil)" #LightCyan {
+        usecase "Lihat Profil\n(View Profile)" as ViewProfile
+        usecase "Edit Profil\n(Edit Profile)" as EditProfile
+        usecase "Upload Avatar" as UploadAvatar
+        usecase "Verifikasi Akun\n(Account Verification)" as VerifyAccount
+    }
+
+}
+
+' === RELATIONSHIPS ===
+
+' Guest - Registration & Login
+Guest --> UC01
+Guest --> UC02
+Guest --> ForgotPass
+
+' Pelanggan - Full Access
+Pelanggan --> UC02
+Pelanggan --> Logout
+Pelanggan --> ViewProfile
+Pelanggan --> EditProfile
+Pelanggan --> UploadAvatar
+Pelanggan --> ChangePass
+Pelanggan --> TwoFA
+Pelanggan --> VerifyAccount
+
+' Peternak - Full Access
+Peternak --> UC02
+Peternak --> Logout
+Peternak --> ViewProfile
+Peternak --> EditProfile
+Peternak --> UploadAvatar
+Peternak --> ChangePass
+Peternak --> TwoFA
+Peternak --> VerifyAccount
+
+' Staf - Full Access
+Staf --> UC02
+Staf --> Logout
+Staf --> ViewProfile
+Staf --> EditProfile
+Staf --> UploadAvatar
+Staf --> ChangePass
+Staf --> TwoFA
+
+' Admin - Full Access
+Admin --> UC02
+Admin --> Logout
+Admin --> ViewProfile
+Admin --> EditProfile
+Admin --> UploadAvatar
+Admin --> ChangePass
+Admin --> TwoFA
+Admin --> VerifyAccount
+
+' Internal Include Relationships
+UC01 .-> VerifEmail : <<include>>
+UC01 .-> SelectRole : <<include>>
+ForgotPass .-> ResetPass : <<include>>
+
+' === NOTES ===
+note bottom of UC01
+**Registration Form Fields:**
+• Nama lengkap (Full name)
+• Email aktif (Active email)
+• Password (min. 8 characters)
+• Nomor telepon (Phone number)
+• Role selection: Pelanggan / Peternak
+• Terms & Conditions agreement
+end note
+
+note bottom of UC02
+**Login Requirements:**
+• Email & Password
+• Remember me (optional)
+• Rate limiting: 5 attempts per 15 minutes
+• Success redirect to dashboard
+end note
+
+note bottom of TwoFA
+**Two-Factor Authentication:**
+• Using Laravel Fortify
+• Supported methods: Email / SMS / Authenticator App
+• Required for admin actions
+end note
+
+note right of VerifEmail
+**Email Verification:**
+• Unique verification token
+• 24-hour expiration
+• Resend option (max 3 times)
+end note
+
+@enduml
